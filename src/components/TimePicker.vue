@@ -1,0 +1,358 @@
+<template>
+  <Teleport to="ion-app">
+    <Transition name="fade">
+      <div v-if="visible" class="picker-backdrop" @click="onCancel">
+        <div class="picker-popup" @click.stop>
+
+          <!-- Time display -->
+          <div class="time-display">
+            <span
+              class="time-part"
+              :class="{ active: mode === 'hour' }"
+              @click="mode = 'hour'"
+            >{{ pad(tempHour) }}</span>
+            <span class="time-sep">:</span>
+            <span
+              class="time-part"
+              :class="{ active: mode === 'minute' }"
+              @click="mode = 'minute'"
+            >{{ pad(tempMinute) }}</span>
+          </div>
+
+          <!-- Analog clock face -->
+          <div class="clock-wrap">
+            <svg
+              class="clock-svg"
+              viewBox="0 0 260 260"
+              @click="onClockClick"
+              @touchend.prevent="onClockTouch"
+            >
+              <!-- Clock face -->
+              <circle cx="130" cy="130" r="120" fill="#f5f5f7" />
+
+              <!-- Center dot -->
+              <circle cx="130" cy="130" r="4" fill="#ff8d28" />
+
+              <!-- Selection line -->
+              <line
+                x1="130"
+                y1="130"
+                :x2="selectedX"
+                :y2="selectedY"
+                stroke="#ff8d28"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+
+              <!-- Selected circle -->
+              <circle :cx="selectedX" :cy="selectedY" r="18" fill="#ff8d28" />
+
+              <!-- Hour numbers (outer ring: 1–12) -->
+              <template v-if="mode === 'hour'">
+                <template v-for="i in 12" :key="'outer-' + i">
+                  <text
+                    :x="outerX(i)"
+                    :y="outerY(i)"
+                    text-anchor="middle"
+                    dominant-baseline="central"
+                    :fill="tempHour % 12 === i % 12 && (tempHour < 13 || i === 12) ? '#fff' : '#1a1a2e'"
+                    font-size="14"
+                    font-weight="500"
+                    style="pointer-events:none"
+                  >{{ i }}</text>
+                </template>
+                <!-- Inner ring: 13–23 + 0 -->
+                <template v-for="i in 12" :key="'inner-' + i">
+                  <text
+                    :x="innerX(i)"
+                    :y="innerY(i)"
+                    text-anchor="middle"
+                    dominant-baseline="central"
+                    :fill="innerHourValue(i) === tempHour && tempHour >= 13 ? '#fff' : '#a8a8a8'"
+                    font-size="12"
+                    font-weight="400"
+                    style="pointer-events:none"
+                  >{{ innerHourValue(i) === 0 ? '00' : innerHourValue(i) }}</text>
+                </template>
+              </template>
+
+              <!-- Minute marks (0, 5, 10 ... 55) -->
+              <template v-if="mode === 'minute'">
+                <template v-for="i in 12" :key="'min-' + i">
+                  <text
+                    :x="outerX(i)"
+                    :y="outerY(i)"
+                    text-anchor="middle"
+                    dominant-baseline="central"
+                    :fill="minuteLabel(i) === tempMinute ? '#fff' : '#1a1a2e'"
+                    font-size="14"
+                    font-weight="500"
+                    style="pointer-events:none"
+                  >{{ pad(minuteLabel(i)) }}</text>
+                </template>
+              </template>
+            </svg>
+          </div>
+
+          <!-- Quick shortcuts -->
+          <div class="picker-quick">
+            <button type="button" class="quick-btn" @click="setNow">Now</button>
+            <button type="button" class="quick-btn" @click="setMinutesAgo(5)">5 mins ago</button>
+            <button type="button" class="quick-btn" @click="setMinutesAgo(60)">An Hour ago</button>
+          </div>
+
+          <div class="picker-actions">
+            <button type="button" class="action-btn" @click="onCancel">Cancel</button>
+            <button type="button" class="action-btn primary" @click="onConfirm">OK</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+</template>
+
+<script setup>
+import { ref, computed, watch } from 'vue'
+
+const props = defineProps({
+  visible: { type: Boolean, default: false },
+  modelValue: { type: String, default: '' } // "HH:mm"
+})
+
+const emit = defineEmits(['update:modelValue', 'close', 'select'])
+
+const mode = ref('hour') // 'hour' | 'minute'
+const tempHour = ref(new Date().getHours())
+const tempMinute = ref(new Date().getMinutes())
+
+watch(() => props.visible, (v) => {
+  if (v) {
+    mode.value = 'hour'
+    const val = props.modelValue || ''
+    if (val && val.match(/^\d{1,2}:\d{2}$/)) {
+      const [h, m] = val.split(':').map(Number)
+      tempHour.value = h
+      tempMinute.value = m
+    } else {
+      const now = new Date()
+      tempHour.value = now.getHours()
+      tempMinute.value = now.getMinutes()
+    }
+  }
+})
+
+const CX = 130
+const CY = 130
+const OUTER_R = 100
+const INNER_R = 65
+
+function angleFor(i, total = 12) {
+  // i from 1–12, clockwise, 12 at top
+  return ((i / total) * 2 * Math.PI) - Math.PI / 2
+}
+
+function outerX(i) { return CX + OUTER_R * Math.cos(angleFor(i)) }
+function outerY(i) { return CY + OUTER_R * Math.sin(angleFor(i)) }
+function innerX(i) { return CX + INNER_R * Math.cos(angleFor(i)) }
+function innerY(i) { return CY + INNER_R * Math.sin(angleFor(i)) }
+function innerHourValue(i) { return i === 12 ? 0 : i + 12 }
+function minuteLabel(i) { return (i % 12) * 5 }
+
+// Which clock position is selected
+const selectedClockPos = computed(() => {
+  if (mode.value === 'hour') {
+    const h = tempHour.value
+    // Outer ring: 1–12 (h=0 → pos 12)
+    if (h === 0 || (h >= 13 && h <= 23)) {
+      // inner ring
+      const pos = h === 0 ? 12 : h - 12
+      return { x: innerX(pos), y: innerY(pos) }
+    } else {
+      const pos = h === 12 ? 12 : h
+      return { x: outerX(pos), y: outerY(pos) }
+    }
+  } else {
+    const m = tempMinute.value
+    const pos = (m / 5) % 12 || 12
+    return { x: outerX(pos), y: outerY(pos) }
+  }
+})
+
+const selectedX = computed(() => selectedClockPos.value.x)
+const selectedY = computed(() => selectedClockPos.value.y)
+
+function getClockValue(svgX, svgY) {
+  const dx = svgX - CX
+  const dy = svgY - CY
+  const dist = Math.sqrt(dx * dx + dy * dy)
+  // Angle from 12-o'clock, clockwise
+  let angle = Math.atan2(dy, dx) + Math.PI / 2
+  if (angle < 0) angle += 2 * Math.PI
+  const unit = Math.round(angle / (Math.PI / 6)) % 12 || 12 // 1–12
+
+  if (mode.value === 'hour') {
+    const isInner = dist < (OUTER_R + INNER_R) / 2
+    if (isInner) {
+      tempHour.value = innerHourValue(unit)
+    } else {
+      tempHour.value = unit === 12 ? 0 : unit
+    }
+    // Auto-advance to minute selection after picking hour
+    setTimeout(() => { mode.value = 'minute' }, 200)
+  } else {
+    tempMinute.value = minuteLabel(unit)
+  }
+}
+
+function getSvgCoords(el, clientX, clientY) {
+  const rect = el.getBoundingClientRect()
+  const scaleX = 260 / rect.width
+  const scaleY = 260 / rect.height
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  }
+}
+
+function onClockClick(e) {
+  const { x, y } = getSvgCoords(e.currentTarget, e.clientX, e.clientY)
+  getClockValue(x, y)
+}
+
+function onClockTouch(e) {
+  const touch = e.changedTouches[0]
+  const { x, y } = getSvgCoords(e.currentTarget, touch.clientX, touch.clientY)
+  getClockValue(x, y)
+}
+
+function setNow() {
+  const now = new Date()
+  tempHour.value = now.getHours()
+  tempMinute.value = now.getMinutes()
+}
+
+function setMinutesAgo(mins) {
+  const d = new Date(Date.now() - mins * 60 * 1000)
+  tempHour.value = d.getHours()
+  tempMinute.value = d.getMinutes()
+}
+
+function pad(n) { return String(n).padStart(2, '0') }
+
+function onConfirm() {
+  const val = `${pad(tempHour.value)}:${pad(tempMinute.value)}`
+  emit('update:modelValue', val)
+  emit('select', val)
+  emit('close')
+}
+
+function onCancel() { emit('close') }
+</script>
+
+<style scoped>
+.picker-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.picker-popup {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  padding: 20px;
+  max-width: 320px;
+  width: 100%;
+}
+
+.time-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.time-part {
+  font-size: 56px;
+  font-weight: 300;
+  color: #a8a8a8;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s;
+  min-width: 70px;
+  text-align: center;
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+.time-part.active { color: #ff8d28; }
+
+.time-sep {
+  font-size: 48px;
+  font-weight: 300;
+  color: #a8a8a8;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.clock-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.clock-svg {
+  width: 100%;
+  max-width: 260px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.picker-quick {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.quick-btn {
+  flex: 1;
+  padding: 9px 6px;
+  border: 1.5px solid #ff8d28;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ff8d28;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+
+.picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  padding: 8px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6e6a7c;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action-btn.primary { color: #ff8d28; }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

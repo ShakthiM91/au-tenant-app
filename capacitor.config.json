@@ -1,0 +1,8 @@
+{
+  "appId": "com.autenant.app",
+  "appName": "AU Tenant",
+  "webDir": "dist",
+  "server": {
+    "iosScheme": "https"
+  }
+}
