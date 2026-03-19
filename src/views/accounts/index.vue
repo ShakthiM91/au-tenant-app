@@ -34,93 +34,99 @@
         </div>
 
         <div class="accounts-island" v-if="!loading">
-          <div v-if="myAccounts.length" class="account-section">
-            <div class="section-header">
-              <span class="section-title">My Accounts</span>
-            </div>
-            <div class="account-list">
+          <!-- My Accounts -->
+          <section v-if="myAccountsGroups.length" class="section-block">
+            <h3 class="section-label">My Accounts</h3>
+            <div class="island-cards">
               <div
-                v-for="account in myAccounts"
-                :key="account.id"
-                class="account-item"
-                @click="goFlowLog(account)"
+                v-for="group in myAccountsGroups"
+                :key="'my-' + (group.island.id ?? 'default')"
+                class="island-card"
               >
-                <div class="account-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="1.5">
-                    <rect x="2" y="4" width="20" height="16" rx="3"/>
-                    <path d="M2 10h20"/>
-                  </svg>
-                </div>
-                <div class="account-info">
-                  <span class="account-name">{{ account.name }}</span>
-                  <span class="account-meta">
-                    {{ formatType(account.type || account.account_type) }}
-                    <template v-if="account.currency"> · {{ account.currency }}</template>
-                  </span>
-                </div>
-                <div class="account-end">
-                  <span
-                    v-if="account.current_balance != null || account.balance != null"
-                    class="account-balance"
-                    :class="(account.current_balance ?? account.balance ?? 0) >= 0 ? 'positive' : 'negative'"
-                  >
-                    {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
-                  </span>
-                  <button class="more-btn" @click.stop="openAccountOptions(account)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#6E6A7C">
-                      <circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/>
+                <div class="island-header">
+                  <span class="island-name">{{ group.island.name.endsWith('Island') ? group.island.name : group.island.name + ' Island' }}</span>
+                  <button class="more-btn icon-only" @click.stop="openIslandOptions(group)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
+                      <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                     </svg>
                   </button>
                 </div>
+                <div class="account-rows">
+                  <div
+                    v-for="account in group.accounts"
+                    :key="account.id"
+                    class="account-row"
+                    @click="goFlowLog(account)"
+                  >
+                    <div class="account-left">
+                      <span class="account-name">{{ account.name }}</span>
+                      <span class="account-updated">{{ formatUpdatedAgo(account) }}</span>
+                    </div>
+                    <div class="account-right">
+                      <span v-if="account.current_balance != null || account.balance != null" class="account-balance">
+                        {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
+                      </span>
+                      <ion-icon :icon="peopleOutline" class="group-icon" />
+                      <button class="more-btn" @click.stop="openAccountOptions(account)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
+                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div v-if="sharedAccounts.length" class="account-section">
-            <div class="section-header">
-              <span class="section-title">Shared with Me</span>
-            </div>
-            <div class="account-list">
+          <!-- Shared with Me -->
+          <section v-if="sharedWithMeGroups.length" class="section-block">
+            <h3 class="section-label">Shared with Me</h3>
+            <div class="island-cards">
               <div
-                v-for="account in sharedAccounts"
-                :key="account.id"
-                class="account-item"
-                @click="goFlowLog(account)"
+                v-for="group in sharedWithMeGroups"
+                :key="'shared-' + group.island.id"
+                class="island-card"
               >
-                <div class="account-icon shared">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6E6A7C" stroke-width="1.5">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                </div>
-                <div class="account-info">
-                  <span class="account-name">{{ account.name }}</span>
-                  <span class="account-meta">
-                    {{ formatType(account.type || account.account_type) }}
-                    <template v-if="account.currency"> · {{ account.currency }}</template>
+                <div class="island-header">
+                  <span class="island-name shared">
+                    {{ group.island.tenant_name ? `${group.island.tenant_name}'s ${group.island.name}` : group.island.name }}{{ (!group.island.name || !group.island.name.toLowerCase().includes('island')) ? ' Island' : '' }}
                   </span>
-                </div>
-                <div class="account-end">
-                  <span
-                    v-if="account.current_balance != null || account.balance != null"
-                    class="account-balance"
-                    :class="(account.current_balance ?? account.balance ?? 0) >= 0 ? 'positive' : 'negative'"
-                  >
-                    {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
-                  </span>
-                  <button class="more-btn" @click.stop="openAccountOptions(account)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#6E6A7C">
-                      <circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/>
+                  <button class="more-btn icon-only" @click.stop="openIslandOptions(group)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
+                      <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                     </svg>
                   </button>
                 </div>
+                <div class="account-rows">
+                  <div
+                    v-for="account in group.accounts"
+                    :key="account.id"
+                    class="account-row"
+                    @click="goFlowLog(account)"
+                  >
+                    <div class="account-left">
+                      <span class="account-name">{{ account.name }}</span>
+                      <span class="account-updated">{{ formatUpdatedAgo(account) }}</span>
+                    </div>
+                    <div class="account-right">
+                      <span v-if="account.current_balance != null || account.balance != null" class="account-balance">
+                        {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
+                      </span>
+                      <ion-icon :icon="peopleOutline" class="group-icon" title="Shared" />
+                      <button class="more-btn" @click.stop="openAccountOptions(account)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
+                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div v-if="!myAccounts.length && !sharedAccounts.length" class="empty-state">
+          <div v-if="!myAccountsGroups.length && !sharedWithMeGroups.length" class="empty-state">
             <p>No accounts found</p>
             <button class="add-first-btn" @click="openAddAccount">Add your first account</button>
           </div>
@@ -171,9 +177,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { onIonViewDidEnter } from '@ionic/vue'
 import { useRouter } from 'vue-router'
-import { IonPage, IonContent, IonSpinner, IonActionSheet } from '@ionic/vue'
+import { IonPage, IonContent, IonSpinner, IonActionSheet, IonIcon } from '@ionic/vue'
+import { peopleOutline } from 'ionicons/icons'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
-import { getAccounts, deleteAccount } from '@/api/accounting'
+import { getAccounts, getAccountsByWorkspace, deleteAccount } from '@/api/accounting'
+import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { useSyncStore } from '@/store/sync'
 import { refreshBootstrapCache } from '@/utils/bootstrapCache'
 import { invalidateAccountingCache } from '@/db/readCache'
@@ -185,7 +193,7 @@ import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
 const router = useRouter()
 const syncStore = useSyncStore()
 
-const allAccounts = ref([])
+const islandGroups = ref([]) // { island: { id, name, is_shared }, accounts: [] }
 const loading = ref(false)
 const searchQuery = ref('')
 const showSearch = ref(false)
@@ -198,8 +206,8 @@ const reconcileVisible = ref(false)
 const accountForReconcile = ref(null)
 const sortField = ref('name')
 
-const filteredAccounts = computed(() => {
-  let list = [...allAccounts.value]
+function filterAndSortAccounts(accounts) {
+  let list = [...(accounts || [])]
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(a => a.name?.toLowerCase().includes(q))
@@ -211,14 +219,21 @@ const filteredAccounts = computed(() => {
     return (a.name || '').localeCompare(b.name || '')
   })
   return list
-})
+}
 
-const myAccounts = computed(() =>
-  filteredAccounts.value.filter(a => !a.is_shared)
+const islandGroupsFiltered = computed(() =>
+  islandGroups.value.map(g => ({
+    ...g,
+    accounts: filterAndSortAccounts(g.accounts)
+  })).filter(g => g.accounts.length > 0)
 )
 
-const sharedAccounts = computed(() =>
-  filteredAccounts.value.filter(a => a.is_shared)
+const myAccountsGroups = computed(() =>
+  islandGroupsFiltered.value.filter(g => !g.island.is_shared)
+)
+
+const sharedWithMeGroups = computed(() =>
+  islandGroupsFiltered.value.filter(g => g.island.is_shared)
 )
 
 const accountOptionButtons = [
@@ -250,6 +265,26 @@ function formatType(type) {
     loan: 'Loan', savings: 'Savings', investment: 'Investment', other: 'Other'
   }
   return map[type] || type || ''
+}
+
+function formatUpdatedAgo(account) {
+  const ts = account.updated_at || account.last_synced_at || account.created_at
+  if (!ts) return 'Updated recently'
+  const d = new Date(ts)
+  const now = new Date()
+  const sec = Math.floor((now - d) / 1000)
+  if (sec < 60) return 'Updated just now'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `Updated ${min} ${min === 1 ? 'min' : 'mins'} ago`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `Updated ${h} ${h === 1 ? 'hour' : 'hours'} ago`
+  const days = Math.floor(h / 24)
+  if (days < 7) return `Updated ${days} ${days === 1 ? 'day' : 'days'} ago`
+  return `Updated ${Math.floor(days / 7)} week${days >= 14 ? 's' : ''} ago`
+}
+
+function openIslandOptions(group) {
+  showToast(`${group.island.name} options`)
 }
 
 function goFlowLog(account) {
@@ -334,12 +369,56 @@ function onFabSelect(type) {
 async function load() {
   loading.value = true
   try {
+    let ownWorkspaces = []
+    let sharedWorkspaces = []
+    let ownAccounts = []
+
+    try {
+      const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
+      ownWorkspaces = ownRes?.data ?? []
+      sharedWorkspaces = sharedRes?.data?.active ?? []
+    } catch {
+      // Fallback: still try to load accounts
+    }
+
     const res = await getAccounts()
-    const data = res?.data ?? res ?? []
-    allAccounts.value = Array.isArray(data) ? data : []
+    ownAccounts = Array.isArray(res?.data ?? res) ? (res?.data ?? res) : []
+
+    const groups = []
+
+    const byWorkspace = (id) => (a) => (a.workspace_id ?? null) === (id ?? null)
+
+    for (const ws of ownWorkspaces) {
+      const accounts = ownAccounts.filter(byWorkspace(ws.id))
+      if (accounts.length > 0) {
+        groups.push({ island: { id: ws.id, name: ws.name || 'My Island', is_shared: false, tenant_name: null }, accounts })
+      }
+    }
+
+    const defaultAccounts = ownAccounts.filter(byWorkspace(null))
+    if (defaultAccounts.length > 0) {
+      groups.push({ island: { id: null, name: 'Default Island', is_shared: false, tenant_name: null }, accounts: defaultAccounts })
+    }
+
+    for (const ws of sharedWorkspaces) {
+      try {
+        const sharedRes = await getAccountsByWorkspace(ws.id)
+        const sharedAccounts = Array.isArray(sharedRes?.data ?? sharedRes) ? (sharedRes?.data ?? sharedRes) : []
+        if (sharedAccounts.length > 0) {
+          groups.push({
+            island: { id: ws.id, name: ws.name || 'Shared Island', is_shared: true, tenant_name: ws.tenant_name },
+            accounts: sharedAccounts
+          })
+        }
+      } catch {
+        // Skip failed shared workspace
+      }
+    }
+
+    islandGroups.value = groups
   } catch (e) {
     showToast('Failed to load accounts')
-    allAccounts.value = []
+    islandGroups.value = []
   } finally {
     loading.value = false
   }
@@ -420,81 +499,117 @@ onIonViewDidEnter(async () => {
 }
 
 .accounts-island {
-  background: #fff;
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  padding: 0 4px 16px;
 }
 
-.account-section {
-  margin-bottom: 16px;
-}
-
-.account-section:last-child {
-  margin-bottom: 0;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.section-block {
   margin-bottom: 10px;
 }
 
-.section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: #A7A7A7;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.section-block:last-child {
+  margin-bottom: 0;
 }
 
-.account-list {
+.section-label {
+  font-size: 16px;
+  font-weight: 400;
+  color: #A8A8A8;
+  margin: 0 0 10px 0;
+  padding: 0;
+}
+
+.island-cards {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 5px;
 }
 
-.account-item {
+.island-card {
+  background: #fff;
+  border-radius: 13px;
+  padding: 10px;
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.16);
+}
+
+.island-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  margin-bottom: 4px;
+}
+
+.island-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255, 141, 40, 0.75);
+}
+
+.island-name.shared {
+  color: rgba(255, 141, 40, 0.75);
+}
+
+.account-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 5px 5px 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 34px;
+}
+
+.account-row:active {
+  opacity: 0.8;
+}
+
+.account-left {
+  display: flex;
+  flex-direction: column;
+  gap: -8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.account-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.72);
+  line-height: 24px;
+}
+
+.account-updated {
+  font-size: 12px;
+  color: #A8A8A8;
+  line-height: 18px;
+  opacity: 0.8;
+}
+
+.account-right {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 4px;
-  border-bottom: 1px solid #F5F5F7;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.account-item:last-child {
-  border-bottom: none;
-}
-
-.account-item:active {
-  background: #F5F5F7;
-  border-radius: 8px;
-}
-
-.account-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(255, 141, 40, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
 }
 
-.account-icon.shared {
-  background: rgba(110, 106, 124, 0.1);
+.account-balance {
+  font-size: 16px;
+  font-weight: 400;
+  color: #A8A8A8;
 }
 
-.account-info {
-  flex: 1;
-  min-width: 0;
+.group-icon {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 24px;
+  color: rgba(255, 141, 40, 0.75);
 }
 
 .account-name {

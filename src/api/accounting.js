@@ -144,6 +144,15 @@ export function getAccounts(filters = {}) {
   )
 }
 
+/** Fetch accounts for a specific workspace (island). Bypasses cache to avoid key collision. */
+export function getAccountsByWorkspace(workspaceId) {
+  return request({
+    url: '/api/accounting/accounts',
+    method: 'get',
+    params: { workspace_id: workspaceId }
+  })
+}
+
 export function getAccountById(id) {
   return request({
     url: `/api/accounting/accounts/${id}`,
