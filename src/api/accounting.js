@@ -19,16 +19,23 @@ export function getCategories(type = null) {
   })
 }
 
-export function getCategoryTree(type = null) {
-  const params = type ? { type } : {}
-  const cacheKey = CACHE_KEYS.CATEGORY_TREE(type)
-  return getWithCache(cacheKey, () =>
-    request({
-      url: '/api/accounting/categories/tree',
-      method: 'get',
-      params
-    })
-  )
+export function getCategoryTree(type = null, workspaceId = null) {
+  const params = { ...(type ? { type } : {}), ...(workspaceId != null ? { workspace_id: workspaceId } : {}) }
+  const cacheKey = workspaceId != null ? null : CACHE_KEYS.CATEGORY_TREE(type)
+  if (cacheKey) {
+    return getWithCache(cacheKey, () =>
+      request({
+        url: '/api/accounting/categories/tree',
+        method: 'get',
+        params
+      })
+    )
+  }
+  return request({
+    url: '/api/accounting/categories/tree',
+    method: 'get',
+    params
+  })
 }
 
 export function getDefaultCategories(type = null) {
@@ -145,11 +152,11 @@ export function getAccounts(filters = {}) {
 }
 
 /** Fetch accounts for a specific workspace (island). Bypasses cache to avoid key collision. */
-export function getAccountsByWorkspace(workspaceId) {
+export function getAccountsByWorkspace(workspaceId, filters = {}) {
   return request({
     url: '/api/accounting/accounts',
     method: 'get',
-    params: { workspace_id: workspaceId }
+    params: { workspace_id: workspaceId, ...filters }
   })
 }
 

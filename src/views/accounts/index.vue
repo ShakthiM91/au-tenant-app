@@ -15,13 +15,25 @@
                 <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="8" y2="18"/>
               </svg>
             </button>
-            <button class="icon-btn add-btn" @click="openAddAccount">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </button>
+            <div class="add-btn-wrapper">
+              <button class="icon-btn add-btn" @click="showAddMenu = !showAddMenu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+              <Transition name="popover-fade">
+                <div v-if="showAddMenu" class="add-popover" @click.stop>
+                  <button class="popover-option" @click="onAddIsland">Add an Island</button>
+                  <button class="popover-option" @click="onAddAccount">Add an Account</button>
+                </div>
+              </Transition>
+            </div>
           </div>
         </div>
+
+        <Transition name="fade">
+          <div v-if="showAddMenu" class="add-menu-backdrop" @click="showAddMenu = false" />
+        </Transition>
 
         <div v-if="showSearch" class="search-bar">
           <input
@@ -128,7 +140,7 @@
 
           <div v-if="!myAccountsGroups.length && !sharedWithMeGroups.length" class="empty-state">
             <p>No accounts found</p>
-            <button class="add-first-btn" @click="openAddAccount">Add your first account</button>
+            <button class="add-first-btn" @click="showAddMenu = true">Add your first account</button>
           </div>
         </div>
 
@@ -154,11 +166,33 @@
       @didDismiss="onSortDismiss"
     />
 
+    <ion-action-sheet
+      :is-open="showIslandOptions"
+      :header="optionsGroup?.island?.name ? (optionsGroup.island.name.endsWith('Island') ? optionsGroup.island.name : optionsGroup.island.name + ' Island') : 'Island options'"
+      :buttons="islandOptionButtons"
+      @didDismiss="onIslandOptionsDismiss"
+    />
+
     <AccountForm
       :is-open="formOpen"
       :account="currentAccount"
-      @close="formOpen = false"
+      :preselected-workspace-id="accountFormWorkspaceId ?? null"
+      @close="formOpen = false; accountFormWorkspaceId = null"
       @success="onFormSuccess"
+    />
+
+    <IslandForm
+      :is-open="islandFormOpen"
+      :workspace="islandFormWorkspace"
+      @close="islandFormOpen = false; islandFormWorkspace = null"
+      @success="onIslandFormSuccess"
+    />
+
+    <ShareAccess
+      :is-open="showShareAccess"
+      :group="shareAccessGroup"
+      @close="showShareAccess = false; shareAccessGroup = null"
+      @success="onShareAccessSuccess"
     />
 
     <ReconcileModal
@@ -181,11 +215,13 @@ import { IonPage, IonContent, IonSpinner, IonActionSheet, IonIcon } from '@ionic
 import { peopleOutline } from 'ionicons/icons'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getAccounts, getAccountsByWorkspace, deleteAccount } from '@/api/accounting'
-import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
+import { getWorkspaces, getSharedWorkspaces, deleteWorkspace } from '@/api/workspace'
 import { useSyncStore } from '@/store/sync'
 import { refreshBootstrapCache } from '@/utils/bootstrapCache'
 import { invalidateAccountingCache } from '@/db/readCache'
 import AccountForm from './components/AccountForm.vue'
+import IslandForm from './components/IslandForm.vue'
+import ShareAccess from './components/ShareAccess.vue'
 import ReconcileModal from './components/ReconcileModal.vue'
 import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
 
@@ -202,6 +238,14 @@ const showSortMenu = ref(false)
 const optionsAccount = ref(null)
 const formOpen = ref(false)
 const currentAccount = ref(null)
+const showAddMenu = ref(false)
+const islandFormOpen = ref(false)
+const islandFormWorkspace = ref(null)
+const showIslandOptions = ref(false)
+const optionsGroup = ref(null)
+const showShareAccess = ref(false)
+const shareAccessGroup = ref(null)
+const accountFormWorkspaceId = ref(null)
 const reconcileVisible = ref(false)
 const accountForReconcile = ref(null)
 const sortField = ref('name')
@@ -225,7 +269,7 @@ const islandGroupsFiltered = computed(() =>
   islandGroups.value.map(g => ({
     ...g,
     accounts: filterAndSortAccounts(g.accounts)
-  })).filter(g => g.accounts.length > 0)
+  }))
 )
 
 const myAccountsGroups = computed(() =>
@@ -250,6 +294,30 @@ const sortButtons = [
   { text: 'Sort by Balance', role: 'balance' },
   { text: 'Cancel', role: 'cancel' }
 ]
+
+const islandOptionButtons = computed(() => {
+  const group = optionsGroup.value
+  if (!group) return []
+  const island = group?.island || {}
+  const isDefault = island.id == null
+  const isShared = !!island.is_shared
+  const hideDelete = isDefault || isShared
+  const hideRename = isDefault || isShared
+  const hideShare = isShared
+  const buttons = [
+    { text: 'Add Entry', role: 'add-entry' },
+    { text: 'Add Account', role: 'add-account' },
+    { text: 'Transaction Log', role: 'transaction-log' },
+    { text: 'Manage Categories', role: 'manage-categories' }
+  ]
+  if (!hideRename) buttons.push({ text: 'Rename Workspace', role: 'rename' })
+  if (!hideShare) buttons.push({ text: 'Share Access', role: 'share-access' })
+  if (!hideDelete) {
+    buttons.push({ text: 'Delete Workspace', role: 'destructive', cssClass: 'action-sheet-danger' })
+  }
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  return buttons
+})
 
 function formatCurrency(v, code) {
   return new Intl.NumberFormat('en-US', {
@@ -284,7 +352,39 @@ function formatUpdatedAgo(account) {
 }
 
 function openIslandOptions(group) {
-  showToast(`${group.island.name} options`)
+  optionsGroup.value = group
+  showIslandOptions.value = true
+}
+
+function onIslandOptionsDismiss(ev) {
+  const role = ev.detail?.role
+  const group = optionsGroup.value
+  showIslandOptions.value = false
+
+  if (!group || role === 'cancel' || role === 'backdrop') return
+
+  const island = group.island
+  const islandName = island?.name?.endsWith('Island') ? island.name : (island?.name || '') + ' Island'
+
+  if (role === 'add-entry') {
+    router.push(`/transactions/create?workspace_id=${island?.id ?? ''}`)
+  } else if (role === 'add-account') {
+    accountFormWorkspaceId.value = island?.id != null ? island.id : null
+    currentAccount.value = null
+    formOpen.value = true
+  } else if (role === 'transaction-log') {
+    router.push(`/transactions?workspace_id=${island?.id ?? ''}&workspace_name=${encodeURIComponent(islandName)}`)
+  } else if (role === 'manage-categories') {
+    router.push(`/accounting/categories?workspace_id=${island?.id ?? ''}&workspace_name=${encodeURIComponent(islandName)}`)
+  } else if (role === 'rename') {
+    islandFormWorkspace.value = island
+    islandFormOpen.value = true
+  } else if (role === 'share-access') {
+    shareAccessGroup.value = group
+    showShareAccess.value = true
+  } else if (role === 'destructive') {
+    onDeleteWorkspace(group)
+  }
 }
 
 function goFlowLog(account) {
@@ -318,9 +418,51 @@ function onSortDismiss(ev) {
   if (role === 'name' || role === 'balance') sortField.value = role
 }
 
-function openAddAccount() {
+function openAddAccount(preselectedWsId = null) {
+  showAddMenu.value = false
+  accountFormWorkspaceId.value = preselectedWsId ?? null
   currentAccount.value = null
   formOpen.value = true
+}
+
+function onAddIsland() {
+  showAddMenu.value = false
+  islandFormWorkspace.value = null
+  islandFormOpen.value = true
+}
+
+function onAddAccount() {
+  openAddAccount()
+}
+
+async function onIslandFormSuccess() {
+  islandFormOpen.value = false
+  islandFormWorkspace.value = null
+  await invalidateAccountingCache({ accounts: true })
+  await load()
+}
+
+async function onShareAccessSuccess() {
+  showShareAccess.value = false
+  shareAccessGroup.value = null
+  await load()
+}
+
+async function onDeleteWorkspace(group) {
+  const island = group?.island
+  if (!island?.id) return
+  const name = island.name?.endsWith('Island') ? island.name : (island.name || '') + ' Island'
+  try {
+    await showConfirmDialog({
+      title: 'Delete Workspace',
+      message: `Are you sure you want to delete "${name}"? You will no longer have access to this workspace and all its accounts. This action cannot be undone.`
+    })
+    const res = await deleteWorkspace(island.id)
+    showToast(res?.queued ? 'Saved locally. Will sync when online.' : 'Workspace deleted')
+    await load()
+  } catch (e) {
+    if (e !== 'cancel') showToast(e?.message || 'Delete failed')
+  }
 }
 
 function openEditAccount(account) {
@@ -343,6 +485,7 @@ async function onReconcileSuccess() {
 async function onFormSuccess() {
   formOpen.value = false
   currentAccount.value = null
+  accountFormWorkspaceId.value = null
   await invalidateAccountingCache({ accounts: true })
   await load()
 }
@@ -390,9 +533,7 @@ async function load() {
 
     for (const ws of ownWorkspaces) {
       const accounts = ownAccounts.filter(byWorkspace(ws.id))
-      if (accounts.length > 0) {
-        groups.push({ island: { id: ws.id, name: ws.name || 'My Island', is_shared: false, tenant_name: null }, accounts })
-      }
+      groups.push({ island: { id: ws.id, name: ws.name || 'My Island', is_shared: false, tenant_name: null }, accounts })
     }
 
     const defaultAccounts = ownAccounts.filter(byWorkspace(null))
@@ -463,6 +604,67 @@ onIonViewDidEnter(async () => {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.add-btn-wrapper {
+  position: relative;
+}
+
+.add-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: transparent;
+}
+
+.add-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  z-index: 51;
+}
+
+.popover-option {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1A1A2E;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.popover-option:active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.popover-fade-enter-active,
+.popover-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.popover-fade-enter-from,
+.popover-fade-leave-to {
+  opacity: 0;
 }
 
 .icon-btn {

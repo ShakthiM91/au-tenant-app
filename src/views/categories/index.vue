@@ -3,7 +3,12 @@
     <ion-content :fullscreen="true" :scroll-y="true">
       <div class="page-container">
         <div class="page-header">
-          <span class="page-title">Manage Categories</span>
+          <button class="back-btn" @click="$router.back()" aria-label="Back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <span class="page-title">{{ workspaceName ? `Categories – ${workspaceName}` : 'Manage Categories' }}</span>
           <div class="header-actions">
             <button class="icon-btn" @click="openForm()">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -50,8 +55,10 @@
         </div>
 
         <div v-else class="empty-state">
-          <p>No {{ activeTab }} categories</p>
-          <button class="add-first-btn" @click="openForm()">Add category</button>
+          <p v-if="workspaceId">{{ workspaceName ? `No categories in ${workspaceName}` : 'No categories in this workspace' }}</p>
+          <p v-else>No {{ activeTab }} categories</p>
+          <p v-if="workspaceId" class="empty-hint">Create your first category in this workspace.</p>
+          <button class="add-first-btn" @click="openForm()">{{ workspaceId ? 'Create your first category' : 'Add category' }}</button>
         </div>
       </div>
       <div class="tab-spacer" />
@@ -61,6 +68,7 @@
       :is-open="formOpen"
       :category="currentCategory"
       :type="activeTab"
+      :workspace-id="workspaceId"
       @close="formOpen = false"
       @success="onFormSuccess"
     />
@@ -71,8 +79,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { IonPage, IonContent, IonSpinner } from '@ionic/vue'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getCategoryTree, deleteCategory, toggleCategoryActive } from '@/api/accounting'
@@ -82,6 +90,15 @@ import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
 
 
 const router = useRouter()
+const route = useRoute()
+const workspaceId = computed(() => {
+  const id = route.query.workspace_id
+  return id != null && id !== '' ? Number(id) : null
+})
+const workspaceName = computed(() => {
+  const name = route.query.workspace_name
+  return name ? decodeURIComponent(name) : null
+})
 const activeTab = ref('income')
 const loading = ref(false)
 const incomeCategories = ref([])
@@ -96,9 +113,10 @@ const displayCategories = computed(() =>
 async function load() {
   loading.value = true
   try {
+    const wsId = workspaceId.value
     const [incomeRes, expenseRes] = await Promise.all([
-      getCategoryTree('income'),
-      getCategoryTree('expense')
+      getCategoryTree('income', wsId),
+      getCategoryTree('expense', wsId)
     ])
     incomeCategories.value = normalizeData(incomeRes)
     expenseCategories.value = normalizeData(expenseRes)
@@ -126,7 +144,8 @@ function openForm(category = null, parentId = null) {
   } else {
     currentCategory.value = {
       parent_id: parentId != null ? Number(parentId) : null,
-      type: activeTab.value
+      type: activeTab.value,
+      workspace_id: workspaceId.value
     }
   }
   formOpen.value = true
@@ -172,6 +191,7 @@ function onFabSelect(type) {
 }
 
 
+watch(() => [route.query.workspace_id], () => load(), { immediate: false })
 onMounted(() => load())
 </script>
 
@@ -194,12 +214,26 @@ onMounted(() => load())
   justify-content: space-between;
   align-items: center;
   padding: 14px 0 10px;
+  gap: 12px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 
 .page-title {
   font-size: 20px;
   font-weight: 700;
   color: #1A1A2E;
+  flex: 1;
+  min-width: 0;
 }
 
 .header-actions {
@@ -282,7 +316,14 @@ onMounted(() => load())
 .empty-state p {
   font-size: 14px;
   color: #A7A7A7;
+  margin-bottom: 8px;
+}
+
+.empty-state .empty-hint {
+  font-size: 13px;
+  color: #A7A7A7;
   margin-bottom: 16px;
+  opacity: 0.9;
 }
 
 .add-first-btn {

@@ -325,7 +325,7 @@ import CategoryForm from '@/views/categories/components/CategoryForm.vue'
 import DatePicker from '@/components/DatePicker.vue'
 import TimePicker from '@/components/TimePicker.vue'
 import AmountCalculator from '@/components/AmountCalculator.vue'
-import { createTransaction, updateTransaction, getTransactionById, deleteTransaction, getCategoryTree, getAccounts, getPrimaryAccount, getBudgetContext } from '@/api/accounting'
+import { createTransaction, updateTransaction, getTransactionById, deleteTransaction, getCategoryTree, getAccounts, getAccountsByWorkspace, getPrimaryAccount, getBudgetContext } from '@/api/accounting'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 import { useSyncStore } from '@/store/sync'
 
@@ -548,13 +548,22 @@ function flatten(arr, pre = '', parentId = null) {
   return out
 }
 
+const workspaceId = computed(() => {
+  const id = route.query.workspace_id
+  return id != null && id !== '' ? Number(id) : null
+})
+
 async function loadOptions() {
   try {
+    const wsId = workspaceId.value
     const [accRes, curRes] = await Promise.all([
-      getAccounts({ is_active: true }),
+      wsId != null
+        ? getAccountsByWorkspace(wsId, { is_active: true })
+        : getAccounts({ is_active: true }),
       getTenantCurrencies().catch(() => ({ data: { data: [{ code: 'USD', name: 'USD' }] } }))
     ])
-    if (accRes?.data) accountOptions.value = accRes.data
+    const accData = accRes?.data ?? (Array.isArray(accRes) ? accRes : [])
+    accountOptions.value = Array.isArray(accData) ? accData : (accData?.data ?? [])
     const cur = curRes?.data?.data ?? curRes?.data
     if (Array.isArray(cur) && cur.length) {
       currencyOptions.value = cur.map((c) => ({ value: c.code, text: `${c.code} - ${c.name || c.code}` }))
@@ -574,7 +583,7 @@ async function loadCategories() {
     return
   }
   try {
-    const r = await getCategoryTree(form.type)
+    const r = await getCategoryTree(form.type, workspaceId.value)
     const data = r?.data || r?.data?.data || []
     const filtered = filterActiveCategories(Array.isArray(data) ? data : [])
     categoryOptions.value = flatten(filtered)

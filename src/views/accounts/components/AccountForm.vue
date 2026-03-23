@@ -19,6 +19,20 @@
             />
           </div>
 
+          <div class="form-group">
+            <label class="form-label">Island</label>
+            <ion-select
+              v-model="form.workspace_id"
+              interface="action-sheet"
+              placeholder="Select island"
+              class="ion-select-inline"
+            >
+              <ion-select-option v-for="w in workspaceOptions" :key="w.value ?? 'default'" :value="w.value">
+                {{ w.text }}
+              </ion-select-option>
+            </ion-select>
+          </div>
+
           <div v-if="!isEdit" class="form-group">
             <label class="form-label-suggested">Suggested Account Names</label>
             <div class="suggested-pills">
@@ -152,12 +166,14 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { IonSelect, IonSelectOption } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
-import { createAccount, updateAccount, getAccountById } from '@/api/accounting'
+import { createAccount, updateAccount } from '@/api/accounting'
+import { getWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
-  account: { type: Object, default: null }
+  account: { type: Object, default: null },
+  preselectedWorkspaceId: { type: [Number, String], default: null }
 })
 
 const emit = defineEmits(['close', 'success'])
@@ -167,6 +183,7 @@ const suggestedNames = ['Side Hustle', 'Home Renovation', 'Investments', 'Busine
 const isEdit = computed(() => !!props.account?.id)
 const saving = ref(false)
 const currencyOptions = ref([])
+const workspaceOptions = ref([])
 
 const typeOptions = [
   { text: 'Bank', value: 'bank' },
@@ -183,6 +200,7 @@ const form = reactive({
   account_number: '',
   type: 'bank',
   currency: 'USD',
+  workspace_id: null,
   initial_balance: 0,
   credit_limit: null,
   bank_name: '',
@@ -195,6 +213,21 @@ function toBoolean(v) {
   if (typeof v === 'boolean') return v
   if (typeof v === 'number') return v !== 0
   return Boolean(v)
+}
+
+async function loadWorkspaces() {
+  try {
+    const res = await getWorkspaces()
+    const list = res?.data ?? []
+    const opts = [{ value: null, text: 'Default Island' }]
+    for (const w of Array.isArray(list) ? list : []) {
+      const name = w.name?.endsWith('Island') ? w.name : (w.name || 'My Island') + ' Island'
+      opts.push({ value: Number(w.id), text: name })
+    }
+    workspaceOptions.value = opts
+  } catch (_) {
+    workspaceOptions.value = [{ value: null, text: 'Default Island' }]
+  }
 }
 
 async function loadCurrencies() {
@@ -225,6 +258,7 @@ function resetForm() {
     form.account_number = acc.account_number || ''
     form.type = acc.type || acc.account_type || 'bank'
     form.currency = acc.currency || 'USD'
+    form.workspace_id = acc.workspace_id != null ? Number(acc.workspace_id) : null
     form.initial_balance = acc.initial_balance ?? 0
     form.credit_limit = acc.credit_limit ?? null
     form.bank_name = acc.bank_name || ''
@@ -235,6 +269,7 @@ function resetForm() {
     form.account_number = ''
     form.type = 'bank'
     form.currency = 'USD'
+    form.workspace_id = props.preselectedWorkspaceId != null ? Number(props.preselectedWorkspaceId) : null
     form.initial_balance = 0
     form.credit_limit = null
     form.bank_name = ''
@@ -247,7 +282,7 @@ watch(
   () => [props.isOpen, props.account],
   async ([open]) => {
     if (open) {
-      await loadCurrencies()
+      await Promise.all([loadWorkspaces(), loadCurrencies()])
       resetForm()
     }
   },
@@ -271,6 +306,7 @@ async function submit() {
       account_number: form.account_number?.trim() || null,
       type: form.type,
       currency: form.currency || 'USD',
+      workspace_id: form.workspace_id != null ? form.workspace_id : null,
       credit_limit: (form.type === 'credit_card' || form.type === 'loan') ? (form.credit_limit ?? null) : null,
       bank_name: (form.type === 'bank' || form.type === 'savings') ? (form.bank_name?.trim() || null) : null,
       description: form.description?.trim() || null,

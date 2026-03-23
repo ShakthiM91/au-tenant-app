@@ -97,7 +97,8 @@ import { createCategory, updateCategory, getCategoryTree } from '@/api/accountin
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
   category: { type: Object, default: null },
-  type: { type: String, default: 'income' }
+  type: { type: String, default: 'income' },
+  workspaceId: { type: [Number, String], default: null }
 })
 
 const emit = defineEmits(['close', 'success'])
@@ -152,7 +153,7 @@ const parentText = computed(() => {
 
 async function loadParents() {
   try {
-    const res = await getCategoryTree(props.type)
+    const res = await getCategoryTree(props.type, props.workspaceId != null ? Number(props.workspaceId) : null)
     const data = res?.data ?? (res?.success ? res?.data : []) ?? []
     parentCategories.value = Array.isArray(data) ? data : []
   } catch (_) {
@@ -179,7 +180,7 @@ function resetForm() {
 }
 
 watch(
-  () => [props.isOpen, props.category, props.type],
+  () => [props.isOpen, props.category, props.type, props.workspaceId],
   async ([open]) => {
     if (open) {
       await loadParents()
@@ -208,6 +209,9 @@ async function submit() {
       description: form.description?.trim() || null,
       sort_order: form.sort_order ?? 0,
       is_active: form.is_active
+    }
+    if (!props.category?.id && props.workspaceId != null) {
+      data.workspace_id = Number(props.workspaceId)
     }
     const res = props.category?.id
       ? await updateCategory(props.category.id, data)

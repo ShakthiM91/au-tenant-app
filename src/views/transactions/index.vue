@@ -11,7 +11,7 @@
           </button>
           <div class="header-center">
             <span class="header-title">Transactions</span>
-            <span class="header-subtitle">All transactions</span>
+            <span class="header-subtitle">{{ workspaceName || 'All transactions' }}</span>
           </div>
           <div class="header-actions">
             <button class="icon-btn" @click="filterMode = filterMode === 'search' ? '' : 'search'">
@@ -164,7 +164,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { IonPage, IonContent, IonSpinner, IonIcon, onIonViewDidEnter } from '@ionic/vue'
 import { cloudOfflineOutline } from 'ionicons/icons'
 import { showToast, showActionSheet, showConfirmDialog } from '@/utils/ionicFeedback'
@@ -178,7 +178,17 @@ import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
 import DateRangePicker from '@/components/DateRangePicker.vue'
 
 const router = useRouter()
+const route = useRoute()
 const syncStore = useSyncStore()
+
+const workspaceId = computed(() => {
+  const id = route.query.workspace_id
+  return id != null && id !== '' ? id : null
+})
+const workspaceName = computed(() => {
+  const name = route.query.workspace_name
+  return name ? decodeURIComponent(name) : null
+})
 const list = ref([])
 const listQuery = ref({ type: '', limit: 30, offset: 0 })
 const summary = ref({ total_income: 0, total_expense: 0 })
@@ -393,6 +403,7 @@ async function load(append = false) {
     const params = { ...listQuery.value }
     if (dateFrom.value) params.start_date = dateFrom.value
     if (dateTo.value) params.end_date = dateTo.value
+    if (workspaceId.value) params.workspace_id = workspaceId.value
     const res = await getTransactions(params)
     const data = res?.data || []
     if (!append) {
@@ -487,7 +498,10 @@ async function openRowOptions(row) {
 }
 
 async function onFabSelect(type) {
-  router.push(`/transactions/create?type=${type}`)
+  const q = new URLSearchParams()
+  if (type) q.set('type', type)
+  if (workspaceId.value) q.set('workspace_id', workspaceId.value)
+  router.push(`/transactions/create?${q.toString()}`)
 }
 
 
