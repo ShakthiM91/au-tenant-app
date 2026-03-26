@@ -5,12 +5,24 @@
         <!-- Add Entry Page Header -->
         <header class="entry-header">
           <button type="button" class="header-back" aria-label="Back" @click="$router.back()">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColsor" stroke-width="2">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
           </button>
           <h1 class="header-title">{{ isEdit ? 'Edit Transaction' : 'Add a Transaction' }}</h1>
           <div class="header-actions">
+            <button
+              v-if="isEdit"
+              type="button"
+              class="header-icon-btn header-icon-delete"
+              aria-label="Delete transaction"
+              :disabled="saving"
+              @click="onDelete"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </button>
             <button
               v-if="!isEdit"
               type="button"
@@ -185,31 +197,6 @@
             {{ creditWarning }}
           </div>
         </form>
-
-        <!-- Add Transaction Buttons (bottom) -->
-        <div class="entry-actions">
-          <button type="button" class="action-discard" @click="$router.back()">
-            Discard
-          </button>
-          <button
-            v-if="!isEdit"
-            type="button"
-            class="action-secondary"
-            :disabled="saving"
-            @click="submitAndAddNew"
-          >
-            Save & Add New
-          </button>
-          <button type="button" class="action-save" :disabled="saving" @click="submit">
-            {{ saving ? 'Saving...' : 'Save' }}
-          </button>
-        </div>
-
-        <div v-if="isEdit" class="form-actions">
-          <button type="button" class="delete-btn" :disabled="saving" @click="onDelete">
-            Delete Transaction
-          </button>
-        </div>
       </div>
     </ion-content>
 
@@ -328,6 +315,7 @@ import AmountCalculator from '@/components/AmountCalculator.vue'
 import { createTransaction, updateTransaction, getTransactionById, deleteTransaction, getCategoryTree, getAccounts, getAccountsByWorkspace, getPrimaryAccount, getBudgetContext } from '@/api/accounting'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 import { useSyncStore } from '@/store/sync'
+import { invalidateAccountingCache } from '@/db/readCache'
 
 const route = useRoute()
 const router = useRouter()
@@ -758,6 +746,8 @@ async function submit(stayAndAddNew = false) {
       showToast(isEdit ? 'Updated' : 'Created')
     }
     syncStore.setTransactionListInvalidated()
+    await invalidateAccountingCache({ accounts: true, categories: false })
+    syncStore.addInvalidatedAccountIds([form.account_id, form.to_account_id].filter(Boolean))
 
     if (stayAndAddNew && !isEdit) {
       form.transaction_number = `TXN-${Date.now()}`
@@ -791,6 +781,7 @@ async function onDelete() {
     await deleteTransaction(id)
     showToast('Deleted')
     syncStore.setTransactionListInvalidated()
+    await invalidateAccountingCache({ accounts: true, categories: false })
     router.back()
   } catch (e) {
     if (e !== 'cancel') showToast(e?.message || 'Delete failed')
@@ -839,7 +830,7 @@ onMounted(async () => {
 .page-container {
   padding: 0 24px;
   padding-top: env(safe-area-inset-top, 12px);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 100px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 32px);
   min-height: 100%;
 }
 
@@ -896,6 +887,10 @@ onMounted(async () => {
 
 .header-icon-save {
   color: #ff8d28;
+}
+
+.header-icon-delete {
+  color: rgba(195, 0, 16, 0.75);
 }
 
 /* Transaction Switch */
@@ -1154,82 +1149,4 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-/* Add Transaction Buttons (bottom) */
-.entry-actions {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 16px 24px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  background: #fff;
-  border-top: 1px solid #eee;
-}
-
-.action-discard {
-  font-size: 16px;
-  font-weight: 500;
-  color: #a8a8a8;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px 12px;
-}
-
-.action-secondary {
-  font-size: 16px;
-  font-weight: 500;
-  color: #a8a8a8;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px 12px;
-}
-
-.action-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.action-save {
-  font-size: 16px;
-  font-weight: 600;
-  color: #ff8d28;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px 16px;
-}
-
-.action-save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.form-actions {
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(168, 168, 168, 0.3);
-}
-
-.delete-btn {
-  width: 100%;
-  padding: 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(195, 0, 16, 0.5);
-  background: transparent;
-  color: rgba(195, 0, 16, 0.9);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.delete-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 </style>
