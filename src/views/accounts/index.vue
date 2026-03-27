@@ -2,7 +2,7 @@
   <ion-page class="accounts-page">
     <ion-content :fullscreen="true" :scroll-y="true">
       <div class="page-container">
-        <div class="page-header">
+        <div class="page-header" :class="{ 'above-menu-backdrop': showAddMenu }">
           <span class="page-title">Accounts</span>
           <div class="header-actions">
             <button class="icon-btn" @click="showSearch = !showSearch">
@@ -16,7 +16,10 @@
               </svg>
             </button>
             <div class="add-btn-wrapper">
-              <button class="icon-btn add-btn" @click="showAddMenu = !showAddMenu">
+              <button
+                class="icon-btn add-btn"
+                @click="showAddMenu = !showAddMenu; closeIslandPopover(); closeAccountPopover()"
+              >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
@@ -32,7 +35,11 @@
         </div>
 
         <Transition name="fade">
-          <div v-if="showAddMenu" class="add-menu-backdrop" @click="showAddMenu = false" />
+          <div
+            v-if="showAddMenu || showIslandOptions || showOptions"
+            class="add-menu-backdrop"
+            @click="showAddMenu = false; closeIslandPopover(); closeAccountPopover()"
+          />
         </Transition>
 
         <div v-if="showSearch" class="search-bar">
@@ -54,14 +61,38 @@
                 v-for="group in myAccountsGroups"
                 :key="'my-' + (group.island.id ?? 'default')"
                 class="island-card"
+                :class="{
+                  'above-menu-backdrop':
+                    isIslandPopoverOpenFor(group) || groupHasOpenAccountPopover(group)
+                }"
               >
                 <div class="island-header">
                   <span class="island-name">{{ group.island.name.endsWith('Island') ? group.island.name : group.island.name + ' Island' }}</span>
-                  <button class="more-btn icon-only" @click.stop="openIslandOptions(group)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
-                      <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                    </svg>
-                  </button>
+                  <div class="island-more-wrapper" @click.stop>
+                    <button class="more-btn icon-only" @click="toggleIslandPopover(group)">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
+                        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                      </svg>
+                    </button>
+                    <Transition name="popover-fade">
+                      <div
+                        v-if="isIslandPopoverOpenFor(group)"
+                        class="island-options-popover"
+                        @click.stop
+                      >
+                        <button
+                          v-for="item in buildIslandMenuItems(group)"
+                          :key="item.role"
+                          type="button"
+                          class="island-popover-option"
+                          :class="{ destructive: item.destructive }"
+                          @click="onIslandPopoverSelect(item.role, group)"
+                        >
+                          {{ item.label }}
+                        </button>
+                      </div>
+                    </Transition>
+                  </div>
                 </div>
                 <div class="account-rows">
                   <div
@@ -79,11 +110,31 @@
                         {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
                       </span>
                       <ion-icon :icon="peopleOutline" class="group-icon" />
-                      <button class="more-btn" @click.stop="openAccountOptions(account)">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
-                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                        </svg>
-                      </button>
+                      <div class="account-more-wrapper" @click.stop>
+                        <button class="more-btn" @click="toggleAccountPopover(account)">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
+                            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                          </svg>
+                        </button>
+                        <Transition name="popover-fade">
+                          <div
+                            v-if="isAccountPopoverOpenFor(account)"
+                            class="island-options-popover"
+                            @click.stop
+                          >
+                            <button
+                              v-for="item in accountMenuItems"
+                              :key="item.role"
+                              type="button"
+                              class="island-popover-option"
+                              :class="{ destructive: item.destructive }"
+                              @click="onAccountPopoverSelect(item.role, account)"
+                            >
+                              {{ item.label }}
+                            </button>
+                          </div>
+                        </Transition>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -99,16 +150,40 @@
                 v-for="group in sharedWithMeGroups"
                 :key="'shared-' + group.island.id"
                 class="island-card"
+                :class="{
+                  'above-menu-backdrop':
+                    isIslandPopoverOpenFor(group) || groupHasOpenAccountPopover(group)
+                }"
               >
                 <div class="island-header">
                   <span class="island-name shared">
                     {{ group.island.tenant_name ? `${group.island.tenant_name}'s ${group.island.name}` : group.island.name }}{{ (!group.island.name || !group.island.name.toLowerCase().includes('island')) ? ' Island' : '' }}
                   </span>
-                  <button class="more-btn icon-only" @click.stop="openIslandOptions(group)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
-                      <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                    </svg>
-                  </button>
+                  <div class="island-more-wrapper" @click.stop>
+                    <button class="more-btn icon-only" @click="toggleIslandPopover(group)">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
+                        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                      </svg>
+                    </button>
+                    <Transition name="popover-fade">
+                      <div
+                        v-if="isIslandPopoverOpenFor(group)"
+                        class="island-options-popover"
+                        @click.stop
+                      >
+                        <button
+                          v-for="item in buildIslandMenuItems(group)"
+                          :key="item.role"
+                          type="button"
+                          class="island-popover-option"
+                          :class="{ destructive: item.destructive }"
+                          @click="onIslandPopoverSelect(item.role, group)"
+                        >
+                          {{ item.label }}
+                        </button>
+                      </div>
+                    </Transition>
+                  </div>
                 </div>
                 <div class="account-rows">
                   <div
@@ -126,11 +201,31 @@
                         {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
                       </span>
                       <ion-icon :icon="peopleOutline" class="group-icon" title="Shared" />
-                      <button class="more-btn" @click.stop="openAccountOptions(account)">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
-                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                        </svg>
-                      </button>
+                      <div class="account-more-wrapper" @click.stop>
+                        <button class="more-btn" @click="toggleAccountPopover(account)">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
+                            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                          </svg>
+                        </button>
+                        <Transition name="popover-fade">
+                          <div
+                            v-if="isAccountPopoverOpenFor(account)"
+                            class="island-options-popover"
+                            @click.stop
+                          >
+                            <button
+                              v-for="item in accountMenuItems"
+                              :key="item.role"
+                              type="button"
+                              class="island-popover-option"
+                              :class="{ destructive: item.destructive }"
+                              @click="onAccountPopoverSelect(item.role, account)"
+                            >
+                              {{ item.label }}
+                            </button>
+                          </div>
+                        </Transition>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -153,24 +248,10 @@
     </ion-content>
 
     <ion-action-sheet
-      :is-open="showOptions"
-      :header="optionsAccount?.name"
-      :buttons="accountOptionButtons"
-      @didDismiss="onOptionsDismiss"
-    />
-
-    <ion-action-sheet
       :is-open="showSortMenu"
       header="Sort accounts"
       :buttons="sortButtons"
       @didDismiss="onSortDismiss"
-    />
-
-    <ion-action-sheet
-      :is-open="showIslandOptions"
-      :header="optionsGroup?.island?.name ? (optionsGroup.island.name.endsWith('Island') ? optionsGroup.island.name : optionsGroup.island.name + ' Island') : 'Island options'"
-      :buttons="islandOptionButtons"
-      @didDismiss="onIslandOptionsDismiss"
     />
 
     <AccountForm
@@ -280,13 +361,12 @@ const sharedWithMeGroups = computed(() =>
   islandGroupsFiltered.value.filter(g => g.island.is_shared)
 )
 
-const accountOptionButtons = [
-  { text: 'View Flow Log', role: 'flow-log' },
-  { text: 'Add Transaction', role: 'add-transaction' },
-  { text: 'Reconcile', role: 'reconcile' },
-  { text: 'Edit', role: 'edit' },
-  { text: 'Delete', role: 'destructive', cssClass: 'action-sheet-danger' },
-  { text: 'Cancel', role: 'cancel' }
+const accountMenuItems = [
+  { role: 'flow-log', label: 'View Flow Log', destructive: false },
+  { role: 'add-transaction', label: 'Add Transaction', destructive: false },
+  { role: 'reconcile', label: 'Reconcile', destructive: false },
+  { role: 'edit', label: 'Edit', destructive: false },
+  { role: 'destructive', label: 'Delete', destructive: true }
 ]
 
 const sortButtons = [
@@ -295,29 +375,82 @@ const sortButtons = [
   { text: 'Cancel', role: 'cancel' }
 ]
 
-const islandOptionButtons = computed(() => {
-  const group = optionsGroup.value
-  if (!group) return []
+function sameIslandGroup(a, b) {
+  if (!a || !b) return false
+  const ai = a.island || {}
+  const bi = b.island || {}
+  return (ai.id ?? null) === (bi.id ?? null) && !!ai.is_shared === !!bi.is_shared
+}
+
+function buildIslandMenuItems(group) {
   const island = group?.island || {}
   const isDefault = island.id == null
   const isShared = !!island.is_shared
   const hideDelete = isDefault || isShared
   const hideRename = isDefault || isShared
   const hideShare = isShared
-  const buttons = [
-    { text: 'Add Entry', role: 'add-entry' },
-    { text: 'Add Account', role: 'add-account' },
-    { text: 'Transaction Log', role: 'transaction-log' },
-    { text: 'Manage Categories', role: 'manage-categories' }
+  const items = [
+    { role: 'add-entry', label: 'Add Entry', destructive: false },
+    { role: 'add-account', label: 'Add Account', destructive: false },
+    { role: 'transaction-log', label: 'Transaction Log', destructive: false },
+    { role: 'manage-categories', label: 'Manage Categories', destructive: false }
   ]
-  if (!hideRename) buttons.push({ text: 'Rename Workspace', role: 'rename' })
-  if (!hideShare) buttons.push({ text: 'Share Access', role: 'share-access' })
-  if (!hideDelete) {
-    buttons.push({ text: 'Delete Workspace', role: 'destructive', cssClass: 'action-sheet-danger' })
+  if (!hideRename) items.push({ role: 'rename', label: 'Rename Workspace', destructive: false })
+  if (!hideShare) items.push({ role: 'share-access', label: 'Share Access', destructive: false })
+  if (!hideDelete) items.push({ role: 'destructive', label: 'Delete Workspace', destructive: true })
+  return items
+}
+
+function isIslandPopoverOpenFor(group) {
+  return showIslandOptions.value && sameIslandGroup(optionsGroup.value, group)
+}
+
+function toggleIslandPopover(group) {
+  showAddMenu.value = false
+  closeAccountPopover()
+  if (isIslandPopoverOpenFor(group)) {
+    closeIslandPopover()
+  } else {
+    optionsGroup.value = group
+    showIslandOptions.value = true
   }
-  buttons.push({ text: 'Cancel', role: 'cancel' })
-  return buttons
-})
+}
+
+function closeIslandPopover() {
+  showIslandOptions.value = false
+  optionsGroup.value = null
+}
+
+function onIslandPopoverSelect(role, group) {
+  closeIslandPopover()
+  handleIslandMenuAction(role, group)
+}
+
+function handleIslandMenuAction(role, group) {
+  if (!group) return
+  const island = group.island
+  const islandName = island?.name?.endsWith('Island') ? island.name : (island?.name || '') + ' Island'
+
+  if (role === 'add-entry') {
+    router.push(`/transactions/create?workspace_id=${island?.id ?? ''}`)
+  } else if (role === 'add-account') {
+    accountFormWorkspaceId.value = island?.id != null ? island.id : null
+    currentAccount.value = null
+    formOpen.value = true
+  } else if (role === 'transaction-log') {
+    router.push(`/transactions?workspace_id=${island?.id ?? ''}&workspace_name=${encodeURIComponent(islandName)}`)
+  } else if (role === 'manage-categories') {
+    router.push(`/accounting/categories?workspace_id=${island?.id ?? ''}&workspace_name=${encodeURIComponent(islandName)}`)
+  } else if (role === 'rename') {
+    islandFormWorkspace.value = island
+    islandFormOpen.value = true
+  } else if (role === 'share-access') {
+    shareAccessGroup.value = group
+    showShareAccess.value = true
+  } else if (role === 'destructive') {
+    onDeleteWorkspace(group)
+  }
+}
 
 function formatCurrency(v, code) {
   return new Intl.NumberFormat('en-US', {
@@ -351,60 +484,46 @@ function formatUpdatedAgo(account) {
   return `Updated ${Math.floor(days / 7)} week${days >= 14 ? 's' : ''} ago`
 }
 
-function openIslandOptions(group) {
-  optionsGroup.value = group
-  showIslandOptions.value = true
-}
-
-function onIslandOptionsDismiss(ev) {
-  const role = ev.detail?.role
-  const group = optionsGroup.value
-  showIslandOptions.value = false
-
-  if (!group || role === 'cancel' || role === 'backdrop') return
-
-  const island = group.island
-  const islandName = island?.name?.endsWith('Island') ? island.name : (island?.name || '') + ' Island'
-
-  if (role === 'add-entry') {
-    router.push(`/transactions/create?workspace_id=${island?.id ?? ''}`)
-  } else if (role === 'add-account') {
-    accountFormWorkspaceId.value = island?.id != null ? island.id : null
-    currentAccount.value = null
-    formOpen.value = true
-  } else if (role === 'transaction-log') {
-    router.push(`/transactions?workspace_id=${island?.id ?? ''}&workspace_name=${encodeURIComponent(islandName)}`)
-  } else if (role === 'manage-categories') {
-    router.push(`/accounting/categories?workspace_id=${island?.id ?? ''}&workspace_name=${encodeURIComponent(islandName)}`)
-  } else if (role === 'rename') {
-    islandFormWorkspace.value = island
-    islandFormOpen.value = true
-  } else if (role === 'share-access') {
-    shareAccessGroup.value = group
-    showShareAccess.value = true
-  } else if (role === 'destructive') {
-    onDeleteWorkspace(group)
-  }
-}
-
 function goFlowLog(account) {
   const name = encodeURIComponent(account.name || 'Account')
   const cur = encodeURIComponent(account.currency || 'USD')
   router.push(`/accounts/${account.id}/flow-log?name=${name}&currency=${cur}`)
 }
 
-function openAccountOptions(account) {
-  optionsAccount.value = { ...account }
-  showOptions.value = true
+function isAccountPopoverOpenFor(account) {
+  const cur = optionsAccount.value
+  return showOptions.value && cur != null && account != null && cur.id === account.id
 }
 
-function onOptionsDismiss(ev) {
-  const role = ev.detail?.role
-  const account = optionsAccount.value
+function groupHasOpenAccountPopover(group) {
+  const cur = optionsAccount.value
+  if (!showOptions.value || cur == null || !group?.accounts?.length) return false
+  return group.accounts.some(a => a.id === cur.id)
+}
+
+function toggleAccountPopover(account) {
+  showAddMenu.value = false
+  closeIslandPopover()
+  if (isAccountPopoverOpenFor(account)) {
+    closeAccountPopover()
+  } else {
+    optionsAccount.value = { ...account }
+    showOptions.value = true
+  }
+}
+
+function closeAccountPopover() {
   showOptions.value = false
+  optionsAccount.value = null
+}
 
-  if (!account || role === 'cancel' || role === 'backdrop') return
+function onAccountPopoverSelect(role, account) {
+  closeAccountPopover()
+  handleAccountMenuAction(role, account)
+}
 
+function handleAccountMenuAction(role, account) {
+  if (!account) return
   if (role === 'flow-log') goFlowLog(account)
   else if (role === 'add-transaction') router.push(`/transactions/create?account_id=${account.id}`)
   else if (role === 'reconcile') openReconcile(account)
@@ -617,6 +736,13 @@ onIonViewDidEnter(async () => {
   background: transparent;
 }
 
+/* Popovers live inside scroll content; without this, backdrop (z-50) stacks above the whole
+   accounts subtree so clicks hit dismiss instead of menu actions. */
+.above-menu-backdrop {
+  position: relative;
+  z-index: 51;
+}
+
 .add-popover {
   position: absolute;
   top: calc(100% + 8px);
@@ -741,6 +867,45 @@ onIonViewDidEnter(async () => {
   margin-bottom: 4px;
 }
 
+.island-more-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.island-options-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
+  padding: 6px 0;
+  z-index: 52;
+}
+
+.island-popover-option {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1A1A2E;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.island-popover-option:active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.island-popover-option.destructive {
+  color: rgba(195, 0, 16, 0.74);
+}
+
 .island-name {
   font-size: 16px;
   font-weight: 500;
@@ -797,6 +962,11 @@ onIonViewDidEnter(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
+}
+
+.account-more-wrapper {
+  position: relative;
   flex-shrink: 0;
 }
 
