@@ -58,17 +58,63 @@
         </div>
 
         <form @submit.prevent="submit" class="entry-fields">
-          <!-- Account + Balance row (income/expense) -->
-          <div v-if="form.type !== 'transfer'" class="field-row field-account-row">
-            <button type="button" class="account-trigger" @click="showAccountPicker = true">
-              <svg class="account-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+          <!-- Date + Time (first, per design) -->
+          <div class="field-row field-datetime-row">
+            <button type="button" class="datetime-trigger" @click="showDatePicker = true">
+              <svg class="datetime-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
               </svg>
-              <span class="account-name">{{ selectedAccount?.name || 'Select Account' }}</span>
-              <svg class="field-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              <span class="datetime-trigger-text">{{ dateDisplayValue }}</span>
+              <svg class="field-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <span v-if="selectedAccount" class="account-balance">Balance : {{ formatCurrency(selectedAccount.current_balance ?? selectedAccount.balance ?? 0, selectedAccount.currency) }}</span>
+            <button type="button" class="datetime-trigger" @click="showTimePicker = true">
+              <svg class="datetime-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span class="datetime-trigger-text">{{ timeDisplayValue }}</span>
+              <svg class="field-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
           </div>
+
+          <!-- Island + Account side-by-side (income / expense) -->
+          <div v-if="form.type !== 'transfer'" class="field-workspace-account-row">
+            <div class="dual-col dual-col-workspace">
+              <component
+                :is="showWorkspaceRow ? 'button' : 'div'"
+                :type="showWorkspaceRow ? 'button' : undefined"
+                class="dual-col-block"
+                :class="{ 'dual-col-block--clickable': showWorkspaceRow }"
+                @click="showWorkspaceRow && (showWorkspacePicker = true)"
+              >
+                <div class="dual-col-top">
+                  <svg class="dual-col-icon dual-col-icon-workspace" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 2a10 10 0 0 1 0 20M12 5a7 7 0 0 1 0 14M12 8a4 4 0 0 1 0 8"/>
+                  </svg>
+                  <span class="dual-col-name">{{ selectedWorkspaceLabel }}</span>
+                  <svg v-if="showWorkspaceRow" class="field-chevron dual-col-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </component>
+            </div>
+            <div class="dual-col-divider" aria-hidden="true" />
+            <div class="dual-col dual-col-account">
+              <button type="button" class="dual-col-block dual-col-block--clickable" @click="showAccountPicker = true">
+                <div class="dual-col-top">
+                  <svg class="dual-col-icon dual-col-icon-account" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                    <rect x="2" y="6" width="20" height="14" rx="2"/>
+                    <path d="M2 10h20"/>
+                    <path d="M6 14h4"/>
+                  </svg>
+                  <span class="dual-col-name">{{ selectedAccount?.name || 'Select account' }}</span>
+                  <svg class="field-chevron dual-col-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <span v-if="selectedAccount" class="dual-col-meta">
+                  {{ formatCurrency(selectedAccount.current_balance ?? selectedAccount.balance ?? 0, selectedAccount.currency) }}
+                </span>
+              </button>
+            </div>
+          </div>
+
           <!-- Transfer: From / To accounts -->
           <template v-if="form.type === 'transfer'">
             <div class="field-underline">
@@ -87,24 +133,6 @@
             </div>
           </template>
 
-          <!-- Date + Time row -->
-          <div class="field-row field-datetime-row">
-            <button type="button" class="datetime-trigger" @click="showDatePicker = true">
-              <svg class="datetime-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              <span>{{ dateDisplayValue }}</span>
-              <svg class="field-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <button type="button" class="datetime-trigger" @click="showTimePicker = true">
-              <svg class="datetime-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-              <span>{{ timeDisplayValue }}</span>
-              <svg class="field-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-          </div>
-
           <DatePicker
             :visible="showDatePicker"
             :model-value="dateOnlyValue"
@@ -118,9 +146,31 @@
             @select="onTimeSelect"
           />
 
-          <!-- Category (income/expense only) - pills + Add New -->
-          <div v-if="form.type !== 'transfer'" class="field-category">
+          <!-- Title -->
+          <div class="field-underline">
+            <label class="field-label">Title</label>
+            <input
+              v-model="form.title"
+              type="text"
+              class="field-input"
+              placeholder="Optional"
+            />
+          </div>
+
+          <!-- Category (income/expense only) -->
+          <div v-if="showCategorySection" class="field-category">
             <label class="field-label">Category</label>
+            <button
+              type="button"
+              class="category-field-line field-trigger"
+              @click="showCategoryPicker = true"
+            >
+              <span
+                class="category-field-value"
+                :class="{ 'category-field-placeholder': !categoryText }"
+              >{{ categoryText || 'Select category' }}</span>
+              <svg class="field-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
             <div class="category-pills">
               <button
                 v-for="c in suggestedCategoryPills"
@@ -137,9 +187,15 @@
                 Add New Category
               </button>
             </div>
-            <button v-if="categoryOptions.length === 0" type="button" class="field-trigger field-trigger-full" @click="showCategoryPicker = true">
-              Select category
-              <svg class="field-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <button
+              v-if="showBrowseAllCategories"
+              type="button"
+              class="category-browse-all"
+              @click="showCategoryPicker = true"
+            >
+              <span class="category-browse-all-label">Browse all categories</span>
+              <span class="category-browse-all-count">{{ categoryOptions.length }}</span>
+              <svg class="category-browse-all-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
           </div>
 
@@ -172,19 +228,8 @@
           />
 
           <!-- Description -->
-          <div class="field-underline">
+          <div class="field-underline field-underline-last">
             <label class="field-label">Description</label>
-            <input
-              v-model="form.title"
-              type="text"
-              class="field-input"
-              placeholder="Optional"
-            />
-          </div>
-
-          <!-- Notes (optional, compact) -->
-          <div class="field-underline">
-            <label class="field-label">Notes</label>
             <input
               v-model="form.description"
               type="text"
@@ -199,6 +244,37 @@
         </form>
       </div>
     </ion-content>
+
+    <!-- Workspace / island picker (create, no workspace in URL) -->
+    <ion-modal :is-open="showWorkspacePicker" @didDismiss="showWorkspacePicker = false">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Select island</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="showWorkspacePicker = false">Cancel</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content>
+        <ion-searchbar v-model="workspaceSearchQuery" placeholder="Search..." debounce="150" />
+        <ion-list>
+          <ion-item
+            v-for="w in filteredWorkspaceOptions"
+            :key="w.id === null || w.id === undefined ? 'default' : w.id"
+            button
+            @click="selectWorkspace(w.id)"
+          >
+            <ion-label>
+              {{ w.name }}
+              <span v-if="w.tenant_name" class="workspace-item-tenant"> · {{ w.tenant_name }}</span>
+            </ion-label>
+          </ion-item>
+          <ion-item v-if="filteredWorkspaceOptions.length === 0">
+            <ion-label color="medium">No islands</ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ion-modal>
 
     <!-- Account picker modal -->
     <ion-modal :is-open="showAccountPicker" @didDismiss="showAccountPicker = false">
@@ -297,6 +373,7 @@
       :is-open="showCategoryForm"
       :category="null"
       :type="form.type"
+      :workspace-id="categoryFormWorkspaceId"
       @close="showCategoryForm = false"
       @success="onCategoryFormSuccess"
     />
@@ -312,7 +389,8 @@ import CategoryForm from '@/views/categories/components/CategoryForm.vue'
 import DatePicker from '@/components/DatePicker.vue'
 import TimePicker from '@/components/TimePicker.vue'
 import AmountCalculator from '@/components/AmountCalculator.vue'
-import { createTransaction, updateTransaction, getTransactionById, deleteTransaction, getCategoryTree, getAccounts, getAccountsByWorkspace, getPrimaryAccount, getBudgetContext } from '@/api/accounting'
+import { createTransaction, updateTransaction, getTransactionById, deleteTransaction, getCategoryTree, getAccounts, getAccountsByWorkspace, getPrimaryAccount, getBudgetContext, getAccountById } from '@/api/accounting'
+import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 import { useSyncStore } from '@/store/sync'
 import { invalidateAccountingCache } from '@/db/readCache'
@@ -384,6 +462,11 @@ const showDatePicker = ref(false)
 const showTimePicker = ref(false)
 const showCalculator = ref(false)
 const budgetContext = ref(null)
+const showWorkspacePicker = ref(false)
+const workspaceSearchQuery = ref('')
+const workspaceOptions = ref([])
+const manualWorkspaceId = ref(null)
+const workspacePicked = ref(false)
 
 function formatCurrency(amount, currency = 'USD') {
   return new Intl.NumberFormat('en-US', {
@@ -445,7 +528,16 @@ function onTimeSelect(timeStr) {
   }
 }
 
-const suggestedCategoryPills = computed(() => categoryOptions.value.slice(0, 6))
+/** How many category chips to show before offering “browse all”. */
+const CATEGORY_PILL_PREVIEW_COUNT = 6
+
+const suggestedCategoryPills = computed(() =>
+  categoryOptions.value.slice(0, CATEGORY_PILL_PREVIEW_COUNT)
+)
+
+const showBrowseAllCategories = computed(
+  () => categoryOptions.value.length > CATEGORY_PILL_PREVIEW_COUNT
+)
 
 function selectCategory(value) {
   form.category_id = value
@@ -536,22 +628,149 @@ function flatten(arr, pre = '', parentId = null) {
   return out
 }
 
-const workspaceId = computed(() => {
+/** From URL (?workspace_id=) when opening create from an island */
+const workspaceIdFromRoute = computed(() => {
   const id = route.query.workspace_id
   return id != null && id !== '' ? Number(id) : null
 })
 
+/**
+ * Resolved workspace for API calls: number = island, null = default (no workspace), undefined = create flow and user has not chosen yet.
+ */
+const effectiveWorkspaceId = computed(() => {
+  if (isEdit) {
+    return workspaceIdFromRoute.value
+  }
+  if (workspaceIdFromRoute.value != null) {
+    return workspaceIdFromRoute.value
+  }
+  if (!workspacePicked.value) {
+    return undefined
+  }
+  return manualWorkspaceId.value
+})
+
+const showWorkspaceRow = computed(() => {
+  if (isEdit) return false
+  if (workspaceIdFromRoute.value != null) return false
+  if (route.query.default_island === '1') return false
+  return true
+})
+
+const showCategorySection = computed(() => {
+  if (form.type === 'transfer') return false
+  if (isEdit) return true
+  return effectiveWorkspaceId.value !== undefined
+})
+
+const selectedWorkspaceLabel = computed(() => {
+  if (route.query.default_island === '1') {
+    const name = route.query.workspace_name
+    if (name) {
+      try {
+        return decodeURIComponent(String(name))
+      } catch {
+        return String(name)
+      }
+    }
+    return 'Default Island'
+  }
+  if (workspaceIdFromRoute.value != null) {
+    const name = route.query.workspace_name
+    if (name) {
+      try {
+        return decodeURIComponent(String(name))
+      } catch {
+        return String(name)
+      }
+    }
+    const w = workspaceOptions.value.find(o => o.id === workspaceIdFromRoute.value)
+    return w?.name || 'Island'
+  }
+  if (!workspacePicked.value) return 'Select island'
+  if (manualWorkspaceId.value == null) {
+    const d = workspaceOptions.value.find(o => o.id === null)
+    return d?.name || 'Default Island'
+  }
+  const w = workspaceOptions.value.find(o => o.id === manualWorkspaceId.value)
+  return w?.name || 'Island'
+})
+
+const filteredWorkspaceOptions = computed(() => {
+  const q = (workspaceSearchQuery.value || '').trim().toLowerCase()
+  if (!q) return workspaceOptions.value
+  return workspaceOptions.value.filter(w => (w.name || '').toLowerCase().includes(q))
+})
+
+/** Pass through to CategoryForm; null = default-tenant categories */
+const categoryFormWorkspaceId = computed(() => {
+  if (!showCategorySection.value) return null
+  const v = effectiveWorkspaceId.value
+  return v === undefined ? null : v
+})
+
+async function loadWorkspaceOptions() {
+  try {
+    const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
+    const own = Array.isArray(ownRes?.data) ? ownRes.data : []
+    const shared = Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []
+    const opts = [{ id: null, name: 'Default Island' }]
+    for (const ws of own) {
+      opts.push({ id: Number(ws.id), name: ws.name || 'My island', is_shared: false })
+    }
+    for (const ws of shared) {
+      opts.push({
+        id: Number(ws.id),
+        name: ws.name || 'Shared island',
+        is_shared: true,
+        tenant_name: ws.tenant_name
+      })
+    }
+    workspaceOptions.value = opts
+  } catch (_) {
+    workspaceOptions.value = [{ id: null, name: 'Default Island' }]
+  }
+}
+
+function selectWorkspace(wsId) {
+  manualWorkspaceId.value = wsId
+  workspacePicked.value = true
+  form.category_id = null
+  budgetContext.value = null
+  showWorkspacePicker.value = false
+  loadOptions().then(() => {
+    if (form.account_id != null && !accountOptions.value.some(a => Number(a.id) === Number(form.account_id))) {
+      form.account_id = null
+    }
+    loadCategories()
+    checkCreditLimit()
+  })
+}
+
 async function loadOptions() {
   try {
-    const wsId = workspaceId.value
+    const ws = effectiveWorkspaceId.value
     const [accRes, curRes] = await Promise.all([
-      wsId != null
-        ? getAccountsByWorkspace(wsId, { is_active: true })
-        : getAccounts({ is_active: true }),
+      (async () => {
+        if (isEdit) {
+          if (ws != null) return getAccountsByWorkspace(ws, { is_active: true })
+          return getAccounts({ is_active: true })
+        }
+        if (ws === undefined) {
+          return getAccounts({ is_active: true })
+        }
+        if (ws != null) {
+          return getAccountsByWorkspace(ws, { is_active: true })
+        }
+        return getAccounts({ is_active: true })
+      })(),
       getTenantCurrencies().catch(() => ({ data: { data: [{ code: 'USD', name: 'USD' }] } }))
     ])
     const accData = accRes?.data ?? (Array.isArray(accRes) ? accRes : [])
     accountOptions.value = Array.isArray(accData) ? accData : (accData?.data ?? [])
+    if (!isEdit && ws === null) {
+      accountOptions.value = accountOptions.value.filter(a => a.workspace_id == null)
+    }
     const cur = curRes?.data?.data ?? curRes?.data
     if (Array.isArray(cur) && cur.length) {
       currencyOptions.value = cur.map((c) => ({ value: c.code, text: `${c.code} - ${c.name || c.code}` }))
@@ -570,8 +789,13 @@ async function loadCategories() {
     categoryOptions.value = []
     return
   }
+  const ws = effectiveWorkspaceId.value
+  if (ws === undefined) {
+    categoryOptions.value = []
+    return
+  }
   try {
-    const r = await getCategoryTree(form.type, workspaceId.value)
+    const r = await getCategoryTree(form.type, ws)
     const data = r?.data || r?.data?.data || []
     const filtered = filterActiveCategories(Array.isArray(data) ? data : [])
     categoryOptions.value = flatten(filtered)
@@ -707,6 +931,10 @@ async function loadEdit() {
 
 async function submit(stayAndAddNew = false) {
   const amt = Number(form.amount)
+  if (!isEdit && effectiveWorkspaceId.value === undefined) {
+    showToast('Select an island')
+    return
+  }
   if (!form.account_id) {
     showToast('Select an account')
     return
@@ -789,7 +1017,35 @@ async function onDelete() {
 }
 
 onMounted(async () => {
+  await loadWorkspaceOptions()
+
+  if (!isEdit && workspaceIdFromRoute.value != null) {
+    workspacePicked.value = true
+  }
+
+  if (!isEdit && route.query.default_island === '1') {
+    workspacePicked.value = true
+    manualWorkspaceId.value = null
+  }
+
+  if (!isEdit) {
+    const queryAccountId = route.query.account_id
+    const accountId = queryAccountId != null && queryAccountId !== '' ? Number(queryAccountId) : null
+    if (accountId != null && workspaceIdFromRoute.value == null) {
+      try {
+        const res = await getAccountById(accountId)
+        const acc = res?.data ?? res
+        if (acc) {
+          workspacePicked.value = true
+          manualWorkspaceId.value =
+            acc.workspace_id != null && acc.workspace_id !== '' ? Number(acc.workspace_id) : null
+        }
+      } catch (_) {}
+    }
+  }
+
   await loadOptions()
+
   if (isEdit) {
     await loadEdit()
   } else {
@@ -800,7 +1056,7 @@ onMounted(async () => {
     form.transaction_date = getCurrentDateTimeString()
     form.amount = 0
     await loadCategories()
-    const accountId = queryAccountId != null ? Number(queryAccountId) : null
+    const accountId = queryAccountId != null && queryAccountId !== '' ? Number(queryAccountId) : null
     if (accountId != null && accountOptions.value.some((a) => Number(a.id) === accountId)) {
       form.account_id = accountId
       checkCreditLimit()
@@ -819,6 +1075,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.workspace-item-tenant {
+  font-size: 13px;
+  font-weight: 400;
+  color: #a8a8a8;
+}
+
 .transaction-form-page {
   --background: #fff;
 }
@@ -828,7 +1090,7 @@ onMounted(async () => {
 }
 
 .page-container {
-  padding: 0 24px;
+  padding: 0 22px;
   padding-top: env(safe-area-inset-top, 12px);
   padding-bottom: calc(env(safe-area-inset-bottom) + 32px);
   min-height: 100%;
@@ -856,11 +1118,12 @@ onMounted(async () => {
 
 .header-title {
   flex: 1;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: #1a1a2e;
   margin: 0;
   text-align: center;
+  letter-spacing: -0.02em;
 }
 
 .header-actions {
@@ -893,44 +1156,62 @@ onMounted(async () => {
   color: rgba(195, 0, 16, 0.75);
 }
 
-/* Transaction Switch */
+/* Transaction Switch — light track, white pill + colored label when active */
 .transaction-switch {
   display: flex;
   align-items: center;
-  background: rgba(168, 168, 168, 0.24);
-  border-radius: 8px;
-  padding: 4px;
-  margin-bottom: 24px;
+  background: #e8e8ea;
+  border-radius: 999px;
+  padding: 3px;
+  margin-bottom: 20px;
 }
 
 .switch-tab {
   flex: 1;
-  padding: 10px 12px;
+  padding: 10px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 14px;
-  font-weight: 500;
-  color: #a8a8a8;
+  font-weight: 600;
+  color: #9a9a9e;
   background: transparent;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  appearance: none;
+  outline: none;
+}
+
+.switch-tab::-moz-focus-inner {
+  border: 0;
+  padding: 0;
+}
+
+.switch-tab:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.switch-tab:focus-visible {
+  outline: 2px solid rgba(255, 141, 40, 0.45);
+  outline-offset: 2px;
 }
 
 .switch-tab.active {
-  color: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .switch-tab.income.active {
-  background: #52bf90;
+  color: #52bf90;
 }
 
 .switch-tab.expense.active {
-  background: rgba(195, 0, 16, 0.85);
+  color: #c30010;
 }
 
 .switch-tab.transfer.active {
-  background: #1989fa;
+  color: #1989fa;
 }
 
 /* Entry Fields */
@@ -944,47 +1225,13 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 0;
-  border-bottom: 1px solid rgba(168, 168, 168, 0.8);
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
   gap: 12px;
 }
 
-.field-account-row .account-trigger {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 16px;
-  color: #1a1a2e;
-  text-align: left;
-}
-
-.account-icon {
-  flex-shrink: 0;
-  color: #a8a8a8;
-}
-
-.account-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-balance {
-  flex-shrink: 0;
-  font-size: 14px;
-  color: #a8a8a8;
-}
-
 .field-datetime-row {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .datetime-trigger {
@@ -995,12 +1242,19 @@ onMounted(async () => {
   min-width: 0;
   background: none;
   border: none;
-  padding: 8px 0;
+  padding: 4px 0;
   cursor: pointer;
   font-size: 15px;
+  font-weight: 500;
   color: #1a1a2e;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+.datetime-trigger-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 .datetime-icon {
@@ -1008,21 +1262,131 @@ onMounted(async () => {
   color: #a8a8a8;
 }
 
+/* Island + account columns */
+.field-workspace-account-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+}
+
+.dual-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.dual-col-divider {
+  width: 1px;
+  flex-shrink: 0;
+  margin: 0 12px;
+  background: rgba(168, 168, 168, 0.45);
+  align-self: stretch;
+  min-height: 44px;
+}
+
+.dual-col-block {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.dual-col-block--clickable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dual-col-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dual-col-icon {
+  flex-shrink: 0;
+  color: #a8a8a8;
+}
+
+.dual-col-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dual-col-chevron {
+  flex-shrink: 0;
+}
+
+.dual-col-meta {
+  display: block;
+  margin-top: 6px;
+  padding-left: 30px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #a8a8a8;
+  line-height: 1.3;
+}
+
 
 .field-category {
-  padding: 14px 0;
-  border-bottom: 1px solid rgba(168, 168, 168, 0.8);
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
 }
 
 .field-category .field-label {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+}
+
+.category-field-line {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 12px;
+  margin-bottom: 4px;
+  border: none;
+  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+  background: none;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a2e;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.category-field-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-field-placeholder {
+  color: #a8a8a8;
+  font-weight: 400;
 }
 
 .category-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-top: 4px;
 }
 
 .category-pill {
@@ -1031,39 +1395,91 @@ onMounted(async () => {
   gap: 4px;
   padding: 8px 14px;
   border-radius: 20px;
-  border: 1px solid rgba(255, 141, 40, 0.5);
+  border: 1px solid rgba(255, 141, 40, 0.55);
   font-size: 14px;
   font-weight: 500;
   background: transparent;
-  color: #e67a00;
+  color: #ff8d28;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .category-pill.active {
-  background: rgba(255, 141, 40, 0.25);
-  color: #d66a00;
+  background: rgba(255, 141, 40, 0.12);
+  color: #e56700;
+  border-color: rgba(255, 141, 40, 0.75);
 }
 
 .category-pill-add {
   background: transparent;
-  border: 1px solid rgba(255, 141, 40, 0.5);
-  color: #e67a00;
+  border: 1.5px solid rgba(255, 141, 40, 0.65);
+  color: #ff8d28;
+  font-weight: 600;
 }
 
-.field-trigger-full {
+.category-browse-all {
   width: 100%;
+  margin-top: 12px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  font-size: 16px;
-  color: #a8a8a8;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 141, 40, 0.5);
+  background: rgba(255, 141, 40, 0.08);
+  color: #ff8d28;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  appearance: none;
+  outline: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.category-browse-all:active {
+  background: rgba(255, 141, 40, 0.14);
+  border-color: rgba(255, 141, 40, 0.65);
+}
+
+.category-browse-all:focus-visible {
+  outline: 2px solid rgba(255, 141, 40, 0.45);
+  outline-offset: 2px;
+}
+
+.category-browse-all-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.category-browse-all-count {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #e56700;
+  background: rgba(255, 141, 40, 0.16);
+  padding: 5px 9px;
+  border-radius: 999px;
+}
+
+.category-browse-all-chevron {
+  flex-shrink: 0;
+  color: #ff8d28;
+  opacity: 0.9;
 }
 
 .field-underline {
-  border-bottom: 1px solid rgba(168, 168, 168, 0.8);
-  padding: 14px 0;
+  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+  padding: 18px 0;
+}
+
+.field-underline-last {
+  border-bottom: none;
+  padding-bottom: 8px;
 }
 
 .field-label {

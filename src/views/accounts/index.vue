@@ -432,7 +432,15 @@ function handleIslandMenuAction(role, group) {
   const islandName = island?.name?.endsWith('Island') ? island.name : (island?.name || '') + ' Island'
 
   if (role === 'add-entry') {
-    router.push(`/transactions/create?workspace_id=${island?.id ?? ''}`)
+    if (island?.id != null && island.id !== '') {
+      router.push(
+        `/transactions/create?workspace_id=${island.id}&workspace_name=${encodeURIComponent(islandName)}`
+      )
+    } else {
+      router.push(
+        `/transactions/create?default_island=1&workspace_name=${encodeURIComponent(islandName)}`
+      )
+    }
   } else if (role === 'add-account') {
     accountFormWorkspaceId.value = island?.id != null ? island.id : null
     currentAccount.value = null
@@ -487,7 +495,8 @@ function formatUpdatedAgo(account) {
 function goFlowLog(account) {
   const name = encodeURIComponent(account.name || 'Account')
   const cur = encodeURIComponent(account.currency || 'USD')
-  router.push(`/accounts/${account.id}/flow-log?name=${name}&currency=${cur}`)
+  const ws = account.workspace_id != null && account.workspace_id !== '' ? `&workspace_id=${encodeURIComponent(String(account.workspace_id))}` : ''
+  router.push(`/accounts/${account.id}/flow-log?name=${name}&currency=${cur}${ws}`)
 }
 
 function isAccountPopoverOpenFor(account) {

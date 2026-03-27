@@ -501,6 +501,7 @@ async function onFabSelect(type) {
   const q = new URLSearchParams()
   if (type) q.set('type', type)
   if (workspaceId.value) q.set('workspace_id', workspaceId.value)
+  if (workspaceName.value) q.set('workspace_name', encodeURIComponent(workspaceName.value))
   router.push(`/transactions/create?${q.toString()}`)
 }
 

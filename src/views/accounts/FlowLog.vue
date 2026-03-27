@@ -4,8 +4,8 @@
       <div class="page-container">
         <!-- Header -->
         <div class="top-header">
-          <button class="back-btn" @click="$router.back()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button type="button" class="back-btn" @click="$router.back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
           </button>
@@ -14,53 +14,13 @@
             <span class="header-subtitle">Flow Log</span>
           </div>
           <div class="header-actions">
-            <button class="icon-btn" :class="{ active: filterMode === 'search' }" @click="filterMode = filterMode === 'search' ? '' : 'search'">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-            </button>
-            <button class="icon-btn" :class="{ active: filterMode === 'calendar' }" @click="filterMode = filterMode === 'calendar' ? '' : 'calendar'">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            </button>
-            <button class="icon-btn" @click="showAccountOptions = true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#1A1A2E">
-                <circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/>
+            <button type="button" class="icon-btn" @click="showAccountOptions = true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
               </svg>
             </button>
           </div>
         </div>
-
-        <!-- Search Bar (Accounts Ledger Page Search Active) -->
-        <div v-if="filterMode === 'search'" class="search-bar">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search transactions..."
-            class="search-input"
-          />
-        </div>
-
-        <!-- Calendar / Date Range (single picker) -->
-        <div v-if="filterMode === 'calendar'" class="date-range-bar">
-          <button type="button" class="date-range-input" @click="showDatePicker = true">
-            <svg class="calendar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            {{ dateRangeLabel }}
-          </button>
-          <button v-if="dateFrom || dateTo" class="clear-dates-btn" @click="clearDates">Clear</button>
-        </div>
-
-        <DateRangePicker
-          :model-value="{ from: dateFrom, to: dateTo }"
-          :visible="showDatePicker"
-          @close="showDatePicker = false"
-          @select="onDateRangeSelect"
-        />
 
         <!-- Stats Dashboard -->
         <div v-if="summary" class="stats-dashboard">
@@ -84,28 +44,144 @@
           </div>
         </div>
 
-        <!-- Filter Bar -->
-        <div class="filter-bar">
+        <!-- Unified filter row (under dashboard) -->
+        <div class="ledger-filter-row">
           <button
-            v-for="f in filterOptions"
-            :key="f.value"
-            class="filter-chip"
-            :class="{ active: flowTypeFilter === f.value }"
-            @click="setFilter(f.value)"
+            type="button"
+            class="filter-pill filter-pill-icon"
+            :class="{ active: filterMode === 'search' }"
+            aria-label="Search"
+            @click="toggleSearchMode"
           >
-            {{ f.label }}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
           </button>
+          <button
+            type="button"
+            class="filter-pill filter-pill-date"
+            :class="{ active: filterMode === 'calendar' || !!(dateFrom || dateTo) }"
+            @click="openDateFilter"
+          >
+            <svg class="filter-pill-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <div class="filter-pill-wrap">
+            <button
+              type="button"
+              class="filter-pill filter-pill-grow"
+              :class="{ active: categoryMenuOpen || categoryFilterId != null }"
+              @click.stop="openCategoryMenu"
+            >
+              <span class="filter-pill-label filter-pill-label-truncate">{{ categoryButtonLabel }}</span>
+              <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div v-if="categoryMenuOpen" class="filter-flyout" @click.stop>
+              <div v-if="categoriesLoading && !categoryMenuOptions.length" class="filter-flyout-loading">
+                Loading…
+              </div>
+              <template v-else>
+                <button
+                  type="button"
+                  class="filter-flyout-item"
+                  :class="{ selected: categoryFilterId == null }"
+                  @click="selectCategory(null)"
+                >
+                  All categories
+                </button>
+                <button
+                  v-for="opt in categoryMenuOptions"
+                  :key="opt.id"
+                  type="button"
+                  class="filter-flyout-item"
+                  :class="{ selected: categoryFilterId === opt.id }"
+                  @click="selectCategory(opt.id)"
+                >
+                  {{ opt.label }}
+                </button>
+              </template>
+            </div>
+          </div>
+          <div class="filter-pill-wrap filter-pill-wrap-type">
+            <button
+              type="button"
+              class="filter-pill filter-pill-grow filter-pill-type-btn"
+              :class="{ active: typeMenuOpen || !!flowTypeFilter }"
+              @click.stop="openTypeMenu"
+            >
+              <span class="filter-pill-label filter-pill-label-truncate">{{ flowTypeButtonLabel }}</span>
+              <svg class="filter-caret-solid" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
+                <path fill="#A8A8A8" d="M0 0h10L5 6z"/>
+              </svg>
+            </button>
+            <div v-if="typeMenuOpen" class="filter-flyout filter-flyout-type" @click.stop>
+              <button
+                v-for="f in filterOptions"
+                :key="`${f.label}-${String(f.value)}`"
+                type="button"
+                class="filter-flyout-item"
+                :class="{ selected: flowTypeFilter === f.value }"
+                @click="selectFlowType(f.value)"
+              >
+                {{ f.label }}
+              </button>
+            </div>
+          </div>
         </div>
+
+        <Transition name="fade">
+          <div
+            v-if="categoryMenuOpen || typeMenuOpen"
+            class="filter-menu-backdrop"
+            @click="closeFilterMenus"
+          />
+        </Transition>
+
+        <div v-if="filterMode === 'search'" class="search-bar">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search transactions..."
+            class="search-input"
+          />
+        </div>
+
+        <div v-if="filterMode === 'calendar'" class="date-range-bar">
+          <button type="button" class="date-range-input" @click="showDatePicker = true">
+            <svg class="calendar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            {{ dateRangeLabel }}
+          </button>
+          <button v-if="dateFrom || dateTo" type="button" class="clear-dates-btn" @click="clearDates">Clear</button>
+        </div>
+
+        <DateRangePicker
+          :model-value="{ from: dateFrom, to: dateTo }"
+          :visible="showDatePicker"
+          @close="showDatePicker = false"
+          @select="onDateRangeSelect"
+        />
 
         <!-- Entry count -->
         <div v-if="!loading" class="entry-count">
-          Showing {{ filteredFlowLog.length }} entries
+          Showing {{ displayFlowLog.length }} entries
         </div>
 
         <!-- Transactions -->
-        <div class="transactions-island" v-if="!loading && filteredFlowLog.length">
+        <div class="transactions-island" v-if="!loading && displayFlowLog.length">
           <div
-            v-for="row in filteredFlowLog"
+            v-for="row in displayFlowLog"
             :key="row.id"
             class="transaction-row"
             @click="openTransactionDetail(row)"
@@ -261,7 +337,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { IonPage, IonContent, IonSpinner, IonModal, IonActionSheet } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
-import { getAccountFlowLog, getAccountFlowSummary, getAccountById } from '@/api/accounting'
+import { getAccountFlowLog, getAccountFlowSummary, getAccountById, getCategoryTree } from '@/api/accounting'
 import { useSyncStore } from '@/store/sync'
 import ReconcileModal from './components/ReconcileModal.vue'
 import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
@@ -293,15 +369,40 @@ const selectedTransaction = ref(null)
 const showAccountOptions = ref(false)
 const reconcileVisible = ref(false)
 const reconcileAccount = ref(null)
+const categoryFilterId = ref(null)
+const categoryMenuOptions = ref([])
+const categoriesLoading = ref(false)
+const accountWorkspaceId = ref(null)
+const categoryMenuOpen = ref(false)
+const typeMenuOpen = ref(false)
+
+const workspaceIdFromQuery = computed(() => {
+  const id = route.query.workspace_id
+  return id != null && id !== '' ? Number(id) : null
+})
+
+const resolvedWorkspaceId = computed(() => workspaceIdFromQuery.value ?? accountWorkspaceId.value)
 
 const filterOptions = [
   { label: 'All', value: '' },
   { label: 'Income', value: 'income' },
   { label: 'Expense', value: 'expense' },
-  { label: 'In', value: 'transfer_in' },
-  { label: 'Out', value: 'transfer_out' },
+  { label: 'Transfer In', value: 'transfer_in' },
+  { label: 'Transfer Out', value: 'transfer_out' },
   { label: 'Initial', value: 'initial_balance' }
 ]
+
+const categoryButtonLabel = computed(() => {
+  if (categoryFilterId.value == null) return 'Category'
+  const label = categoryMenuOptions.value.find(o => o.id === categoryFilterId.value)?.label ?? ''
+  if (!label) return 'Category'
+  return label.length > 16 ? `${label.slice(0, 14)}…` : label
+})
+
+const flowTypeButtonLabel = computed(() => {
+  const f = filterOptions.find(o => o.value === flowTypeFilter.value)
+  return f?.label ?? 'All'
+})
 
 const accountOptionsButtons = [
   { text: 'Reconcile Balance', role: 'reconcile' },
@@ -323,6 +424,19 @@ const filteredFlowLog = computed(() => {
     (r.description || '').toLowerCase().includes(q) ||
     (r.category || '').toLowerCase().includes(q)
   )
+})
+
+const displayFlowLog = computed(() => {
+  let list = filteredFlowLog.value
+  if (categoryFilterId.value != null) {
+    const label = categoryMenuOptions.value.find(o => o.id === categoryFilterId.value)?.label
+    list = list.filter(
+      r =>
+        r.category_id === categoryFilterId.value ||
+        (r.category_id == null && label && (r.category || '') === label)
+    )
+  }
+  return list
 })
 
 const dateRangeLabel = computed(() => {
@@ -425,10 +539,102 @@ function flowTypeClass(type) {
   return 'neutral'
 }
 
-function setFilter(value) {
+function closeFilterMenus() {
+  categoryMenuOpen.value = false
+  typeMenuOpen.value = false
+}
+
+function openCategoryMenu() {
+  typeMenuOpen.value = false
+  categoryMenuOpen.value = !categoryMenuOpen.value
+}
+
+function openTypeMenu() {
+  categoryMenuOpen.value = false
+  typeMenuOpen.value = !typeMenuOpen.value
+}
+
+function selectFlowType(value) {
   flowTypeFilter.value = value
+  typeMenuOpen.value = false
   currentPage.value = 1
   fetchFlowLog(1)
+}
+
+function toggleSearchMode() {
+  closeFilterMenus()
+  filterMode.value = filterMode.value === 'search' ? '' : 'search'
+}
+
+function openDateFilter() {
+  closeFilterMenus()
+  filterMode.value = 'calendar'
+  showDatePicker.value = true
+}
+
+function normalizeCategoryTreeResponse(res) {
+  const data = res?.data ?? (res?.success ? res?.data : []) ?? []
+  return Array.isArray(data) ? data : []
+}
+
+function filterActiveCategoriesForMenu(categories) {
+  return (categories || [])
+    .filter(cat => cat.is_active !== false)
+    .map(cat => ({
+      ...cat,
+      children: cat.children?.length ? filterActiveCategoriesForMenu(cat.children) : []
+    }))
+}
+
+function flattenCategoryLabels(arr, prefix = '') {
+  const out = []
+  for (const c of arr || []) {
+    const label = prefix ? `${prefix} > ${c.name}` : c.name
+    out.push({ id: Number(c.id), label })
+    if (c.children?.length) out.push(...flattenCategoryLabels(c.children, label))
+  }
+  return out
+}
+
+async function loadCategoryMenu() {
+  categoriesLoading.value = true
+  try {
+    const wsId = resolvedWorkspaceId.value
+    const [incomeRes, expenseRes] = await Promise.all([
+      getCategoryTree('income', wsId),
+      getCategoryTree('expense', wsId)
+    ])
+    const incomeData = filterActiveCategoriesForMenu(normalizeCategoryTreeResponse(incomeRes))
+    const expenseData = filterActiveCategoriesForMenu(normalizeCategoryTreeResponse(expenseRes))
+    const flat = [...flattenCategoryLabels(incomeData), ...flattenCategoryLabels(expenseData)]
+    const byId = new Map()
+    for (const o of flat) {
+      if (!byId.has(o.id)) byId.set(o.id, o)
+    }
+    categoryMenuOptions.value = [...byId.values()].sort((a, b) => a.label.localeCompare(b.label))
+  } catch (_) {
+    categoryMenuOptions.value = []
+  } finally {
+    categoriesLoading.value = false
+  }
+}
+
+function selectCategory(id) {
+  categoryFilterId.value = id == null || id === '' ? null : Number(id)
+  categoryMenuOpen.value = false
+}
+
+async function fetchAccountWorkspace() {
+  if (!accountId.value) return
+  try {
+    const res = await getAccountById(accountId.value)
+    const acc = res?.data ?? res
+    if (acc?.workspace_id != null && acc.workspace_id !== '') {
+      accountWorkspaceId.value = Number(acc.workspace_id)
+    }
+  } catch (_) {
+    /* keep query-only workspace if any */
+  }
 }
 
 function clearDates() {
@@ -547,11 +753,33 @@ async function refetchIfInvalidated() {
 onMounted(async () => {
   accountName.value = route.query.name || 'Account'
   currency.value = route.query.currency || 'USD'
+  await fetchAccountWorkspace()
   await load()
   await refetchIfInvalidated()
 })
 
-watch(accountId, () => refetchIfInvalidated())
+watch(accountId, async () => {
+  accountWorkspaceId.value = null
+  categoryFilterId.value = null
+  await fetchAccountWorkspace()
+  await load()
+  await refetchIfInvalidated()
+})
+
+watch(
+  () => resolvedWorkspaceId.value,
+  () => {
+    categoryFilterId.value = null
+    loadCategoryMenu()
+  },
+  { immediate: true }
+)
+
+watch(categoryMenuOptions, opts => {
+  if (categoryFilterId.value != null && !opts.some(o => o.id === categoryFilterId.value)) {
+    categoryFilterId.value = null
+  }
+})
 
 watch([dateFrom, dateTo], () => {
   if (filterMode.value === 'calendar' && (dateFrom.value || dateTo.value)) {
@@ -687,19 +915,160 @@ watch([dateFrom, dateTo], () => {
   cursor: pointer;
 }
 
-.icon-btn.active {
-  background: rgba(255, 141, 40, 0.15);
-  border-radius: 8px;
-}
-
 .stats-dashboard {
   display: flex;
   justify-content: space-between;
   background: #fff;
   border-radius: 14px;
   padding: 14px 12px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Unified filters under dashboard (Figma pill row) */
+.ledger-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid #ff8d28;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-pill.active {
+  background: rgba(255, 141, 40, 0.08);
+}
+
+.filter-pill-icon {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+}
+
+.filter-pill-date {
+  padding: 0 6px 0 8px;
+}
+
+.filter-chevron {
+  flex-shrink: 0;
+}
+
+.filter-pill-wrap {
+  position: relative;
+  z-index: 55;
+}
+
+.filter-pill-label {
+  color: #a8a8a8;
+  font-weight: 500;
+}
+
+.filter-pill-grow {
+  min-width: 0;
+  max-width: 140px;
+  flex: 1 1 auto;
+  justify-content: space-between;
+  padding: 0 8px 0 10px;
+  gap: 6px;
+}
+
+.filter-pill-label-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.filter-pill-type-btn {
+  max-width: 120px;
+  gap: 8px;
+  padding-right: 10px;
+}
+
+.filter-caret-solid {
+  flex-shrink: 0;
+  display: block;
+}
+
+.filter-flyout {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  max-width: min(280px, 90vw);
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  z-index: 60;
+}
+
+.filter-flyout-type {
+  min-width: 140px;
+}
+
+.filter-flyout-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.72);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-flyout-item:active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.filter-flyout-item.selected {
+  color: #ff8d28;
+  font-weight: 600;
+}
+
+.filter-flyout-loading {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #a8a8a8;
+}
+
+.filter-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: transparent;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 .stat-item {
@@ -727,38 +1096,6 @@ watch([dateFrom, dateTo], () => {
 
 .stat-value.negative {
   color: rgba(195, 0, 16, 0.74);
-}
-
-.filter-bar {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.filter-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.filter-chip {
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid #E8E8E8;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  color: #6E6A7C;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.filter-chip.active {
-  background: #FF8D28;
-  color: #fff;
-  border-color: #FF8D28;
 }
 
 .entry-count {
