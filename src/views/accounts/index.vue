@@ -69,7 +69,7 @@
                 <div class="island-header">
                   <span class="island-name">{{ group.island.name.endsWith('Island') ? group.island.name : group.island.name + ' Island' }}</span>
                   <div class="island-more-wrapper" @click.stop>
-                    <button class="more-btn icon-only" @click="toggleIslandPopover(group)">
+                    <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
                         <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                       </svg>
@@ -78,6 +78,7 @@
                       <div
                         v-if="isIslandPopoverOpenFor(group)"
                         class="island-options-popover"
+                        :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
                         @click.stop
                       >
                         <button
@@ -111,7 +112,7 @@
                       </span>
                       <ion-icon :icon="peopleOutline" class="group-icon" />
                       <div class="account-more-wrapper" @click.stop>
-                        <button class="more-btn" @click="toggleAccountPopover(account)">
+                        <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, $event)">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
                             <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                           </svg>
@@ -120,6 +121,7 @@
                           <div
                             v-if="isAccountPopoverOpenFor(account)"
                             class="island-options-popover"
+                            :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
                             @click.stop
                           >
                             <button
@@ -160,7 +162,7 @@
                     {{ group.island.tenant_name ? `${group.island.tenant_name}'s ${group.island.name}` : group.island.name }}{{ (!group.island.name || !group.island.name.toLowerCase().includes('island')) ? ' Island' : '' }}
                   </span>
                   <div class="island-more-wrapper" @click.stop>
-                    <button class="more-btn icon-only" @click="toggleIslandPopover(group)">
+                    <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
                         <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                       </svg>
@@ -169,6 +171,7 @@
                       <div
                         v-if="isIslandPopoverOpenFor(group)"
                         class="island-options-popover"
+                        :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
                         @click.stop
                       >
                         <button
@@ -202,7 +205,7 @@
                       </span>
                       <ion-icon :icon="peopleOutline" class="group-icon" title="Shared" />
                       <div class="account-more-wrapper" @click.stop>
-                        <button class="more-btn" @click="toggleAccountPopover(account)">
+                        <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, $event)">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
                             <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                           </svg>
@@ -211,6 +214,7 @@
                           <div
                             v-if="isAccountPopoverOpenFor(account)"
                             class="island-options-popover"
+                            :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
                             @click.stop
                           >
                             <button
@@ -289,7 +293,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { onIonViewDidEnter } from '@ionic/vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent, IonSpinner, IonActionSheet, IonIcon } from '@ionic/vue'
@@ -320,6 +324,8 @@ const optionsAccount = ref(null)
 const formOpen = ref(false)
 const currentAccount = ref(null)
 const showAddMenu = ref(false)
+/** Open island/account options popover above the trigger when there isn’t room below (tab bar / FAB). */
+const optionsPopoverOpenUp = ref(false)
 const islandFormOpen = ref(false)
 const islandFormWorkspace = ref(null)
 const showIslandOptions = ref(false)
@@ -401,24 +407,55 @@ function buildIslandMenuItems(group) {
   return items
 }
 
+const POPOVER_RESERVE_BOTTOM_PX = 108
+const POPOVER_ITEM_ROW_PX = 46
+const POPOVER_VERTICAL_PAD_PX = 14
+const POPOVER_MAX_HEIGHT_PX = 320
+
+function estimatedPopoverHeightPx(itemCount) {
+  if (itemCount < 1) return POPOVER_MAX_HEIGHT_PX
+  return Math.min(itemCount * POPOVER_ITEM_ROW_PX + POPOVER_VERTICAL_PAD_PX, POPOVER_MAX_HEIGHT_PX)
+}
+
+function setPopoverOpenUpFromTrigger(triggerEl, itemCount) {
+  optionsPopoverOpenUp.value = false
+  if (!triggerEl?.getBoundingClientRect) return
+  const rect = triggerEl.getBoundingClientRect()
+  const vh = window.visualViewport?.height ?? window.innerHeight
+  const spaceBelow = vh - POPOVER_RESERVE_BOTTOM_PX - rect.bottom
+  const spaceAbove = rect.top - 48
+  const need = estimatedPopoverHeightPx(itemCount)
+  if (spaceBelow >= need) {
+    optionsPopoverOpenUp.value = false
+    return
+  }
+  if (spaceAbove >= need || spaceAbove > spaceBelow) {
+    optionsPopoverOpenUp.value = true
+  }
+}
+
 function isIslandPopoverOpenFor(group) {
   return showIslandOptions.value && sameIslandGroup(optionsGroup.value, group)
 }
 
-function toggleIslandPopover(group) {
+function toggleIslandPopover(group, event) {
   showAddMenu.value = false
   closeAccountPopover()
   if (isIslandPopoverOpenFor(group)) {
     closeIslandPopover()
   } else {
+    const trigger = event?.currentTarget
+    const n = buildIslandMenuItems(group).length
     optionsGroup.value = group
     showIslandOptions.value = true
+    nextTick(() => setPopoverOpenUpFromTrigger(trigger, n))
   }
 }
 
 function closeIslandPopover() {
   showIslandOptions.value = false
   optionsGroup.value = null
+  optionsPopoverOpenUp.value = false
 }
 
 function onIslandPopoverSelect(role, group) {
@@ -510,20 +547,23 @@ function groupHasOpenAccountPopover(group) {
   return group.accounts.some(a => a.id === cur.id)
 }
 
-function toggleAccountPopover(account) {
+function toggleAccountPopover(account, event) {
   showAddMenu.value = false
   closeIslandPopover()
   if (isAccountPopoverOpenFor(account)) {
     closeAccountPopover()
   } else {
+    const trigger = event?.currentTarget
     optionsAccount.value = { ...account }
     showOptions.value = true
+    nextTick(() => setPopoverOpenUpFromTrigger(trigger, accountMenuItems.length))
   }
 }
 
 function closeAccountPopover() {
   showOptions.value = false
   optionsAccount.value = null
+  optionsPopoverOpenUp.value = false
 }
 
 function onAccountPopoverSelect(role, account) {
@@ -757,6 +797,9 @@ onIonViewDidEnter(async () => {
   top: calc(100% + 8px);
   right: 0;
   min-width: 180px;
+  max-height: min(50dvh, 280px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
@@ -886,11 +929,23 @@ onIonViewDidEnter(async () => {
   top: calc(100% + 6px);
   right: 0;
   min-width: 200px;
+  max-width: min(92vw, 280px);
+  max-height: min(65dvh, 360px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
   padding: 6px 0;
   z-index: 52;
+}
+
+.island-options-popover--up {
+  top: auto;
+  bottom: calc(100% + 6px);
 }
 
 .island-popover-option {
