@@ -44,99 +44,118 @@
           </div>
         </div>
 
-        <!-- Unified filter row (under dashboard) -->
-        <div class="ledger-filter-row">
-          <button
-            type="button"
-            class="filter-pill filter-pill-icon"
-            :class="{ active: filterMode === 'search' }"
-            aria-label="Search"
-            @click="toggleSearchMode"
+        <!-- Unified filter row: search expands on the left; date / category / type stay on the right -->
+        <div class="ledger-filter-row" :class="{ 'ledger-filter-row--search-open': filterMode === 'search' }">
+          <div
+            class="ledger-filter-search-slot"
+            :class="{ 'ledger-filter-search-slot--expanded': filterMode === 'search' }"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="filter-pill filter-pill-date"
-            :class="{ active: filterMode === 'calendar' || !!(dateFrom || dateTo) }"
-            @click="openDateFilter"
-          >
-            <svg class="filter-pill-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-          <div class="filter-pill-wrap">
             <button
               type="button"
-              class="filter-pill filter-pill-grow"
-              :class="{ active: categoryMenuOpen || categoryFilterIds.length > 0 }"
-              @click.stop="openCategoryMenu"
+              class="filter-pill filter-pill-icon"
+              :class="{ active: filterMode === 'search' }"
+              aria-label="Search"
+              @click="toggleSearchMode"
             >
-              <span class="filter-pill-label filter-pill-label-truncate">{{ categoryButtonLabel }}</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+            <input
+              v-if="filterMode === 'search'"
+              ref="searchInputRef"
+              v-model="searchQuery"
+              type="search"
+              class="ledger-inline-search-input"
+              placeholder="Search transactions…"
+              enterkeyhint="search"
+              autocapitalize="off"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="ledger-filter-trailing">
+            <button
+              type="button"
+              class="filter-pill filter-pill-date"
+              :class="{ active: filterMode === 'calendar' || !!(dateFrom || dateTo) }"
+              @click="openDateFilter"
+            >
+              <svg class="filter-pill-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
               <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
             </button>
-            <div v-if="categoryMenuOpen" class="filter-flyout filter-flyout-categories" @click.stop>
-              <div v-if="categoriesLoading && !categoryMenuOptions.length" class="filter-flyout-loading">
-                Loading…
-              </div>
-              <template v-else>
-                <label class="filter-flyout-row">
-                  <input
-                    type="checkbox"
-                    class="filter-flyout-cb"
-                    :checked="categoryFilterIds.length === 0"
-                    @change="onAllCategoriesCheckboxChange"
-                  />
-                  <span class="filter-flyout-row-text">All categories</span>
-                </label>
-                <label
-                  v-for="opt in categoryMenuOptions"
-                  :key="opt.id"
-                  class="filter-flyout-row"
-                >
-                  <input
-                    type="checkbox"
-                    class="filter-flyout-cb"
-                    :checked="isCategoryFilterSelected(opt.id)"
-                    @change="onCategoryCheckboxChange(opt.id, $event)"
-                  />
-                  <span class="filter-flyout-row-text">{{ opt.label }}</span>
-                </label>
-              </template>
-            </div>
-          </div>
-          <div class="filter-pill-wrap filter-pill-wrap-type">
-            <button
-              type="button"
-              class="filter-pill filter-pill-grow filter-pill-type-btn"
-              :class="{ active: typeMenuOpen || !!flowTypeFilter }"
-              @click.stop="openTypeMenu"
-            >
-              <span class="filter-pill-label filter-pill-label-truncate">{{ flowTypeButtonLabel }}</span>
-              <svg class="filter-caret-solid" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
-                <path fill="#A8A8A8" d="M0 0h10L5 6z"/>
-              </svg>
-            </button>
-            <div v-if="typeMenuOpen" class="filter-flyout filter-flyout-type" @click.stop>
+            <div class="filter-pill-wrap">
               <button
-                v-for="f in filterOptions"
-                :key="`${f.label}-${String(f.value)}`"
                 type="button"
-                class="filter-flyout-item"
-                :class="{ selected: flowTypeFilter === f.value }"
-                @click="selectFlowType(f.value)"
+                class="filter-pill filter-pill-grow"
+                :class="{ active: categoryMenuOpen || categoryFilterIds.length > 0 }"
+                @click.stop="openCategoryMenu"
               >
-                {{ f.label }}
+                <span class="filter-pill-label filter-pill-label-truncate">{{ categoryButtonLabel }}</span>
+                <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
               </button>
+              <div v-if="categoryMenuOpen" class="filter-flyout filter-flyout-categories" @click.stop>
+                <div v-if="categoriesLoading && !categoryMenuOptions.length" class="filter-flyout-loading">
+                  Loading…
+                </div>
+                <template v-else>
+                  <label class="filter-flyout-row">
+                    <input
+                      type="checkbox"
+                      class="filter-flyout-cb"
+                      :checked="categoryFilterIds.length === 0"
+                      @change="onAllCategoriesCheckboxChange"
+                    />
+                    <span class="filter-flyout-row-text">All categories</span>
+                  </label>
+                  <label
+                    v-for="opt in categoryMenuOptions"
+                    :key="opt.id"
+                    class="filter-flyout-row"
+                  >
+                    <input
+                      type="checkbox"
+                      class="filter-flyout-cb"
+                      :checked="isCategoryFilterSelected(opt.id)"
+                      @change="onCategoryCheckboxChange(opt.id, $event)"
+                    />
+                    <span class="filter-flyout-row-text">{{ opt.label }}</span>
+                  </label>
+                </template>
+              </div>
+            </div>
+            <div class="filter-pill-wrap filter-pill-wrap-type">
+              <button
+                type="button"
+                class="filter-pill filter-pill-grow filter-pill-type-btn"
+                :class="{ active: typeMenuOpen || !!flowTypeFilter }"
+                @click.stop="openTypeMenu"
+              >
+                <span class="filter-pill-label filter-pill-label-truncate">{{ flowTypeButtonLabel }}</span>
+                <svg class="filter-caret-solid" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
+                  <path fill="#A8A8A8" d="M0 0h10L5 6z"/>
+                </svg>
+              </button>
+              <div v-if="typeMenuOpen" class="filter-flyout filter-flyout-type" @click.stop>
+                <button
+                  v-for="f in filterOptions"
+                  :key="`${f.label}-${String(f.value)}`"
+                  type="button"
+                  class="filter-flyout-item"
+                  :class="{ selected: flowTypeFilter === f.value }"
+                  @click="selectFlowType(f.value)"
+                >
+                  {{ f.label }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -148,15 +167,6 @@
             @click="closeFilterMenus"
           />
         </Transition>
-
-        <div v-if="filterMode === 'search'" class="search-bar">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search transactions..."
-            class="search-input"
-          />
-        </div>
 
         <div v-if="filterMode === 'calendar'" class="date-range-bar">
           <button type="button" class="date-range-input" @click="showDatePicker = true">
@@ -183,9 +193,9 @@
         </div>
 
         <!-- Transactions -->
-        <div class="transactions-island" v-if="!loading && displayFlowLog.length">
+        <div class="transactions-island" v-if="!loading && flowLog.length">
           <div
-            v-for="row in displayFlowLog"
+            v-for="row in flowLog"
             :key="row.id"
             class="transaction-row"
             @click="openTransactionDetail(row)"
@@ -337,7 +347,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { IonPage, IonContent, IonSpinner, IonModal, IonActionSheet } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
@@ -361,6 +371,7 @@ const flowLog = ref([])
 const summary = ref(null)
 const flowTypeFilter = ref('')
 const searchQuery = ref('')
+const searchInputRef = ref(null)
 const filterMode = ref('') // '' | 'search' | 'calendar'
 const dateFrom = ref('')
 const dateTo = ref('')
@@ -432,18 +443,6 @@ function flowCategoryLabel(row) {
   const c = row.category
   return c != null && String(c).trim() !== '' ? String(c).trim() : ''
 }
-
-const filteredFlowLog = computed(() => {
-  if (!searchQuery.value) return flowLog.value
-  const q = searchQuery.value.toLowerCase()
-  return flowLog.value.filter(r =>
-    (r.description || '').toLowerCase().includes(q) ||
-    flowCategoryLabel(r).toLowerCase().includes(q)
-  )
-})
-
-/** Client-side search only; category filter is applied on the server (pagination). */
-const displayFlowLog = computed(() => filteredFlowLog.value)
 
 const flowLogEntriesDisplay = computed(() => {
   const t = pagination.value?.total
@@ -573,9 +572,29 @@ function selectFlowType(value) {
   fetchFlowLog(1)
 }
 
-function toggleSearchMode() {
+let searchDebounceTimer = null
+function clearSearchDebounce() {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+}
+
+async function toggleSearchMode() {
   closeFilterMenus()
-  filterMode.value = filterMode.value === 'search' ? '' : 'search'
+  const opening = filterMode.value !== 'search'
+  if (!opening) {
+    clearSearchDebounce()
+    searchQuery.value = ''
+  }
+  filterMode.value = opening ? 'search' : ''
+  if (opening) {
+    await nextTick()
+    searchInputRef.value?.focus?.()
+  } else if (accountId.value) {
+    currentPage.value = 1
+    await load()
+  }
 }
 
 function openDateFilter() {
@@ -745,6 +764,12 @@ function appendCategoryFilterParams(params) {
   }
 }
 
+function appendSearchParam(params) {
+  if (filterMode.value !== 'search') return
+  const q = searchQuery.value.trim()
+  if (q) params.search = q
+}
+
 async function fetchFlowLog(page = 1, append = false) {
   if (!accountId.value) return
   if (page === 1) loading.value = true
@@ -755,6 +780,7 @@ async function fetchFlowLog(page = 1, append = false) {
     if (dateFrom.value) params.from_date = dateFrom.value
     if (dateTo.value) params.to_date = dateTo.value
     appendCategoryFilterParams(params)
+    appendSearchParam(params)
     const res = await getAccountFlowLog(accountId.value, params)
     const data = res?.data ?? []
     pagination.value = res?.pagination ?? null
@@ -776,6 +802,7 @@ async function fetchSummary() {
     if (dateFrom.value) params.from_date = dateFrom.value
     if (dateTo.value) params.to_date = dateTo.value
     appendCategoryFilterParams(params)
+    appendSearchParam(params)
     const res = await getAccountFlowSummary(accountId.value, params)
     summary.value = res?.data ?? null
   } catch (_) {
@@ -848,6 +875,20 @@ watch([dateFrom, dateTo], () => {
     load()
   }
 })
+
+watch(searchQuery, () => {
+  if (filterMode.value !== 'search' || !accountId.value) return
+  clearSearchDebounce()
+  searchDebounceTimer = setTimeout(() => {
+    searchDebounceTimer = null
+    currentPage.value = 1
+    load()
+  }, 320)
+})
+
+onUnmounted(() => {
+  clearSearchDebounce()
+})
 </script>
 
 <style scoped>
@@ -915,25 +956,6 @@ watch([dateFrom, dateTo], () => {
   -webkit-tap-highlight-color: transparent;
 }
 
-.search-bar {
-  margin-bottom: 10px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid #E8E8E8;
-  background: #fff;
-  font-size: 14px;
-  color: #1A1A2E;
-  outline: none;
-}
-
-.search-input:focus {
-  border-color: #FF8D28;
-}
-
 .date-range-bar {
   display: flex;
   gap: 10px;
@@ -994,6 +1016,71 @@ watch([dateFrom, dateTo], () => {
   align-items: center;
   gap: 6px;
   margin-bottom: 12px;
+  min-width: 0;
+}
+
+.ledger-filter-row--search-open {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.ledger-filter-search-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.ledger-filter-search-slot--expanded {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ledger-inline-search-input {
+  flex: 1 1 0;
+  min-width: 64px;
+  width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #ff8d28;
+  background: #fff;
+  font-size: 13px;
+  color: #1a1a2e;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.ledger-inline-search-input::placeholder {
+  color: #a8a8a8;
+}
+
+.ledger-inline-search-input:focus {
+  border-color: #ff8d28;
+  box-shadow: 0 0 0 2px rgba(255, 141, 40, 0.12);
+}
+
+.ledger-filter-trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.ledger-filter-row--search-open .ledger-filter-trailing {
+  margin-left: auto;
+}
+
+/* Narrower category/type pills only while search is open (room for the inline field) */
+.ledger-filter-row--search-open .ledger-filter-trailing .filter-pill-grow {
+  max-width: 112px;
+}
+
+.ledger-filter-row--search-open .ledger-filter-trailing .filter-pill-type-btn {
+  max-width: 96px;
 }
 
 .filter-pill {
