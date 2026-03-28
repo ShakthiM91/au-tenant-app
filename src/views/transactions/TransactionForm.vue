@@ -381,7 +381,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { IonPage, IonContent, IonModal, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonSearchbar, IonList, IonItem, IonLabel } from '@ionic/vue'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
@@ -467,6 +467,10 @@ const workspaceSearchQuery = ref('')
 const workspaceOptions = ref([])
 const manualWorkspaceId = ref(null)
 const workspacePicked = ref(false)
+/** Workspace of the transaction’s account (edit mode); used when URL has no workspace_id. */
+const editWorkspaceId = ref(null)
+/** Skips form.type watcher reset while hydrating edit payload (avoids clearing category_id). */
+const suppressTypeWatchReset = ref(false)
 
 function formatCurrency(amount, currency = 'USD') {
   return new Intl.NumberFormat('en-US', {
@@ -639,7 +643,7 @@ const workspaceIdFromRoute = computed(() => {
  */
 const effectiveWorkspaceId = computed(() => {
   if (isEdit) {
-    return workspaceIdFromRoute.value
+    return workspaceIdFromRoute.value ?? editWorkspaceId.value ?? null
   }
   if (workspaceIdFromRoute.value != null) {
     return workspaceIdFromRoute.value
@@ -664,6 +668,23 @@ const showCategorySection = computed(() => {
 })
 
 const selectedWorkspaceLabel = computed(() => {
+  if (isEdit) {
+    const wid = workspaceIdFromRoute.value ?? editWorkspaceId.value
+    if (wid == null) {
+      const d = workspaceOptions.value.find(o => o.id === null)
+      return d?.name || 'Default Island'
+    }
+    const name = route.query.workspace_name
+    if (name && workspaceIdFromRoute.value != null) {
+      try {
+        return decodeURIComponent(String(name))
+      } catch {
+        return String(name)
+      }
+    }
+    const w = workspaceOptions.value.find(o => o.id === wid)
+    return w?.name || 'Island'
+  }
   if (route.query.default_island === '1') {
     const name = route.query.workspace_name
     if (name) {
@@ -775,10 +796,12 @@ async function loadOptions() {
     if (Array.isArray(cur) && cur.length) {
       currencyOptions.value = cur.map((c) => ({ value: c.code, text: `${c.code} - ${c.name || c.code}` }))
     }
-    const def = await getTenantDefaultCurrency().catch(() => null)
-    const dc = def?.data?.data ?? def?.data
-    if (dc?.code) form.currency = dc.code
-    else if (currencyOptions.value.length && !form.currency) form.currency = currencyOptions.value[0].value
+    if (!isEdit) {
+      const def = await getTenantDefaultCurrency().catch(() => null)
+      const dc = def?.data?.data ?? def?.data
+      if (dc?.code) form.currency = dc.code
+      else if (currencyOptions.value.length && !form.currency) form.currency = currencyOptions.value[0].value
+    }
   } catch (_) {
     if (!form.currency) form.currency = 'USD'
   }
@@ -891,6 +914,7 @@ watch(
   () => form.type,
   (newType, oldType) => {
     if (newType === oldType) return
+    if (suppressTypeWatchReset.value) return
     if (newType !== 'transfer') {
       loadCategories()
       form.category_id = null
@@ -906,26 +930,51 @@ watch([() => form.amount, () => form.account_id], () => checkCreditLimit())
 
 async function loadEdit() {
   if (!id) return
+  suppressTypeWatchReset.value = true
   try {
     const r = await getTransactionById(id)
     const t = r?.data || r
-    if (t) {
-      form.transaction_number = t.transaction_number || ''
-      form.title = t.title || ''
-      form.type = t.type || 'income'
-      form.amount = parseFloat(t.amount) || 0
-      form.currency = t.currency || 'USD'
-      form.description = t.description || ''
-      form.transaction_date = normalizeTransactionDateTime(t.transaction_date)
-      form.status = t.status || 'completed'
-      form.account_id = t.account_id != null ? Number(t.account_id) : null
-      form.to_account_id = t.to_account_id != null ? Number(t.to_account_id) : null
-      form.category_id = t.category_id != null ? Number(t.category_id) : null
-      await loadCategories()
+    if (!t) return
+
+    const catId = t.category_id != null ? Number(t.category_id) : null
+    const aid = t.account_id != null ? Number(t.account_id) : null
+    const toId = t.to_account_id != null ? Number(t.to_account_id) : null
+
+    editWorkspaceId.value = null
+    if (aid != null) {
+      try {
+        const accRes = await getAccountById(aid)
+        const acc = accRes?.data ?? accRes
+        if (acc?.workspace_id != null && acc.workspace_id !== '') {
+          editWorkspaceId.value = Number(acc.workspace_id)
+        }
+      } catch (_) {
+        /* keep null → default-tenant categories */
+      }
     }
+
+    form.transaction_number = t.transaction_number || ''
+    form.title = t.title || ''
+    form.amount = parseFloat(t.amount) || 0
+    form.currency = t.currency || 'USD'
+    form.description = t.description || ''
+    form.transaction_date = normalizeTransactionDateTime(t.transaction_date)
+    form.status = t.status || 'completed'
+    form.account_id = aid
+    form.to_account_id = toId
+    form.category_id = null
+    form.type = t.type || 'income'
+
+    await loadOptions()
+    await loadCategories()
+    await nextTick()
+    form.category_id = catId
+    loadBudgetContext(catId)
   } catch (e) {
     showToast('Failed to load')
     router.back()
+  } finally {
+    suppressTypeWatchReset.value = false
   }
 }
 
@@ -1044,11 +1093,11 @@ onMounted(async () => {
     }
   }
 
-  await loadOptions()
-
   if (isEdit) {
+    editWorkspaceId.value = null
     await loadEdit()
   } else {
+    await loadOptions()
     const queryType = route.query.type
     const queryAccountId = route.query.account_id
     if (queryType && validTypes.includes(queryType)) form.type = queryType

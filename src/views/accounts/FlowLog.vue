@@ -76,7 +76,7 @@
             <button
               type="button"
               class="filter-pill filter-pill-grow"
-              :class="{ active: categoryMenuOpen || categoryFilterId != null }"
+              :class="{ active: categoryMenuOpen || categoryFilterIds.length > 0 }"
               @click.stop="openCategoryMenu"
             >
               <span class="filter-pill-label filter-pill-label-truncate">{{ categoryButtonLabel }}</span>
@@ -84,29 +84,33 @@
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
             </button>
-            <div v-if="categoryMenuOpen" class="filter-flyout" @click.stop>
+            <div v-if="categoryMenuOpen" class="filter-flyout filter-flyout-categories" @click.stop>
               <div v-if="categoriesLoading && !categoryMenuOptions.length" class="filter-flyout-loading">
                 Loading…
               </div>
               <template v-else>
-                <button
-                  type="button"
-                  class="filter-flyout-item"
-                  :class="{ selected: categoryFilterId == null }"
-                  @click="selectCategory(null)"
-                >
-                  All categories
-                </button>
-                <button
+                <label class="filter-flyout-row">
+                  <input
+                    type="checkbox"
+                    class="filter-flyout-cb"
+                    :checked="categoryFilterIds.length === 0"
+                    @change="onAllCategoriesCheckboxChange"
+                  />
+                  <span class="filter-flyout-row-text">All categories</span>
+                </label>
+                <label
                   v-for="opt in categoryMenuOptions"
                   :key="opt.id"
-                  type="button"
-                  class="filter-flyout-item"
-                  :class="{ selected: categoryFilterId === opt.id }"
-                  @click="selectCategory(opt.id)"
+                  class="filter-flyout-row"
                 >
-                  {{ opt.label }}
-                </button>
+                  <input
+                    type="checkbox"
+                    class="filter-flyout-cb"
+                    :checked="isCategoryFilterSelected(opt.id)"
+                    @change="onCategoryCheckboxChange(opt.id, $event)"
+                  />
+                  <span class="filter-flyout-row-text">{{ opt.label }}</span>
+                </label>
               </template>
             </div>
           </div>
@@ -173,9 +177,9 @@
           @select="onDateRangeSelect"
         />
 
-        <!-- Entry count -->
+        <!-- Entry count (total from server when paginated) -->
         <div v-if="!loading" class="entry-count">
-          Showing {{ displayFlowLog.length }} entries
+          Showing {{ flowLogEntriesDisplay }}
         </div>
 
         <!-- Transactions -->
@@ -201,7 +205,7 @@
               <span class="tx-description">{{ row.description || formatFlowType(row.flow_type) }}</span>
               <span class="tx-meta">
                 {{ formatFlowType(row.flow_type) }} · {{ formatDate(row.transaction_date) }}
-                <template v-if="row.category"> · {{ row.category }}</template>
+                <template v-if="flowCategoryLabel(row)"> · {{ flowCategoryLabel(row) }}</template>
               </span>
             </div>
             <div class="tx-amounts">
@@ -273,7 +277,7 @@
                 <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>
                 <span>Category</span>
               </div>
-              <span class="detail-cell-value"><span class="detail-pill">{{ selectedTransaction.category || '—' }}</span></span>
+              <span class="detail-cell-value"><span class="detail-pill">{{ flowCategoryLabel(selectedTransaction) || '—' }}</span></span>
             </div>
             <div class="detail-cell" v-if="detailReferenceLabel(selectedTransaction)">
               <div class="detail-cell-label">
@@ -369,7 +373,8 @@ const selectedTransaction = ref(null)
 const showAccountOptions = ref(false)
 const reconcileVisible = ref(false)
 const reconcileAccount = ref(null)
-const categoryFilterId = ref(null)
+/** Selected category ids (empty = no filter, show all). */
+const categoryFilterIds = ref([])
 const categoryMenuOptions = ref([])
 const categoriesLoading = ref(false)
 const accountWorkspaceId = ref(null)
@@ -393,10 +398,14 @@ const filterOptions = [
 ]
 
 const categoryButtonLabel = computed(() => {
-  if (categoryFilterId.value == null) return 'Category'
-  const label = categoryMenuOptions.value.find(o => o.id === categoryFilterId.value)?.label ?? ''
-  if (!label) return 'Category'
-  return label.length > 16 ? `${label.slice(0, 14)}…` : label
+  const ids = categoryFilterIds.value
+  if (!ids.length) return 'Category'
+  if (ids.length === 1) {
+    const label = categoryMenuOptions.value.find(o => o.id === ids[0])?.label ?? ''
+    if (!label) return 'Category'
+    return label.length > 16 ? `${label.slice(0, 14)}…` : label
+  }
+  return `${ids.length} categories`
 })
 
 const flowTypeButtonLabel = computed(() => {
@@ -417,26 +426,29 @@ const hasMore = computed(() => {
   return flowLog.value.length < (pagination.value.total || 0)
 })
 
+/** Flow log `category` is resolved on the server from `category_id` when the text column is empty. */
+function flowCategoryLabel(row) {
+  if (!row) return ''
+  const c = row.category
+  return c != null && String(c).trim() !== '' ? String(c).trim() : ''
+}
+
 const filteredFlowLog = computed(() => {
   if (!searchQuery.value) return flowLog.value
   const q = searchQuery.value.toLowerCase()
   return flowLog.value.filter(r =>
     (r.description || '').toLowerCase().includes(q) ||
-    (r.category || '').toLowerCase().includes(q)
+    flowCategoryLabel(r).toLowerCase().includes(q)
   )
 })
 
-const displayFlowLog = computed(() => {
-  let list = filteredFlowLog.value
-  if (categoryFilterId.value != null) {
-    const label = categoryMenuOptions.value.find(o => o.id === categoryFilterId.value)?.label
-    list = list.filter(
-      r =>
-        r.category_id === categoryFilterId.value ||
-        (r.category_id == null && label && (r.category || '') === label)
-    )
-  }
-  return list
+/** Client-side search only; category filter is applied on the server (pagination). */
+const displayFlowLog = computed(() => filteredFlowLog.value)
+
+const flowLogEntriesDisplay = computed(() => {
+  const t = pagination.value?.total
+  const n = t != null ? Number(t) : flowLog.value.length
+  return `${n} ${n === 1 ? 'entry' : 'entries'}`
 })
 
 const dateRangeLabel = computed(() => {
@@ -619,9 +631,35 @@ async function loadCategoryMenu() {
   }
 }
 
-function selectCategory(id) {
-  categoryFilterId.value = id == null || id === '' ? null : Number(id)
-  categoryMenuOpen.value = false
+function isCategoryFilterSelected(id) {
+  return categoryFilterIds.value.includes(Number(id))
+}
+
+function reloadFlowLogAfterCategoryChange() {
+  if (!accountId.value) return
+  currentPage.value = 1
+  load()
+}
+
+function onAllCategoriesCheckboxChange(ev) {
+  if (ev.target.checked) {
+    categoryFilterIds.value = []
+    reloadFlowLogAfterCategoryChange()
+    return
+  }
+  ev.target.checked = true
+}
+
+function onCategoryCheckboxChange(id, ev) {
+  const n = Number(id)
+  const checked = ev.target.checked
+  const cur = categoryFilterIds.value
+  if (checked && !cur.includes(n)) {
+    categoryFilterIds.value = [...cur, n].sort((a, b) => a - b)
+  } else if (!checked && cur.includes(n)) {
+    categoryFilterIds.value = cur.filter(x => x !== n)
+  }
+  reloadFlowLogAfterCategoryChange()
 }
 
 async function fetchAccountWorkspace() {
@@ -641,7 +679,7 @@ function clearDates() {
   dateFrom.value = ''
   dateTo.value = ''
   currentPage.value = 1
-  fetchFlowLog(1)
+  load()
 }
 
 function openTransactionDetail(row) {
@@ -695,6 +733,18 @@ function onFabSelect(type) {
 }
 
 
+function appendCategoryFilterParams(params) {
+  const ids = categoryFilterIds.value
+  if (!ids.length) return
+  params.category_ids = ids.join(',')
+  const labels = ids
+    .map(id => categoryMenuOptions.value.find(o => o.id === id)?.label)
+    .filter(x => x != null && String(x).length > 0)
+  if (labels.length) {
+    params.category_labels = JSON.stringify(labels)
+  }
+}
+
 async function fetchFlowLog(page = 1, append = false) {
   if (!accountId.value) return
   if (page === 1) loading.value = true
@@ -704,6 +754,7 @@ async function fetchFlowLog(page = 1, append = false) {
     if (flowTypeFilter.value) params.flow_type = flowTypeFilter.value
     if (dateFrom.value) params.from_date = dateFrom.value
     if (dateTo.value) params.to_date = dateTo.value
+    appendCategoryFilterParams(params)
     const res = await getAccountFlowLog(accountId.value, params)
     const data = res?.data ?? []
     pagination.value = res?.pagination ?? null
@@ -724,6 +775,7 @@ async function fetchSummary() {
     const params = {}
     if (dateFrom.value) params.from_date = dateFrom.value
     if (dateTo.value) params.to_date = dateTo.value
+    appendCategoryFilterParams(params)
     const res = await getAccountFlowSummary(accountId.value, params)
     summary.value = res?.data ?? null
   } catch (_) {
@@ -760,7 +812,7 @@ onMounted(async () => {
 
 watch(accountId, async () => {
   accountWorkspaceId.value = null
-  categoryFilterId.value = null
+  categoryFilterIds.value = []
   await fetchAccountWorkspace()
   await load()
   await refetchIfInvalidated()
@@ -768,16 +820,26 @@ watch(accountId, async () => {
 
 watch(
   () => resolvedWorkspaceId.value,
-  () => {
-    categoryFilterId.value = null
-    loadCategoryMenu()
+  async (_newVal, oldVal) => {
+    categoryFilterIds.value = []
+    await loadCategoryMenu()
+    if (oldVal !== undefined && accountId.value) {
+      currentPage.value = 1
+      await load()
+    }
   },
   { immediate: true }
 )
 
 watch(categoryMenuOptions, opts => {
-  if (categoryFilterId.value != null && !opts.some(o => o.id === categoryFilterId.value)) {
-    categoryFilterId.value = null
+  const valid = new Set(opts.map(o => o.id))
+  const next = categoryFilterIds.value.filter(id => valid.has(id))
+  if (next.length !== categoryFilterIds.value.length) {
+    categoryFilterIds.value = next
+    if (accountId.value) {
+      currentPage.value = 1
+      load()
+    }
   }
 })
 
@@ -1023,6 +1085,45 @@ watch([dateFrom, dateTo], () => {
 
 .filter-flyout-type {
   min-width: 140px;
+}
+
+.filter-flyout-categories {
+  max-height: min(320px, 55dvh);
+}
+
+.filter-flyout-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-flyout-row:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.filter-flyout-cb {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  margin: 2px 0 0 0;
+  flex-shrink: 0;
+  accent-color: #ff8d28;
+  cursor: pointer;
+}
+
+.filter-flyout-row-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.72);
+  line-height: 1.35;
 }
 
 .filter-flyout-item {
