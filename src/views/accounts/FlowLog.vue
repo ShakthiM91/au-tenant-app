@@ -3,7 +3,7 @@
     <ion-content :fullscreen="true" :scroll-y="true">
       <div class="page-container">
         <!-- Header -->
-        <div class="top-header">
+        <div class="top-header" :class="{ 'top-header--account-menu-open': showAccountOptionsMenu }">
           <button type="button" class="back-btn" @click="$router.back()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="15 18 9 12 15 6"/>
@@ -14,13 +14,46 @@
             <span class="header-subtitle">Flow Log</span>
           </div>
           <div class="header-actions">
-            <button type="button" class="icon-btn" @click="showAccountOptions = true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round">
-                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
-              </svg>
-            </button>
+            <div class="flow-log-menu-wrapper" @click.stop>
+              <button
+                type="button"
+                class="icon-btn"
+                @click.stop="toggleAccountOptionsMenu($event)"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+                </svg>
+              </button>
+              <Transition name="popover-fade">
+                <div
+                  v-if="showAccountOptionsMenu"
+                  class="island-options-popover"
+                  :class="{ 'island-options-popover--up': accountOptionsPopoverOpenUp }"
+                  @click.stop
+                >
+                  <button
+                    v-for="item in flowLogAccountMenuItems"
+                    :key="item.role"
+                    type="button"
+                    class="island-popover-option"
+                    :class="{ destructive: item.destructive }"
+                    @click="onFlowLogAccountMenuSelect(item.role)"
+                  >
+                    {{ item.label }}
+                  </button>
+                </div>
+              </Transition>
+            </div>
           </div>
         </div>
+
+        <Transition name="fade">
+          <div
+            v-if="showAccountOptionsMenu"
+            class="account-options-backdrop"
+            @click="closeAccountOptionsMenu"
+          />
+        </Transition>
 
         <!-- Stats Dashboard -->
         <div v-if="summary" class="stats-dashboard">
@@ -327,13 +360,6 @@
       </ion-content>
     </ion-modal>
 
-    <!-- Account options -->
-    <ion-action-sheet
-      :is-open="showAccountOptions"
-      :buttons="accountOptionsButtons"
-      @didDismiss="onAccountOptionsDismiss"
-    />
-
     <ReconcileModal
       :visible="reconcileVisible"
       :account="reconcileAccount"
@@ -349,7 +375,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { IonPage, IonContent, IonSpinner, IonModal, IonActionSheet } from '@ionic/vue'
+import { IonPage, IonContent, IonSpinner, IonModal } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { getAccountFlowLog, getAccountFlowSummary, getAccountById, getCategoryTree } from '@/api/accounting'
 import { useSyncStore } from '@/store/sync'
@@ -392,7 +418,8 @@ const pageSize = 20
 const pagination = ref(null)
 const detailVisible = ref(false)
 const selectedTransaction = ref(null)
-const showAccountOptions = ref(false)
+const showAccountOptionsMenu = ref(false)
+const accountOptionsPopoverOpenUp = ref(false)
 const reconcileVisible = ref(false)
 const reconcileAccount = ref(null)
 /** Selected category ids (empty = no filter, show all). */
@@ -439,13 +466,55 @@ const flowTypeButtonLabel = computed(() => {
   return `${sel.length} types`
 })
 
-const accountOptionsButtons = [
-  { text: 'Reconcile Balance', role: 'reconcile' },
-  { text: 'Add Transaction', role: 'add-transaction' },
-  { text: 'All Transactions', role: 'all-transactions' },
-  { text: 'Edit Account', role: 'edit' },
-  { text: 'Cancel', role: 'cancel' }
+const flowLogAccountMenuItems = [
+  { role: 'reconcile', label: 'Reconcile Balance', destructive: false },
+  { role: 'add-transaction', label: 'Add Transaction', destructive: false },
+  { role: 'all-transactions', label: 'All Transactions', destructive: false },
+  { role: 'edit', label: 'Edit Account', destructive: false }
 ]
+
+const POPOVER_RESERVE_BOTTOM_PX = 108
+const POPOVER_ITEM_ROW_PX = 46
+const POPOVER_VERTICAL_PAD_PX = 14
+const POPOVER_MAX_HEIGHT_PX = 320
+
+function estimatedAccountMenuPopoverHeightPx(itemCount) {
+  if (itemCount < 1) return POPOVER_MAX_HEIGHT_PX
+  return Math.min(itemCount * POPOVER_ITEM_ROW_PX + POPOVER_VERTICAL_PAD_PX, POPOVER_MAX_HEIGHT_PX)
+}
+
+function setAccountMenuPopoverOpenUpFromTrigger(triggerEl, itemCount) {
+  accountOptionsPopoverOpenUp.value = false
+  if (!triggerEl?.getBoundingClientRect) return
+  const rect = triggerEl.getBoundingClientRect()
+  const vh = window.visualViewport?.height ?? window.innerHeight
+  const spaceBelow = vh - POPOVER_RESERVE_BOTTOM_PX - rect.bottom
+  const spaceAbove = rect.top - 48
+  const need = estimatedAccountMenuPopoverHeightPx(itemCount)
+  if (spaceBelow >= need) {
+    accountOptionsPopoverOpenUp.value = false
+    return
+  }
+  if (spaceAbove >= need || spaceAbove > spaceBelow) {
+    accountOptionsPopoverOpenUp.value = true
+  }
+}
+
+function closeAccountOptionsMenu() {
+  showAccountOptionsMenu.value = false
+  accountOptionsPopoverOpenUp.value = false
+}
+
+function toggleAccountOptionsMenu(event) {
+  closeFilterMenus()
+  if (showAccountOptionsMenu.value) {
+    closeAccountOptionsMenu()
+  } else {
+    const trigger = event?.currentTarget
+    showAccountOptionsMenu.value = true
+    nextTick(() => setAccountMenuPopoverOpenUpFromTrigger(trigger, flowLogAccountMenuItems.length))
+  }
+}
 
 const hasMore = computed(() => {
   if (!pagination.value) return false
@@ -571,11 +640,13 @@ function closeFilterMenus() {
 }
 
 function openCategoryMenu() {
+  closeAccountOptionsMenu()
   typeMenuOpen.value = false
   categoryMenuOpen.value = !categoryMenuOpen.value
 }
 
 function openTypeMenu() {
+  closeAccountOptionsMenu()
   categoryMenuOpen.value = false
   typeMenuOpen.value = !typeMenuOpen.value
 }
@@ -619,6 +690,7 @@ function clearSearchDebounce() {
 }
 
 async function toggleSearchMode() {
+  closeAccountOptionsMenu()
   closeFilterMenus()
   const opening = filterMode.value !== 'search'
   if (!opening) {
@@ -636,6 +708,7 @@ async function toggleSearchMode() {
 }
 
 function openDateFilter() {
+  closeAccountOptionsMenu()
   closeFilterMenus()
   showDatePicker.value = true
 }
@@ -753,9 +826,8 @@ function goEditTransaction(row) {
   }
 }
 
-function onAccountOptionsDismiss(ev) {
-  const role = ev.detail?.role
-  showAccountOptions.value = false
+function onFlowLogAccountMenuSelect(role) {
+  closeAccountOptionsMenu()
   if (role === 'all-transactions') {
     router.push('/transactions')
   } else if (role === 'reconcile') {
@@ -764,7 +836,6 @@ function onAccountOptionsDismiss(ev) {
   } else if (role === 'add-transaction') {
     router.push(`/transactions/create?account_id=${accountId.value}`)
   } else if (role === 'edit') {
-    // TODO: Navigate to edit account when standalone edit route is available
     showToast('Edit from Accounts page')
   }
 }
@@ -968,6 +1039,12 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+/* Above filter pills (55), flyouts (60), and FAB (200); popover extends below header */
+.top-header--account-menu-open {
+  position: relative;
+  z-index: 250;
+}
+
 .back-btn {
   background: none;
   border: none;
@@ -1012,6 +1089,65 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
+.flow-log-menu-wrapper {
+  position: relative;
+}
+
+.island-options-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  max-width: min(92vw, 280px);
+  max-height: min(65dvh, 360px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
+  padding: 6px 0;
+  z-index: 1;
+}
+
+.island-options-popover--up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.island-popover-option {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1a1a2e;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.island-popover-option:active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.island-popover-option.destructive {
+  color: rgba(195, 0, 16, 0.74);
+}
+
+.popover-fade-enter-active,
+.popover-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.popover-fade-enter-from,
+.popover-fade-leave-to {
+  opacity: 0;
+}
 
 .stats-dashboard {
   display: flex;
@@ -1260,6 +1396,13 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   z-index: 50;
+  background: transparent;
+}
+
+.account-options-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 249;
   background: transparent;
 }
 
