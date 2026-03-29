@@ -136,7 +136,7 @@
               <button
                 type="button"
                 class="filter-pill filter-pill-grow filter-pill-type-btn"
-                :class="{ active: typeMenuOpen || !!flowTypeFilter }"
+                :class="{ active: typeMenuOpen || flowTypeFilterValues.length > 0 }"
                 @click.stop="openTypeMenu"
               >
                 <span class="filter-pill-label filter-pill-label-truncate">{{ flowTypeButtonLabel }}</span>
@@ -145,16 +145,28 @@
                 </svg>
               </button>
               <div v-if="typeMenuOpen" class="filter-flyout filter-flyout-type" @click.stop>
-                <button
-                  v-for="f in filterOptions"
-                  :key="`${f.label}-${String(f.value)}`"
-                  type="button"
-                  class="filter-flyout-item"
-                  :class="{ selected: flowTypeFilter === f.value }"
-                  @click="selectFlowType(f.value)"
+                <label class="filter-flyout-row">
+                  <input
+                    type="checkbox"
+                    class="filter-flyout-cb"
+                    :checked="flowTypeFilterValues.length === 0"
+                    @change="onAllFlowTypesCheckboxChange"
+                  />
+                  <span class="filter-flyout-row-text">All types</span>
+                </label>
+                <label
+                  v-for="f in filterTypeOptions"
+                  :key="f.value"
+                  class="filter-flyout-row"
                 >
-                  {{ f.label }}
-                </button>
+                  <input
+                    type="checkbox"
+                    class="filter-flyout-cb"
+                    :checked="isFlowTypeFilterSelected(f.value)"
+                    @change="onFlowTypeCheckboxChange(f.value, $event)"
+                  />
+                  <span class="filter-flyout-row-text">{{ f.label }}</span>
+                </label>
               </div>
             </div>
           </div>
@@ -379,7 +391,8 @@ const loading = ref(false)
 const loadingMore = ref(false)
 const flowLog = ref([])
 const summary = ref(null)
-const flowTypeFilter = ref('')
+/** Selected flow_type values; empty = no filter (all types). */
+const flowTypeFilterValues = ref([])
 const searchQuery = ref('')
 const searchInputRef = ref(null)
 const filterMode = ref('') // '' | 'search' | 'calendar'
@@ -409,13 +422,11 @@ const workspaceIdFromQuery = computed(() => {
 
 const resolvedWorkspaceId = computed(() => workspaceIdFromQuery.value ?? accountWorkspaceId.value)
 
-const filterOptions = [
-  { label: 'All', value: '' },
+const filterTypeOptions = [
   { label: 'Income', value: 'income' },
   { label: 'Expense', value: 'expense' },
   { label: 'Transfer In', value: 'transfer_in' },
-  { label: 'Transfer Out', value: 'transfer_out' },
-  { label: 'Initial', value: 'initial_balance' }
+  { label: 'Transfer Out', value: 'transfer_out' }
 ]
 
 const categoryButtonLabel = computed(() => {
@@ -430,8 +441,14 @@ const categoryButtonLabel = computed(() => {
 })
 
 const flowTypeButtonLabel = computed(() => {
-  const f = filterOptions.find(o => o.value === flowTypeFilter.value)
-  return f?.label ?? 'All'
+  const sel = flowTypeFilterValues.value
+  if (!sel.length) return 'Type'
+  if (sel.length === 1) {
+    const f = filterTypeOptions.find(o => o.value === sel[0])
+    const label = f?.label ?? sel[0]
+    return label.length > 16 ? `${label.slice(0, 14)}…` : label
+  }
+  return `${sel.length} types`
 })
 
 const accountOptionsButtons = [
@@ -575,11 +592,34 @@ function openTypeMenu() {
   typeMenuOpen.value = !typeMenuOpen.value
 }
 
-function selectFlowType(value) {
-  flowTypeFilter.value = value
-  typeMenuOpen.value = false
+function isFlowTypeFilterSelected(value) {
+  return flowTypeFilterValues.value.includes(value)
+}
+
+function reloadFlowLogAfterFlowTypeChange() {
+  if (!isFlowLogRoute() || !accountId.value) return
   currentPage.value = 1
-  fetchFlowLog(1)
+  load()
+}
+
+function onAllFlowTypesCheckboxChange(ev) {
+  if (ev.target.checked) {
+    flowTypeFilterValues.value = []
+    reloadFlowLogAfterFlowTypeChange()
+    return
+  }
+  ev.target.checked = true
+}
+
+function onFlowTypeCheckboxChange(value, ev) {
+  const checked = ev.target.checked
+  const cur = flowTypeFilterValues.value
+  if (checked && !cur.includes(value)) {
+    flowTypeFilterValues.value = [...cur, value].sort()
+  } else if (!checked && cur.includes(value)) {
+    flowTypeFilterValues.value = cur.filter(x => x !== value)
+  }
+  reloadFlowLogAfterFlowTypeChange()
 }
 
 let searchDebounceTimer = null
@@ -782,13 +822,19 @@ function appendSearchParam(params) {
   if (q) params.search = q
 }
 
+function appendFlowTypeFilterParams(params) {
+  const types = flowTypeFilterValues.value
+  if (!types.length) return
+  params.flow_types = types.join(',')
+}
+
 async function fetchFlowLog(page = 1, append = false) {
   if (!isFlowLogRoute() || !accountId.value) return
   if (page === 1) loading.value = true
   else loadingMore.value = true
   try {
     const params = { page, limit: pageSize }
-    if (flowTypeFilter.value) params.flow_type = flowTypeFilter.value
+    appendFlowTypeFilterParams(params)
     if (dateFrom.value) params.from_date = dateFrom.value
     if (dateTo.value) params.to_date = dateTo.value
     appendCategoryFilterParams(params)
@@ -813,6 +859,7 @@ async function fetchSummary() {
     const params = {}
     if (dateFrom.value) params.from_date = dateFrom.value
     if (dateTo.value) params.to_date = dateTo.value
+    appendFlowTypeFilterParams(params)
     appendCategoryFilterParams(params)
     appendSearchParam(params)
     const res = await getAccountFlowSummary(accountId.value, params)
@@ -855,6 +902,7 @@ watch(accountId, async (newId) => {
   if (newId == null) return
   accountWorkspaceId.value = null
   categoryFilterIds.value = []
+  flowTypeFilterValues.value = []
   await fetchAccountWorkspace()
   await load()
   await refetchIfInvalidated()
@@ -865,6 +913,7 @@ watch(
   async (_newVal, oldVal) => {
     if (!isFlowLogRoute()) return
     categoryFilterIds.value = []
+    flowTypeFilterValues.value = []
     await loadCategoryMenu()
     if (oldVal !== undefined && accountId.value) {
       currentPage.value = 1
