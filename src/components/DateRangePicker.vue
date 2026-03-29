@@ -42,6 +42,7 @@
 
           <div class="picker-actions">
             <button type="button" class="action-btn" @click="onCancel">Cancel</button>
+            <button type="button" class="action-btn clear-btn" @click="onClear">Clear</button>
             <button type="button" class="action-btn primary" @click="onConfirm">OK</button>
           </div>
         </div>
@@ -58,7 +59,7 @@ const props = defineProps({
   modelValue: { type: Object, default: () => ({ from: '', to: '' }) }
 })
 
-const emit = defineEmits(['update:modelValue', 'close', 'select'])
+const emit = defineEmits(['update:modelValue', 'close', 'select', 'clear'])
 
 const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -244,6 +245,15 @@ function onConfirm() {
 function onCancel() {
   emit('close')
 }
+
+function onClear() {
+  tempFrom.value = ''
+  tempTo.value = ''
+  emit('update:modelValue', { from: '', to: '' })
+  emit('select', { from: '', to: '' })
+  emit('clear')
+  emit('close')
+}
 </script>
 
 <style scoped>
@@ -405,6 +415,11 @@ function onCancel() {
   display: flex;
   justify-content: flex-end;
   gap: 16px;
+}
+
+.clear-btn {
+  margin-right: auto;
+  color: #6e6a7c;
 }
 
 .action-btn {

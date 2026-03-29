@@ -44,7 +44,7 @@
           </div>
         </div>
 
-        <!-- Unified filter row: search expands on the left; date / category / type stay on the right -->
+        <!-- Filter row: search expands on the left; date / category / type stay on the right -->
         <div class="ledger-filter-row" :class="{ 'ledger-filter-row--search-open': filterMode === 'search' }">
           <div
             class="ledger-filter-search-slot"
@@ -78,7 +78,7 @@
             <button
               type="button"
               class="filter-pill filter-pill-date"
-              :class="{ active: filterMode === 'calendar' || !!(dateFrom || dateTo) }"
+              :class="{ active: !!(dateFrom || dateTo) }"
               @click="openDateFilter"
             >
               <svg class="filter-pill-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2">
@@ -179,18 +179,6 @@
             @click="closeFilterMenus"
           />
         </Transition>
-
-        <div v-if="filterMode === 'calendar'" class="date-range-bar">
-          <button type="button" class="date-range-input" @click="showDatePicker = true">
-            <svg class="calendar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            {{ dateRangeLabel }}
-          </button>
-          <button v-if="dateFrom || dateTo" type="button" class="clear-dates-btn" @click="clearDates">Clear</button>
-        </div>
 
         <DateRangePicker
           :model-value="{ from: dateFrom, to: dateTo }"
@@ -649,7 +637,6 @@ async function toggleSearchMode() {
 
 function openDateFilter() {
   closeFilterMenus()
-  filterMode.value = 'calendar'
   showDatePicker.value = true
 }
 
@@ -1025,48 +1012,6 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent;
 }
 
-.date-range-bar {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.date-range-input {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid #E8E8E8;
-  background: #fff;
-  font-size: 14px;
-  color: #1A1A2E;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.date-range-input:focus {
-  outline: none;
-  border-color: #FF8D28;
-}
-
-.date-range-input .calendar-icon {
-  color: #FF8D28;
-  flex-shrink: 0;
-}
-
-.clear-dates-btn {
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid #E8E8E8;
-  background: #fff;
-  font-size: 13px;
-  color: #6E6A7C;
-  cursor: pointer;
-}
 
 .stats-dashboard {
   display: flex;
