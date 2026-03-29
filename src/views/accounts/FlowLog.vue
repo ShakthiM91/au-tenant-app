@@ -361,7 +361,17 @@ import DateRangePicker from '@/components/DateRangePicker.vue'
 const route = useRoute()
 const router = useRouter()
 const syncStore = useSyncStore()
-const accountId = computed(() => route.params.id)
+
+/** Flow log uses `/accounts/:id/flow-log`; `/transactions/:id` also uses `params.id` — scope by route name to avoid phantom loads when navigating to transaction edit. */
+const accountId = computed(() => {
+  if (route.name !== 'AccountFlowLog') return null
+  const raw = route.params.id
+  return raw != null && raw !== '' ? Number(raw) : null
+})
+
+function isFlowLogRoute() {
+  return route.name === 'AccountFlowLog'
+}
 
 const accountName = ref('')
 const currency = ref('USD')
@@ -628,6 +638,7 @@ function flattenCategoryLabels(arr, prefix = '') {
 }
 
 async function loadCategoryMenu() {
+  if (!isFlowLogRoute()) return
   categoriesLoading.value = true
   try {
     const wsId = resolvedWorkspaceId.value
@@ -655,7 +666,7 @@ function isCategoryFilterSelected(id) {
 }
 
 function reloadFlowLogAfterCategoryChange() {
-  if (!accountId.value) return
+  if (!isFlowLogRoute() || !accountId.value) return
   currentPage.value = 1
   load()
 }
@@ -682,7 +693,7 @@ function onCategoryCheckboxChange(id, ev) {
 }
 
 async function fetchAccountWorkspace() {
-  if (!accountId.value) return
+  if (!isFlowLogRoute() || !accountId.value) return
   try {
     const res = await getAccountById(accountId.value)
     const acc = res?.data ?? res
@@ -710,6 +721,7 @@ function goEditTransaction(row) {
   const txnId = row.transaction_id ?? row.id
   if (txnId) {
     detailVisible.value = false
+    clearSearchDebounce()
     router.push(`/transactions/${txnId}`)
   }
 }
@@ -771,7 +783,7 @@ function appendSearchParam(params) {
 }
 
 async function fetchFlowLog(page = 1, append = false) {
-  if (!accountId.value) return
+  if (!isFlowLogRoute() || !accountId.value) return
   if (page === 1) loading.value = true
   else loadingMore.value = true
   try {
@@ -796,7 +808,7 @@ async function fetchFlowLog(page = 1, append = false) {
 }
 
 async function fetchSummary() {
-  if (!accountId.value) return
+  if (!isFlowLogRoute() || !accountId.value) return
   try {
     const params = {}
     if (dateFrom.value) params.from_date = dateFrom.value
@@ -811,6 +823,7 @@ async function fetchSummary() {
 }
 
 async function load() {
+  if (!isFlowLogRoute() || !accountId.value) return
   currentPage.value = 1
   await Promise.all([fetchFlowLog(1), fetchSummary()])
 }
@@ -822,6 +835,7 @@ async function loadMore() {
 }
 
 async function refetchIfInvalidated() {
+  if (!isFlowLogRoute()) return
   const id = Number(accountId.value)
   if (id && syncStore.invalidatedAccountIds?.has(id)) {
     await load()
@@ -837,7 +851,8 @@ onMounted(async () => {
   await refetchIfInvalidated()
 })
 
-watch(accountId, async () => {
+watch(accountId, async (newId) => {
+  if (newId == null) return
   accountWorkspaceId.value = null
   categoryFilterIds.value = []
   await fetchAccountWorkspace()
@@ -848,6 +863,7 @@ watch(accountId, async () => {
 watch(
   () => resolvedWorkspaceId.value,
   async (_newVal, oldVal) => {
+    if (!isFlowLogRoute()) return
     categoryFilterIds.value = []
     await loadCategoryMenu()
     if (oldVal !== undefined && accountId.value) {
@@ -859,6 +875,7 @@ watch(
 )
 
 watch(categoryMenuOptions, opts => {
+  if (!isFlowLogRoute()) return
   const valid = new Set(opts.map(o => o.id))
   const next = categoryFilterIds.value.filter(id => valid.has(id))
   if (next.length !== categoryFilterIds.value.length) {
@@ -871,16 +888,19 @@ watch(categoryMenuOptions, opts => {
 })
 
 watch([dateFrom, dateTo], () => {
+  if (!isFlowLogRoute()) return
   if (filterMode.value === 'calendar' && (dateFrom.value || dateTo.value)) {
     load()
   }
 })
 
 watch(searchQuery, () => {
+  if (!isFlowLogRoute()) return
   if (filterMode.value !== 'search' || !accountId.value) return
   clearSearchDebounce()
   searchDebounceTimer = setTimeout(() => {
     searchDebounceTimer = null
+    if (!isFlowLogRoute()) return
     currentPage.value = 1
     load()
   }, 320)

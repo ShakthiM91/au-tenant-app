@@ -222,7 +222,6 @@
             :visible="showCalculator"
             :model-value="form.amount"
             :currency="form.currency"
-            :budget="budgetContext"
             @close="showCalculator = false"
             @select="onAmountSelect"
           />
@@ -389,7 +388,7 @@ import CategoryForm from '@/views/categories/components/CategoryForm.vue'
 import DatePicker from '@/components/DatePicker.vue'
 import TimePicker from '@/components/TimePicker.vue'
 import AmountCalculator from '@/components/AmountCalculator.vue'
-import { createTransaction, updateTransaction, getTransactionById, deleteTransaction, getCategoryTree, getAccounts, getAccountsByWorkspace, getPrimaryAccount, getBudgetContext, getAccountById } from '@/api/accounting'
+import { createTransaction, updateTransaction, getTransactionById, deleteTransaction, getCategoryTree, getPrimaryAccount } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 import { useSyncStore } from '@/store/sync'
@@ -461,7 +460,6 @@ const showCategoryForm = ref(false)
 const showDatePicker = ref(false)
 const showTimePicker = ref(false)
 const showCalculator = ref(false)
-const budgetContext = ref(null)
 const showWorkspacePicker = ref(false)
 const workspaceSearchQuery = ref('')
 const workspaceOptions = ref([])
@@ -545,7 +543,6 @@ const showBrowseAllCategories = computed(
 
 function selectCategory(value) {
   form.category_id = value
-  loadBudgetContext(value)
 }
 
 const selectedAccount = computed(() => {
@@ -654,6 +651,115 @@ const effectiveWorkspaceId = computed(() => {
   return manualWorkspaceId.value
 })
 
+/** Minimal account rows for pickers without GET /api/accounting/accounts (matches mobile: no account list fetch). */
+function syntheticAccount({ id, name, currency, workspaceId = null }) {
+  const nid = Number(id)
+  if (Number.isNaN(nid)) return null
+  return {
+    id: nid,
+    name: (name && String(name).trim()) || `Account ${nid}`,
+    current_balance: null,
+    balance: null,
+    currency: currency || 'USD',
+    type: null,
+    credit_limit: null,
+    is_active: true,
+    workspace_id: workspaceId
+  }
+}
+
+function mergeUniqueAccounts(rows) {
+  const map = new Map()
+  for (const a of rows) {
+    if (!a || a.id == null) continue
+    const nid = Number(a.id)
+    if (Number.isNaN(nid)) continue
+    map.set(nid, { ...a, id: nid })
+  }
+  return [...map.values()]
+}
+
+function setAccountOptionsFromTransaction(t) {
+  const rows = []
+  const cur = t.currency || 'USD'
+  const ws =
+    t.account_workspace_id != null && t.account_workspace_id !== ''
+      ? Number(t.account_workspace_id)
+      : null
+  const aid = t.account_id != null ? Number(t.account_id) : null
+  const toId = t.to_account_id != null ? Number(t.to_account_id) : null
+  if (aid != null && !Number.isNaN(aid)) {
+    const row = syntheticAccount({ id: aid, name: t.account_name, currency: cur, workspaceId: ws })
+    if (row) rows.push(row)
+  }
+  if (toId != null && !Number.isNaN(toId) && toId !== aid) {
+    const row = syntheticAccount({ id: toId, name: t.to_account_name, currency: cur, workspaceId: ws })
+    if (row) rows.push(row)
+  }
+  accountOptions.value = mergeUniqueAccounts(rows)
+}
+
+function filterAccountOptionsToWorkspace() {
+  if (isEdit) return
+  const wid = effectiveWorkspaceId.value
+  accountOptions.value = accountOptions.value.filter((a) => {
+    const w = a.workspace_id
+    if (wid == null) return w == null || w === undefined || w === ''
+    return Number(w) === Number(wid)
+  })
+}
+
+/** @returns {{ primaryId: number | null }} */
+async function hydrateCreateAccountOptions() {
+  const rows = []
+  const qAid = route.query.account_id
+  const accountId = qAid != null && qAid !== '' ? Number(qAid) : null
+  let nameHint = ''
+  if (route.query.account_name) {
+    try {
+      nameHint = decodeURIComponent(String(route.query.account_name))
+    } catch {
+      nameHint = String(route.query.account_name)
+    }
+  }
+  const cur = form.currency || 'USD'
+  const curFromQuery = route.query.currency ? String(route.query.currency) : cur
+
+  let wsForRow = null
+  if (workspaceIdFromRoute.value != null) wsForRow = workspaceIdFromRoute.value
+  else if (route.query.default_island === '1') wsForRow = null
+  else if (workspacePicked.value) wsForRow = manualWorkspaceId.value
+
+  if (accountId != null && !Number.isNaN(accountId)) {
+    const row = syntheticAccount({
+      id: accountId,
+      name: nameHint || 'Account',
+      currency: curFromQuery,
+      workspaceId: wsForRow
+    })
+    if (row) rows.push(row)
+  }
+
+  let primaryId = null
+  try {
+    const res = await getPrimaryAccount()
+    primaryId = res?.data?.account_id ?? res?.account_id ?? null
+    if (primaryId != null && !rows.some((r) => Number(r.id) === Number(primaryId))) {
+      const row = syntheticAccount({
+        id: primaryId,
+        name: 'Primary account',
+        currency: cur,
+        workspaceId: null
+      })
+      if (row) rows.push(row)
+    }
+  } catch (_) {}
+
+  accountOptions.value = mergeUniqueAccounts(rows)
+  filterAccountOptionsToWorkspace()
+  return { primaryId }
+}
+
 const showWorkspaceRow = computed(() => {
   if (isEdit) return false
   if (workspaceIdFromRoute.value != null) return false
@@ -757,9 +863,9 @@ function selectWorkspace(wsId) {
   manualWorkspaceId.value = wsId
   workspacePicked.value = true
   form.category_id = null
-  budgetContext.value = null
   showWorkspacePicker.value = false
   loadOptions().then(() => {
+    filterAccountOptionsToWorkspace()
     if (form.account_id != null && !accountOptions.value.some(a => Number(a.id) === Number(form.account_id))) {
       form.account_id = null
     }
@@ -768,30 +874,10 @@ function selectWorkspace(wsId) {
   })
 }
 
+/** Currencies only — no GET /api/accounting/accounts (mobile loads accounts once; we use synthetic rows). */
 async function loadOptions() {
   try {
-    const ws = effectiveWorkspaceId.value
-    const [accRes, curRes] = await Promise.all([
-      (async () => {
-        if (isEdit) {
-          if (ws != null) return getAccountsByWorkspace(ws, { is_active: true })
-          return getAccounts({ is_active: true })
-        }
-        if (ws === undefined) {
-          return getAccounts({ is_active: true })
-        }
-        if (ws != null) {
-          return getAccountsByWorkspace(ws, { is_active: true })
-        }
-        return getAccounts({ is_active: true })
-      })(),
-      getTenantCurrencies().catch(() => ({ data: { data: [{ code: 'USD', name: 'USD' }] } }))
-    ])
-    const accData = accRes?.data ?? (Array.isArray(accRes) ? accRes : [])
-    accountOptions.value = Array.isArray(accData) ? accData : (accData?.data ?? [])
-    if (!isEdit && ws === null) {
-      accountOptions.value = accountOptions.value.filter(a => a.workspace_id == null)
-    }
+    const curRes = await getTenantCurrencies().catch(() => ({ data: { data: [{ code: 'USD', name: 'USD' }] } }))
     const cur = curRes?.data?.data ?? curRes?.data
     if (Array.isArray(cur) && cur.length) {
       currencyOptions.value = cur.map((c) => ({ value: c.code, text: `${c.code} - ${c.name || c.code}` }))
@@ -832,29 +918,6 @@ async function onCategoryFormSuccess() {
   await loadCategories()
 }
 
-async function loadBudgetContext(categoryId) {
-  if (!categoryId || form.type !== 'expense') {
-    budgetContext.value = null
-    return
-  }
-  try {
-    // If it's a subcategory, use its parent's ID for budget lookup
-    const cat = categoryOptions.value.find(c => c.value === Number(categoryId))
-    const lookupId = cat?.parentId ?? categoryId
-    const date = (form.transaction_date || new Date().toISOString()).slice(0, 10)
-    const res = await getBudgetContext({ category_id: lookupId, date })
-    const data = res?.data?.data ?? res?.data ?? res
-    // Only set if we have meaningful budget data
-    if (data && data.monthly_limit != null) {
-      budgetContext.value = data
-    } else {
-      budgetContext.value = null
-    }
-  } catch {
-    budgetContext.value = null
-  }
-}
-
 function checkCreditLimit() {
   if (!selectedAccount.value || form.amount == null) {
     creditWarning.value = null
@@ -875,7 +938,6 @@ function checkCreditLimit() {
 
 function selectType(value) {
   form.type = value
-  budgetContext.value = null
   if (value === 'transfer') {
     form.category_id = null
     if (form.to_account_id != null && form.to_account_id === form.account_id) form.to_account_id = null
@@ -941,16 +1003,9 @@ async function loadEdit() {
     const toId = t.to_account_id != null ? Number(t.to_account_id) : null
 
     editWorkspaceId.value = null
-    if (aid != null) {
-      try {
-        const accRes = await getAccountById(aid)
-        const acc = accRes?.data ?? accRes
-        if (acc?.workspace_id != null && acc.workspace_id !== '') {
-          editWorkspaceId.value = Number(acc.workspace_id)
-        }
-      } catch (_) {
-        /* keep null → default-tenant categories */
-      }
+    const aw = t.account_workspace_id
+    if (aw != null && aw !== '') {
+      editWorkspaceId.value = Number(aw)
     }
 
     form.transaction_number = t.transaction_number || ''
@@ -965,11 +1020,11 @@ async function loadEdit() {
     form.category_id = null
     form.type = t.type || 'income'
 
+    setAccountOptionsFromTransaction(t)
     await loadOptions()
     await loadCategories()
     await nextTick()
     form.category_id = catId
-    loadBudgetContext(catId)
   } catch (e) {
     showToast('Failed to load')
     router.back()
@@ -1023,7 +1078,7 @@ async function submit(stayAndAddNew = false) {
       showToast(isEdit ? 'Updated' : 'Created')
     }
     syncStore.setTransactionListInvalidated()
-    await invalidateAccountingCache({ accounts: true, categories: false })
+    await invalidateAccountingCache({ accounts: false, categories: false })
     syncStore.addInvalidatedAccountIds([form.account_id, form.to_account_id].filter(Boolean))
 
     if (stayAndAddNew && !isEdit) {
@@ -1058,7 +1113,7 @@ async function onDelete() {
     await deleteTransaction(id)
     showToast('Deleted')
     syncStore.setTransactionListInvalidated()
-    await invalidateAccountingCache({ accounts: true, categories: false })
+    await invalidateAccountingCache({ accounts: false, categories: false })
     router.back()
   } catch (e) {
     if (e !== 'cancel') showToast(e?.message || 'Delete failed')
@@ -1077,22 +1132,6 @@ onMounted(async () => {
     manualWorkspaceId.value = null
   }
 
-  if (!isEdit) {
-    const queryAccountId = route.query.account_id
-    const accountId = queryAccountId != null && queryAccountId !== '' ? Number(queryAccountId) : null
-    if (accountId != null && workspaceIdFromRoute.value == null) {
-      try {
-        const res = await getAccountById(accountId)
-        const acc = res?.data ?? res
-        if (acc) {
-          workspacePicked.value = true
-          manualWorkspaceId.value =
-            acc.workspace_id != null && acc.workspace_id !== '' ? Number(acc.workspace_id) : null
-        }
-      } catch (_) {}
-    }
-  }
-
   if (isEdit) {
     editWorkspaceId.value = null
     await loadEdit()
@@ -1105,20 +1144,17 @@ onMounted(async () => {
     form.transaction_date = getCurrentDateTimeString()
     form.amount = 0
     await loadCategories()
+    const { primaryId } = await hydrateCreateAccountOptions()
     const accountId = queryAccountId != null && queryAccountId !== '' ? Number(queryAccountId) : null
     if (accountId != null && accountOptions.value.some((a) => Number(a.id) === accountId)) {
       form.account_id = accountId
-      checkCreditLimit()
-    } else {
-      try {
-        const res = await getPrimaryAccount()
-        const primaryId = res?.data?.account_id ?? null
-        if (primaryId != null && accountOptions.value.some((a) => a.id === primaryId)) {
-          form.account_id = primaryId
-          checkCreditLimit()
-        }
-      } catch (_) {}
+    } else if (
+      primaryId != null &&
+      accountOptions.value.some((a) => Number(a.id) === Number(primaryId))
+    ) {
+      form.account_id = primaryId
     }
+    checkCreditLimit()
   }
 })
 </script>
