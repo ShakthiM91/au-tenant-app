@@ -360,6 +360,14 @@
       </ion-content>
     </ion-modal>
 
+    <AccountForm
+      :is-open="accountFormOpen"
+      :account="accountFormAccount"
+      :preselected-workspace-id="accountFormWorkspaceId ?? null"
+      @close="onAccountFormClose"
+      @success="onAccountFormSuccess"
+    />
+
     <ReconcileModal
       :visible="reconcileVisible"
       :account="reconcileAccount"
@@ -378,8 +386,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { IonPage, IonContent, IonSpinner, IonModal } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { getAccountFlowLog, getAccountFlowSummary, getAccountById, getCategoryTree } from '@/api/accounting'
+import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
+import { invalidateAccountingCache } from '@/db/readCache'
 import { useSyncStore } from '@/store/sync'
 import ReconcileModal from './components/ReconcileModal.vue'
+import AccountForm from './components/AccountForm.vue'
 import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
 
 import DateRangePicker from '@/components/DateRangePicker.vue'
@@ -427,6 +438,11 @@ const categoryFilterIds = ref([])
 const categoryMenuOptions = ref([])
 const categoriesLoading = ref(false)
 const accountWorkspaceId = ref(null)
+/** Display name for workspace (island); used in transaction/category query strings. */
+const accountWorkspaceLabel = ref('')
+const accountFormOpen = ref(false)
+const accountFormAccount = ref(null)
+const accountFormWorkspaceId = ref(null)
 const categoryMenuOpen = ref(false)
 const typeMenuOpen = ref(false)
 
@@ -467,10 +483,12 @@ const flowTypeButtonLabel = computed(() => {
 })
 
 const flowLogAccountMenuItems = [
-  { role: 'reconcile', label: 'Reconcile Balance', destructive: false },
+  { role: 'rename', label: 'Rename', destructive: false },
+  { role: 'transaction-log', label: 'Island transaction log', destructive: false },
   { role: 'add-transaction', label: 'Add Transaction', destructive: false },
-  { role: 'all-transactions', label: 'All Transactions', destructive: false },
-  { role: 'edit', label: 'Edit Account', destructive: false }
+  { role: 'reconcile', label: 'Reconcile', destructive: false },
+  { role: 'manage-categories', label: 'Manage categories', destructive: false },
+  // { role: 'all-transactions', label: 'All transactions', destructive: false }
 ]
 
 const POPOVER_RESERVE_BOTTOM_PX = 108
@@ -794,11 +812,26 @@ function onCategoryCheckboxChange(id, ev) {
 
 async function fetchAccountWorkspace() {
   if (!isFlowLogRoute() || !accountId.value) return
+  accountWorkspaceLabel.value = ''
   try {
     const res = await getAccountById(accountId.value)
     const acc = res?.data ?? res
     if (acc?.workspace_id != null && acc.workspace_id !== '') {
       accountWorkspaceId.value = Number(acc.workspace_id)
+    } else {
+      accountWorkspaceId.value = null
+    }
+    const wsId = accountWorkspaceId.value
+    if (wsId != null) {
+      try {
+        const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
+        const own = ownRes?.data ?? []
+        const shared = sharedRes?.data?.active ?? []
+        const found = [...own, ...shared].find(w => Number(w.id) === Number(wsId))
+        if (found?.name) accountWorkspaceLabel.value = String(found.name)
+      } catch (_) {
+        /* optional label */
+      }
     }
   } catch (_) {
     /* keep query-only workspace if any */
@@ -826,17 +859,79 @@ function goEditTransaction(row) {
   }
 }
 
+function workspaceNavQueryString() {
+  const qs = new URLSearchParams()
+  const id = resolvedWorkspaceId.value
+  if (id != null && id !== '') qs.set('workspace_id', String(id))
+  const label = accountWorkspaceLabel.value
+  if (label) qs.set('workspace_name', encodeURIComponent(label))
+  return qs.toString()
+}
+
+function goWorkspaceTransactionLog() {
+  const q = workspaceNavQueryString()
+  router.push(q ? `/transactions?${q}` : '/transactions')
+}
+
+function goManageCategoriesForWorkspace() {
+  const q = workspaceNavQueryString()
+  router.push(q ? `/accounting/categories?${q}` : '/accounting/categories')
+}
+
+async function openRenameAccountForm() {
+  if (!accountId.value) return
+  try {
+    const res = await getAccountById(accountId.value)
+    const acc = res?.data ?? res
+    if (!acc) {
+      showToast('Could not load account')
+      return
+    }
+    accountFormAccount.value = { ...acc }
+    accountFormWorkspaceId.value =
+      acc.workspace_id != null && acc.workspace_id !== '' ? Number(acc.workspace_id) : null
+    accountFormOpen.value = true
+  } catch (_) {
+    showToast('Could not load account')
+  }
+}
+
+function onAccountFormClose() {
+  accountFormOpen.value = false
+  accountFormWorkspaceId.value = null
+  accountFormAccount.value = null
+}
+
+async function onAccountFormSuccess() {
+  onAccountFormClose()
+  await invalidateAccountingCache({ accounts: true })
+  await fetchAccountWorkspace()
+  try {
+    const res = await getAccountById(accountId.value)
+    const acc = res?.data ?? res
+    if (acc?.name) accountName.value = acc.name
+    if (acc?.currency) currency.value = acc.currency
+  } catch (_) {
+    /* keep route query labels */
+  }
+  await load()
+}
+
 function onFlowLogAccountMenuSelect(role) {
   closeAccountOptionsMenu()
-  if (role === 'all-transactions') {
+  if (role === 'rename') {
+    openRenameAccountForm()
+  } else if (role === 'transaction-log') {
+    goWorkspaceTransactionLog()
+  } else if (role === 'manage-categories') {
+    goManageCategoriesForWorkspace()
+  } else if (role === 'all-transactions') {
     router.push('/transactions')
   } else if (role === 'reconcile') {
     reconcileAccount.value = { id: accountId.value, name: accountName.value, currency: currency.value }
     loadAccountForReconcile()
   } else if (role === 'add-transaction') {
     router.push(`/transactions/create?account_id=${accountId.value}`)
-  } else if (role === 'edit') {
-    showToast('Edit from Accounts page')
   }
 }
 
