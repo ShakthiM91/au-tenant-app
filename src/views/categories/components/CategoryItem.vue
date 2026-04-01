@@ -1,49 +1,100 @@
 <template>
-  <div class="category-item" :style="{ paddingLeft: depth * 16 + 'px' }">
-    <div class="category-row" @click="toggleExpand">
-      <div class="cat-left">
-        <button
-          v-if="category.children?.length"
-          class="expand-btn"
-          :class="{ expanded }"
+  <div class="category-item-root" :class="{ 'is-nested': depth > 0 }">
+    <template v-if="depth === 0">
+      <div class="category-card">
+        <div
+          class="card-header"
+          :class="{ 'is-expandable': hasChildren }"
+          @click="onRowToggle"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6E6A7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 6 15 12 9 18"/>
-          </svg>
-        </button>
-        <div v-else class="expand-placeholder" />
-        <div class="cat-info">
-          <span class="cat-name">{{ category.name }}</span>
-          <span v-if="category.description" class="cat-desc">{{ category.description }}</span>
+          <span class="card-title">{{ category.name }}</span>
+          <div class="card-header-right">
+            <span v-if="category.is_default" class="badge default-badge">Default</span>
+            <span v-else-if="!category.is_active" class="badge inactive-badge">Inactive</span>
+            <span v-if="childrenSumLabel" class="card-sum">{{ childrenSumLabel }}</span>
+            <button
+              v-if="editable"
+              type="button"
+              class="more-btn more-btn--accent"
+              aria-label="Category actions"
+              @click.stop="showActions = true"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="6" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="18" r="1.5" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p v-if="category.description" class="card-desc">{{ category.description }}</p>
+        <div v-if="hasChildren && expanded" class="card-children">
+          <CategoryItem
+            v-for="child in category.children"
+            :key="child.id"
+            :category="child"
+            :depth="1"
+            @edit="$emit('edit', $event)"
+            @delete="$emit('delete', $event)"
+            @toggle-active="(c, a) => $emit('toggle-active', c, a)"
+            @add-child="$emit('add-child', $event)"
+          />
         </div>
       </div>
-      <div class="cat-right">
-        <span v-if="category.is_default" class="badge default-badge">Default</span>
-        <span v-else-if="!category.is_active" class="badge inactive-badge">Inactive</span>
-        <button
-          v-if="!category.is_default && category.tenant_id != null"
-          class="more-btn"
-          @click.stop="showActions = true"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#A7A7A7">
-            <circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/>
-          </svg>
-        </button>
-      </div>
-    </div>
+    </template>
 
-    <div v-if="expanded && category.children?.length" class="category-children">
-      <CategoryItem
-        v-for="child in category.children"
-        :key="child.id"
-        :category="child"
-        :depth="depth + 1"
-        @edit="$emit('edit', $event)"
-        @delete="$emit('delete', $event)"
-        @toggle-active="(c, a) => $emit('toggle-active', c, a)"
-        @add-child="$emit('add-child', $event)"
-      />
-    </div>
+    <template v-else>
+      <div
+        class="child-row"
+        :class="{ 'is-expandable': hasChildren }"
+        :style="{ paddingLeft: (depth - 1) * 12 + 'px' }"
+        @click="onRowToggle"
+      >
+        <div class="child-row-left">
+          <span class="grip-icon" aria-hidden="true">
+            <svg width="12" height="13" viewBox="0 0 12 13" fill="none" aria-hidden="true">
+              <rect x="0" y="0" width="12" height="2.5" rx="1" fill="#A8A8A8" />
+              <rect x="0" y="4.5" width="12" height="4" rx="1" fill="#A8A8A8" />
+              <rect x="0" y="10.5" width="12" height="2.5" rx="1" fill="#A8A8A8" />
+            </svg>
+          </span>
+          <div class="child-text">
+            <span class="child-name">{{ category.name }}</span>
+            <span v-if="category.description" class="child-desc">{{ category.description }}</span>
+          </div>
+        </div>
+        <div class="child-row-right">
+          <span v-if="rowAmountLabel" class="child-amount">{{ rowAmountLabel }}</span>
+          <span v-if="category.is_default" class="badge default-badge badge--sm">Default</span>
+          <span v-else-if="!category.is_active" class="badge inactive-badge badge--sm">Inactive</span>
+          <button
+            v-if="editable"
+            type="button"
+            class="more-btn more-btn--muted"
+            aria-label="Category actions"
+            @click.stop="showActions = true"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="6" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="18" r="1.5" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div v-if="hasChildren && expanded" class="child-nested">
+        <CategoryItem
+          v-for="child in category.children"
+          :key="child.id"
+          :category="child"
+          :depth="depth + 1"
+          @edit="$emit('edit', $event)"
+          @delete="$emit('delete', $event)"
+          @toggle-active="(c, a) => $emit('toggle-active', c, a)"
+          @add-child="$emit('add-child', $event)"
+        />
+      </div>
+    </template>
 
     <ion-action-sheet
       :is-open="showActions"
@@ -55,9 +106,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { IonActionSheet } from '@ionic/vue'
 import CategoryItem from './CategoryItem.vue'
+
+const AMOUNT_KEYS = ['budget_amount', 'total_amount', 'amount', 'allocated_amount']
 
 const props = defineProps({
   category: { type: Object, required: true },
@@ -66,21 +119,57 @@ const props = defineProps({
 
 const emit = defineEmits(['edit', 'delete', 'toggle-active', 'add-child'])
 
-const expanded = ref(false)
+const expanded = ref(Boolean(props.category.children?.length))
 const showActions = ref(false)
 
-const actionButtons = [
+const hasChildren = computed(() => Boolean(props.category.children?.length))
+
+const editable = computed(() => !props.category.is_default && props.category.tenant_id != null)
+
+function pickAmount(obj) {
+  for (const k of AMOUNT_KEYS) {
+    if (obj[k] != null && obj[k] !== '') {
+      const n = Number(obj[k])
+      if (!Number.isNaN(n)) return n
+    }
+  }
+  return null
+}
+
+function formatMoney(n) {
+  return Number(n).toLocaleString('en-AU', { maximumFractionDigits: 0 })
+}
+
+const childrenSumLabel = computed(() => {
+  const children = props.category.children || []
+  let sum = 0
+  let found = false
+  for (const c of children) {
+    const v = pickAmount(c)
+    if (v != null) {
+      sum += v
+      found = true
+    }
+  }
+  if (!found) return null
+  return `∑ ${formatMoney(sum)}`
+})
+
+const rowAmountLabel = computed(() => {
+  const v = pickAmount(props.category)
+  return v != null ? formatMoney(v) : null
+})
+
+const actionButtons = computed(() => [
   { text: 'Add Child', role: 'add-child' },
   { text: 'Edit', role: 'edit' },
   { text: props.category.is_active ? 'Deactivate' : 'Activate', role: 'toggle' },
   { text: 'Delete', role: 'destructive' },
   { text: 'Cancel', role: 'cancel' }
-]
+])
 
-function toggleExpand() {
-  if (props.category.children?.length) {
-    expanded.value = !expanded.value
-  }
+function onRowToggle() {
+  if (hasChildren.value) expanded.value = !expanded.value
 }
 
 function onActionDismiss(ev) {
@@ -94,79 +183,160 @@ function onActionDismiss(ev) {
 </script>
 
 <style scoped>
-.category-item {
-  padding-right: 12px;
+.category-item-root.is-nested {
+  margin: 0;
 }
 
-.category-row {
+.category-item-root:not(.is-nested) {
+  margin: 0 11px 8px;
+}
+
+.category-card {
+  background: #fff;
+  border-radius: 13px;
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.16);
+  padding: 3px 11px 11px;
+}
+
+.card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 4px;
-  border-bottom: 1px solid #F5F5F7;
-  cursor: pointer;
+  gap: 12px;
+  min-height: 28px;
   -webkit-tap-highlight-color: transparent;
 }
 
-.category-row:active {
-  background: #FAFAFA;
+.card-header.is-expandable {
+  cursor: pointer;
 }
 
-.cat-left {
+.card-header.is-expandable:active {
+  opacity: 0.85;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 24px;
+  color: rgba(255, 141, 40, 0.75);
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.expand-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
+.card-sum {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 24px;
+  color: rgba(255, 141, 40, 0.75);
+  white-space: nowrap;
+}
+
+.card-desc {
+  margin: 0 0 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.card-children {
   display: flex;
-  transition: transform 0.2s;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+}
+
+.child-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+  padding: 2px 0;
   -webkit-tap-highlight-color: transparent;
 }
 
-.expand-btn.expanded {
-  transform: rotate(90deg);
+.child-row.is-expandable {
+  cursor: pointer;
 }
 
-.expand-placeholder {
+.child-row.is-expandable:active {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+}
+
+.child-row-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.grip-icon {
+  display: flex;
+  flex-shrink: 0;
   width: 18px;
+  justify-content: center;
+  align-items: center;
 }
 
-.cat-info {
+.child-text {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
 }
 
-.cat-name {
+.child-name {
   font-size: 14px;
   font-weight: 500;
-  color: #1A1A2E;
+  line-height: 24px;
+  color: rgba(0, 0, 0, 0.72);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.cat-desc {
+.child-desc {
   font-size: 11px;
-  color: #A7A7A7;
+  color: #A8A8A8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.cat-right {
+.child-row-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.child-amount {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 24px;
+  color: #A8A8A8;
+  white-space: nowrap;
+}
+
+.child-nested {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .badge {
@@ -174,6 +344,12 @@ function onActionDismiss(ev) {
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 10px;
+  white-space: nowrap;
+}
+
+.badge--sm {
+  font-size: 9px;
+  padding: 1px 6px;
 }
 
 .default-badge {
@@ -183,20 +359,25 @@ function onActionDismiss(ev) {
 
 .inactive-badge {
   background: rgba(255, 141, 40, 0.1);
-  color: #FF8D28;
+  color: #ff8d28;
 }
 
 .more-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: 2px;
   display: flex;
+  align-items: center;
+  justify-content: center;
   -webkit-tap-highlight-color: transparent;
 }
 
-.category-children {
-  margin-left: 8px;
-  border-left: 2px solid #F0F0F0;
+.more-btn--accent {
+  color: #ff8d28;
+}
+
+.more-btn--muted {
+  color: #a8a8a8;
 }
 </style>
