@@ -4,15 +4,41 @@
       <div class="page-container">
         <div class="page-header">
           <button class="back-btn" @click="$router.back()" aria-label="Back">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="15 18 9 12 15 6"/>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
-          <span class="page-title">{{ workspaceName ? `Categories – ${workspaceName}` : 'Manage Categories' }}</span>
+          <div class="page-title-block">
+            <span class="page-title">Categories</span>
+            <span v-if="workspaceName" class="page-title-ws">{{ workspaceName }}</span>
+          </div>
           <div class="header-actions">
-            <button class="icon-btn" @click="openForm()">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            <button type="button" class="icon-btn icon-btn--accent" aria-label="Add category" @click="openForm()">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icon-btn icon-btn--accent"
+              :class="{ 'is-active': sortAlphabetically }"
+              aria-label="Sort categories A–Z"
+              @click="sortAlphabetically = !sortAlphabetically"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="3" y1="7" x2="13" y2="7" />
+                <line x1="3" y1="12" x2="9" y2="12" />
+                <line x1="3" y1="17" x2="7" y2="17" />
+                <line x1="18" y1="5" x2="18" y2="14" />
+                <polyline points="15 11 18 14 21 11" />
+              </svg>
+            </button>
+            <button type="button" class="icon-btn icon-btn--accent" aria-label="More options" @click.stop="openHeaderMore($event)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="6" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="18" r="1.5" fill="currentColor" />
               </svg>
             </button>
           </div>
@@ -73,23 +99,66 @@
       @success="onFormSuccess"
     />
 
-    <FloatingAddButton @select="onFabSelect" />
+    <ion-popover
+      :is-open="showHeaderMore"
+      :event="headerMoreEvent"
+      :dismiss-on-select="true"
+      :arrow="false"
+      class="categories-header-more-popover"
+      @didDismiss="onHeaderMorePopoverDismiss"
+    >
+      <ion-content class="categories-header-more-content" :scroll-y="false">
+        <ion-list lines="none" class="header-more-list">
+          <ion-item
+            button
+            lines="none"
+            :detail="false"
+            class="header-more-item"
+            @click="onHeaderMoreOption('select')"
+          >
+            <ion-label class="header-more-label header-more-label--lead">Select</ion-label>
+          </ion-item>
+          <ion-item
+            button
+            lines="none"
+            :detail="false"
+            class="header-more-item"
+            @click="onHeaderMoreOption('setup-budget')"
+          >
+            <ion-label class="header-more-label">Set up a Budget</ion-label>
+          </ion-item>
+          <ion-item
+            button
+            lines="none"
+            :detail="false"
+            class="header-more-item"
+            @click="onHeaderMoreOption('browse-template')"
+          >
+            <ion-label class="header-more-label">Browse Template</ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ion-popover>
 
   </ion-page>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { IonPage, IonContent, IonSpinner } from '@ionic/vue'
+import { useRoute } from 'vue-router'
+import {
+  IonPage,
+  IonContent,
+  IonSpinner,
+  IonPopover,
+  IonList,
+  IonItem,
+  IonLabel
+} from '@ionic/vue'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getCategoryTree, deleteCategory, toggleCategoryActive } from '@/api/accounting'
 import CategoryItem from './components/CategoryItem.vue'
 import CategoryForm from './components/CategoryForm.vue'
-import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
-
-
-const router = useRouter()
 const route = useRoute()
 const workspaceId = computed(() => {
   const id = route.query.workspace_id
@@ -105,10 +174,39 @@ const incomeCategories = ref([])
 const expenseCategories = ref([])
 const formOpen = ref(false)
 const currentCategory = ref(null)
+const sortAlphabetically = ref(false)
+const showHeaderMore = ref(false)
+const headerMoreEvent = ref(undefined)
 
-const displayCategories = computed(() =>
-  activeTab.value === 'income' ? incomeCategories.value : expenseCategories.value
-)
+function sortCategoryTree(nodes) {
+  if (!nodes?.length) return nodes
+  return [...nodes]
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    .map((n) => ({
+      ...n,
+      children: n.children?.length ? sortCategoryTree(n.children) : n.children
+    }))
+}
+
+const displayCategories = computed(() => {
+  const list = activeTab.value === 'income' ? incomeCategories.value : expenseCategories.value
+  return sortAlphabetically.value ? sortCategoryTree(list) : list
+})
+
+function openHeaderMore(ev) {
+  headerMoreEvent.value = ev
+  showHeaderMore.value = true
+}
+
+function onHeaderMorePopoverDismiss() {
+  showHeaderMore.value = false
+  headerMoreEvent.value = undefined
+}
+
+/** @param {'select' | 'setup-budget' | 'browse-template'} _key */
+function onHeaderMoreOption(_key) {
+  showHeaderMore.value = false
+}
 
 async function load() {
   loading.value = true
@@ -186,11 +284,6 @@ function onFormSuccess() {
   load()
 }
 
-function onFabSelect(type) {
-  router.push(`/transactions/create?type=${type}`)
-}
-
-
 watch(() => [route.query.workspace_id], () => load(), { immediate: false })
 onMounted(() => load())
 </script>
@@ -224,30 +317,61 @@ onMounted(() => load())
   padding: 4px;
   display: flex;
   align-items: center;
+  color: #ff8d28;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
+}
+
+.page-title-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .page-title {
   font-size: 20px;
   font-weight: 700;
-  color: #1A1A2E;
-  flex: 1;
-  min-width: 0;
+  color: #000000;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.page-title-ws {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-actions {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .icon-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
   -webkit-tap-highlight-color: transparent;
+}
+
+.icon-btn--accent {
+  color: #ff8d28;
+}
+
+.icon-btn--accent.is-active {
+  background: rgba(255, 141, 40, 0.12);
 }
 
 .type-toggle {
@@ -339,5 +463,68 @@ onMounted(() => load())
 
 .tab-spacer {
   height: 80px;
+}
+</style>
+
+<style>
+ion-popover.categories-header-more-popover {
+  --width: 248px;
+  --max-width: min(248px, calc(100vw - 32px));
+}
+
+ion-popover.categories-header-more-popover::part(content) {
+  border-radius: 18px;
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.16);
+  background: #ffffff;
+}
+
+ion-popover.categories-header-more-popover .categories-header-more-content {
+  --background: #ffffff;
+  --padding-start: 24px;
+  --padding-end: 24px;
+  --padding-top: 24px;
+  --padding-bottom: 24px;
+}
+
+ion-popover.categories-header-more-popover ion-list.header-more-list {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+ion-popover.categories-header-more-popover ion-item.header-more-item {
+  --background: transparent;
+  --background-hover: rgba(0, 0, 0, 0.04);
+  --background-activated: rgba(0, 0, 0, 0.06);
+  --border-width: 0;
+  --inner-border-width: 0;
+  --min-height: auto;
+  --inner-padding-end: 0;
+  --inner-padding-start: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+  --ripple-color: rgba(0, 0, 0, 0.08);
+  margin-bottom: 28px;
+  align-items: center;
+}
+
+ion-popover.categories-header-more-popover ion-item.header-more-item:last-of-type {
+  margin-bottom: 0;
+}
+
+ion-popover.categories-header-more-popover ion-item.header-more-item .header-more-label {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: #000000;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+}
+
+ion-popover.categories-header-more-popover ion-item.header-more-item .header-more-label--lead {
+  font-weight: 500;
 }
 </style>

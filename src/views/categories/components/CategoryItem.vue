@@ -17,7 +17,7 @@
               type="button"
               class="more-btn more-btn--accent"
               aria-label="Category actions"
-              @click.stop="showActions = true"
+              @click.stop="openActions($event)"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle cx="12" cy="6" r="1.5" fill="currentColor" />
@@ -72,7 +72,7 @@
             type="button"
             class="more-btn more-btn--muted"
             aria-label="Category actions"
-            @click.stop="showActions = true"
+            @click.stop="openActions($event)"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle cx="12" cy="6" r="1.5" fill="currentColor" />
@@ -96,18 +96,61 @@
       </div>
     </template>
 
-    <ion-action-sheet
+    <ion-popover
       :is-open="showActions"
-      :header="category.name"
-      :buttons="actionButtons"
-      @didDismiss="onActionDismiss"
-    />
+      :event="popoverEvent"
+      :dismiss-on-select="true"
+      :arrow="false"
+      class="category-actions-popover"
+      @didDismiss="onPopoverDismiss"
+    >
+      <ion-content class="category-actions-popover-content" :scroll-y="false">
+        <ion-list lines="none" class="popover-list">
+          <ion-item
+            button
+            :detail="false"
+            lines="none"
+            class="popover-item popover-item--primary"
+            @click="handleAction('add-child')"
+          >
+            <ion-label>Add child</ion-label>
+          </ion-item>
+          <ion-item
+            button
+            :detail="false"
+            lines="none"
+            class="popover-item"
+            @click="handleAction('edit')"
+          >
+            <ion-label>Edit</ion-label>
+          </ion-item>
+          <ion-item
+            button
+            :detail="false"
+            lines="none"
+            class="popover-item"
+            @click="handleAction('toggle')"
+          >
+            <ion-label>{{ category.is_active ? 'Deactivate' : 'Activate' }}</ion-label>
+          </ion-item>
+          <ion-item
+            button
+            :detail="false"
+            lines="none"
+            class="popover-item popover-item--danger"
+            @click="handleAction('destructive')"
+          >
+            <ion-label>Delete category</ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ion-popover>
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-import { IonActionSheet } from '@ionic/vue'
+import { IonPopover, IonContent, IonList, IonItem, IonLabel } from '@ionic/vue'
 import CategoryItem from './CategoryItem.vue'
 
 const AMOUNT_KEYS = ['budget_amount', 'total_amount', 'amount', 'allocated_amount']
@@ -121,6 +164,7 @@ const emit = defineEmits(['edit', 'delete', 'toggle-active', 'add-child'])
 
 const expanded = ref(Boolean(props.category.children?.length))
 const showActions = ref(false)
+const popoverEvent = ref(undefined)
 
 const hasChildren = computed(() => Boolean(props.category.children?.length))
 
@@ -160,25 +204,26 @@ const rowAmountLabel = computed(() => {
   return v != null ? formatMoney(v) : null
 })
 
-const actionButtons = computed(() => [
-  { text: 'Add Child', role: 'add-child' },
-  { text: 'Edit', role: 'edit' },
-  { text: props.category.is_active ? 'Deactivate' : 'Activate', role: 'toggle' },
-  { text: 'Delete', role: 'destructive' },
-  { text: 'Cancel', role: 'cancel' }
-])
+function openActions(ev) {
+  popoverEvent.value = ev
+  showActions.value = true
+}
 
 function onRowToggle() {
   if (hasChildren.value) expanded.value = !expanded.value
 }
 
-function onActionDismiss(ev) {
-  const role = ev.detail?.role
+function onPopoverDismiss() {
   showActions.value = false
+  popoverEvent.value = undefined
+}
+
+function handleAction(role) {
   if (role === 'add-child') emit('add-child', props.category.id)
   else if (role === 'edit') emit('edit', props.category)
   else if (role === 'destructive') emit('delete', props.category)
   else if (role === 'toggle') emit('toggle-active', props.category, !props.category.is_active)
+  showActions.value = false
 }
 </script>
 
@@ -379,5 +424,63 @@ function onActionDismiss(ev) {
 
 .more-btn--muted {
   color: #a8a8a8;
+}
+
+.popover-list {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+</style>
+
+<!-- Popover is portaled outside the component; keep styles unscoped with a unique prefix -->
+<style>
+ion-popover.category-actions-popover::part(content) {
+  border-radius: 14px;
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.16);
+  background: #ffffff;
+}
+
+ion-popover.category-actions-popover .category-actions-popover-content {
+  --background: #ffffff;
+  --padding-start: 20px;
+  --padding-end: 20px;
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+}
+
+ion-popover.category-actions-popover ion-list.popover-list {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+ion-popover.category-actions-popover ion-item.popover-item {
+  --background: transparent;
+  --background-hover: rgba(0, 0, 0, 0.04);
+  --background-activated: rgba(0, 0, 0, 0.06);
+  --border-width: 0;
+  --inner-border-width: 0;
+  --min-height: 48px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --ripple-color: rgba(0, 0, 0, 0.08);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+ion-popover.category-actions-popover ion-item.popover-item ion-label {
+  margin: 10px 0;
+  color: #000000;
+}
+
+ion-popover.category-actions-popover ion-item.popover-item--primary ion-label {
+  color: #ff8d28;
+  font-weight: 500;
+}
+
+ion-popover.category-actions-popover ion-item.popover-item--danger ion-label {
+  color: #e07070;
+  font-weight: 400;
 }
 </style>
