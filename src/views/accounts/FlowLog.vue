@@ -928,7 +928,12 @@ function onFlowLogAccountMenuSelect(role) {
   } else if (role === 'all-transactions') {
     router.push('/transactions')
   } else if (role === 'reconcile') {
-    reconcileAccount.value = { id: accountId.value, name: accountName.value, currency: currency.value }
+    reconcileAccount.value = {
+      id: accountId.value,
+      name: accountName.value,
+      currency: currency.value,
+      workspace_name: accountWorkspaceLabel.value || undefined
+    }
     loadAccountForReconcile()
   } else if (role === 'add-transaction') {
     router.push(`/transactions/create?account_id=${accountId.value}`)
@@ -939,10 +944,23 @@ async function loadAccountForReconcile() {
   try {
     const res = await getAccountById(accountId.value)
     const acc = res?.data ?? res
-    reconcileAccount.value = acc || { id: accountId.value, name: accountName.value, currency: currency.value }
+    reconcileAccount.value =
+      acc
+        ? { ...acc, workspace_name: accountWorkspaceLabel.value || acc.workspace_name }
+        : {
+            id: accountId.value,
+            name: accountName.value,
+            currency: currency.value,
+            workspace_name: accountWorkspaceLabel.value || undefined
+          }
     reconcileVisible.value = true
   } catch (_) {
-    reconcileAccount.value = { id: accountId.value, name: accountName.value, currency: currency.value }
+    reconcileAccount.value = {
+      id: accountId.value,
+      name: accountName.value,
+      currency: currency.value,
+      workspace_name: accountWorkspaceLabel.value || undefined
+    }
     reconcileVisible.value = true
   }
 }
