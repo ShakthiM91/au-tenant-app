@@ -16,12 +16,16 @@ const service = axios.create({
   timeout: 10000
 })
 
+const APP_TOKEN = import.meta.env.VITE_APP_TOKEN
+
 // Request interceptor
 service.interceptors.request.use(
   (config) => {
     const token = getToken()
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
+    } else if (APP_TOKEN) {
+      config.headers['X-App-Token'] = APP_TOKEN
     }
     return config
   },

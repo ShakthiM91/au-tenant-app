@@ -9,6 +9,15 @@ export function login(data) {
   })
 }
 
+export function register(data) {
+  return request({
+    url: '/api/auth/register',
+    method: 'post',
+    data: { ...data, appToken: import.meta.env.VITE_APP_TOKEN },
+    skipQueue: true
+  })
+}
+
 export function logout() {
   return request({
     url: '/api/auth/logout',

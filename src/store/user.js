@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { login, logout, getInfo, updateProfile } from '@/api/auth'
+import { login, register, logout, getInfo, updateProfile } from '@/api/auth'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 
 export const useUserStore = defineStore('user', {
@@ -25,6 +25,24 @@ export const useUserStore = defineStore('user', {
           return response
         } else {
           throw new Error('Invalid login response')
+        }
+      } catch (error) {
+        removeToken()
+        throw error
+      }
+    },
+
+    async register(userInfo) {
+      try {
+        const { name, email, password } = userInfo
+        const response = await register({ name, email, password })
+
+        if (response && response.accessToken) {
+          this.token = response.accessToken
+          setToken(response.accessToken)
+          return response
+        } else {
+          throw new Error('Invalid registration response')
         }
       } catch (error) {
         removeToken()

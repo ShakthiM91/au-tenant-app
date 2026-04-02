@@ -3,7 +3,10 @@
     <ion-content :fullscreen="true" :scroll-y="true">
       <div class="page-container">
         <div class="page-header" :class="{ 'above-menu-backdrop': showAddMenu }">
-          <span class="page-title">Accounts</span>
+          <span class="page-title">
+            Accounts
+            <span v-if="workspaceMode === 'private'" class="workspace-mode-badge">Private</span>
+          </span>
           <div class="header-actions">
             <button class="icon-btn" @click="showSearch = !showSearch">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -315,6 +318,7 @@ const router = useRouter()
 const syncStore = useSyncStore()
 
 const islandGroups = ref([]) // { island: { id, name, is_shared }, accounts: [] }
+const workspaceMode = ref('shared') // 'shared' | 'private' — driven by tenant setting
 const loading = ref(false)
 const searchQuery = ref('')
 const showSearch = ref(false)
@@ -687,6 +691,8 @@ async function load() {
     try {
       const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
       ownWorkspaces = ownRes?.data ?? []
+      // Capture workspace_mode returned by the list endpoint; falls back to 'shared'
+      workspaceMode.value = ownRes?.workspace_mode || 'shared'
       sharedWorkspaces = sharedRes?.data?.active ?? []
     } catch {
       // Fallback: still try to load accounts
@@ -1125,5 +1131,17 @@ onIonViewDidEnter(async () => {
 
 .action-sheet-danger {
   color: rgba(195, 0, 16, 0.74) !important;
+}
+
+.workspace-mode-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 141, 40, 0.12);
+  color: #FF8D28;
+  vertical-align: middle;
 }
 </style>

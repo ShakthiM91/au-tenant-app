@@ -126,7 +126,9 @@
               <span class="terms-link">Privacy Policy</span>.
             </p>
 
-            <button class="signup-button" @click="onSignUp">Sign up</button>
+            <button class="signup-button" :disabled="loading" @click="onSignUp">
+              {{ loading ? 'Creating account...' : 'Sign up' }}
+            </button>
 
             <div class="alt-register">
               <div class="divider">
@@ -162,8 +164,13 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
+import { useUserStore } from '@/store/user'
+import { showToast } from '@/utils/ionicFeedback'
 
 const router = useRouter()
+const userStore = useUserStore()
+
+const loading = ref(false)
 
 const form = reactive({
   firstName: '',
@@ -183,9 +190,41 @@ function goToLogin() {
   router.push('/login')
 }
 
-function onSignUp() {
-  // TODO: implement actual sign-up API call
-  router.push({ path: '/verify', query: { email: form.email } })
+async function onSignUp() {
+  if (!form.firstName?.trim()) {
+    showToast('Please enter your first name')
+    return
+  }
+  if (!form.email?.trim()) {
+    showToast('Please enter your email')
+    return
+  }
+  if (!form.password) {
+    showToast('Please enter a password')
+    return
+  }
+  if (!hasUppercase.value || !hasLowercase.value || !hasNumber.value || !hasSpecial.value || !hasValidLength.value) {
+    showToast('Password does not meet requirements')
+    return
+  }
+  if (form.password !== form.confirmPassword) {
+    showToast('Passwords do not match')
+    return
+  }
+
+  loading.value = true
+  try {
+    const name = [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(' ')
+    await userStore.register({ name, email: form.email.trim(), password: form.password })
+    await userStore.getInfo()
+    showToast('Account created successfully')
+    router.replace('/dashboard')
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Registration failed'
+    showToast(message)
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
