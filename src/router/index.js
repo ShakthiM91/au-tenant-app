@@ -86,6 +86,21 @@ const routes = [
     name: 'TransactionEdit',
     component: () => import('@/views/transactions/TransactionForm.vue'),
   },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/profile/index.vue'),
+  },
+  {
+    path: '/profile/my-profile',
+    name: 'ProfileMyProfile',
+    component: () => import('@/views/profile/MyProfile.vue'),
+  },
+  {
+    path: '/profile/settings',
+    name: 'ProfileSettings',
+    component: () => import('@/views/profile/Settings.vue'),
+  },
 ]
 
 const router = createRouter({

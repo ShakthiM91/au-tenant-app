@@ -13,7 +13,7 @@ import TabBar from '@/components/TabBar.vue'
 
 const route = useRoute()
 
-const TAB_BAR_ROUTES = ['/dashboard', '/accounts', '/transactions', '/accounting']
+const TAB_BAR_ROUTES = ['/dashboard', '/accounts', '/transactions', '/accounting', '/profile']
 
 const showTabBar = computed(() =>
   TAB_BAR_ROUTES.some(r => route.path.startsWith(r)) &&

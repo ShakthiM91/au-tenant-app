@@ -1,14 +1,20 @@
 import { defineStore } from 'pinia'
 import { login, register, logout, getInfo, updateProfile } from '@/api/auth'
 import { getToken, setToken, removeToken } from '@/utils/auth'
+import { clearAllClientStorage } from '@/utils/clearDeviceStorage'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: getToken(),
+    id: null,
     name: '',
     email: '',
     role: '',
+    status: '',
     tenantId: null,
+    phone: null,
+    birthday: '',
+    gender: '',
     permissions: [],
     menus: []
   }),
@@ -64,10 +70,15 @@ export const useUserStore = defineStore('user', {
           throw new Error('Access denied. Tenant admin or member role required.')
         }
 
+        this.id = user.id ?? null
         this.name = user.name || user.email
         this.email = user.email
         this.role = user.role
+        this.status = user.status || ''
         this.tenantId = user.tenantId || null
+        this.phone = user.phone ?? null
+        this.birthday = user.birthday || ''
+        this.gender = user.gender || ''
         this.permissions = permissions || []
         this.menus = menus || []
 
@@ -85,6 +96,11 @@ export const useUserStore = defineStore('user', {
         console.error('Logout error:', error)
       } finally {
         this.resetState()
+        try {
+          await clearAllClientStorage()
+        } catch (e) {
+          console.warn('clearAllClientStorage failed', e)
+        }
       }
     },
 
@@ -92,8 +108,12 @@ export const useUserStore = defineStore('user', {
       try {
         const response = await updateProfile(data)
         if (response && response.user) {
-          this.name = response.user.name || this.name
-          this.email = response.user.email || this.email
+          const u = response.user
+          this.name = u.name || this.name
+          this.email = u.email || this.email
+          if (u.phone !== undefined) this.phone = u.phone ?? null
+          if (u.birthday !== undefined) this.birthday = u.birthday || ''
+          if (u.gender !== undefined) this.gender = u.gender || ''
           return response
         }
       } catch (error) {
@@ -103,10 +123,15 @@ export const useUserStore = defineStore('user', {
 
     resetState() {
       this.token = ''
+      this.id = null
       this.name = ''
       this.email = ''
       this.role = ''
+      this.status = ''
       this.tenantId = null
+      this.phone = null
+      this.birthday = ''
+      this.gender = ''
       this.permissions = []
       this.menus = []
       removeToken()
