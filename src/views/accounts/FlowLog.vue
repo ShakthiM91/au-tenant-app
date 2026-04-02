@@ -936,7 +936,7 @@ function onFlowLogAccountMenuSelect(role) {
     }
     loadAccountForReconcile()
   } else if (role === 'add-transaction') {
-    router.push(`/transactions/create?account_id=${accountId.value}`)
+    router.push(transactionCreateHref())
   }
 }
 
@@ -970,8 +970,26 @@ function onReconcileSuccess() {
   load()
 }
 
+function transactionCreateHref(extra = {}) {
+  const q = new URLSearchParams()
+  q.set('account_id', String(accountId.value))
+  if (accountName.value) q.set('account_name', accountName.value)
+  if (currency.value) q.set('currency', String(currency.value))
+  const ws = resolvedWorkspaceId.value
+  if (ws != null && ws !== '') {
+    q.set('workspace_id', String(ws))
+    if (accountWorkspaceLabel.value) q.set('workspace_name', accountWorkspaceLabel.value)
+  } else {
+    q.set('default_island', '1')
+  }
+  for (const [k, v] of Object.entries(extra)) {
+    if (v != null && v !== '') q.set(k, String(v))
+  }
+  return `/transactions/create?${q.toString()}`
+}
+
 function onFabSelect(type) {
-  router.push(`/transactions/create?type=${type}&account_id=${accountId.value}`)
+  router.push(transactionCreateHref({ type }))
 }
 
 

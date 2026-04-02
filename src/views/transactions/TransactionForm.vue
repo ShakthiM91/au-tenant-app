@@ -388,7 +388,16 @@ import CategoryForm from '@/views/categories/components/CategoryForm.vue'
 import DatePicker from '@/components/DatePicker.vue'
 import TimePicker from '@/components/TimePicker.vue'
 import AmountCalculator from '@/components/AmountCalculator.vue'
-import { createTransaction, updateTransaction, getTransactionById, deleteTransaction, getCategoryTree, getPrimaryAccount } from '@/api/accounting'
+import {
+  createTransaction,
+  updateTransaction,
+  getTransactionById,
+  deleteTransaction,
+  getCategoryTree,
+  getAccounts,
+  getAccountsByWorkspace,
+  getAccountById
+} from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 import { useSyncStore } from '@/store/sync'
@@ -699,65 +708,129 @@ function setAccountOptionsFromTransaction(t) {
   accountOptions.value = mergeUniqueAccounts(rows)
 }
 
-function filterAccountOptionsToWorkspace() {
-  if (isEdit) return
-  const wid = effectiveWorkspaceId.value
-  accountOptions.value = accountOptions.value.filter((a) => {
-    const w = a.workspace_id
-    if (wid == null) return w == null || w === undefined || w === ''
-    return Number(w) === Number(wid)
-  })
+function extractAccountsList(res) {
+  if (!res) return []
+  const d = res.data
+  if (Array.isArray(d)) return d
+  if (d && Array.isArray(d.data)) return d.data
+  return []
 }
 
-/** @returns {{ primaryId: number | null }} */
-async function hydrateCreateAccountOptions() {
-  const rows = []
-  const qAid = route.query.account_id
-  const accountId = qAid != null && qAid !== '' ? Number(qAid) : null
-  let nameHint = ''
-  if (route.query.account_name) {
-    try {
-      nameHint = decodeURIComponent(String(route.query.account_name))
-    } catch {
-      nameHint = String(route.query.account_name)
-    }
+function normalizeAccountRow(a) {
+  if (!a || a.id == null) return null
+  const nid = Number(a.id)
+  if (Number.isNaN(nid)) return null
+  const bal = parseFloat(a.current_balance ?? a.balance ?? 0) || 0
+  return {
+    id: nid,
+    name: (a.name && String(a.name).trim()) || `Account ${nid}`,
+    current_balance: bal,
+    balance: bal,
+    currency: a.currency || 'USD',
+    type: a.type || null,
+    credit_limit: a.credit_limit != null ? parseFloat(a.credit_limit) : null,
+    is_active: a.is_active !== false,
+    workspace_id:
+      a.workspace_id != null && a.workspace_id !== '' ? Number(a.workspace_id) : null
   }
-  const cur = form.currency || 'USD'
-  const curFromQuery = route.query.currency ? String(route.query.currency) : cur
+}
 
-  let wsForRow = null
-  if (workspaceIdFromRoute.value != null) wsForRow = workspaceIdFromRoute.value
-  else if (route.query.default_island === '1') wsForRow = null
-  else if (workspacePicked.value) wsForRow = manualWorkspaceId.value
-
-  if (accountId != null && !Number.isNaN(accountId)) {
-    const row = syntheticAccount({
-      id: accountId,
-      name: nameHint || 'Account',
-      currency: curFromQuery,
-      workspaceId: wsForRow
-    })
-    if (row) rows.push(row)
+/**
+ * Whether create flow has a resolved island context to fetch accounts for.
+ * @returns {{ workspaceId: number | null } | null}
+ */
+function getCreateFetchWorkspaceContext() {
+  if (isEdit) return null
+  if (workspaceIdFromRoute.value != null) {
+    return { workspaceId: workspaceIdFromRoute.value }
   }
+  if (route.query.default_island === '1') {
+    return { workspaceId: null }
+  }
+  if (!workspacePicked.value) {
+    return null
+  }
+  return { workspaceId: manualWorkspaceId.value }
+}
 
-  let primaryId = null
+/**
+ * Load all accounts for the current island (create flow). Default selection: preferredAccountId if in list, else first row.
+ */
+async function loadAccountsForSelectedWorkspace(options = {}) {
+  if (isEdit) return
+  const { preferredAccountId = null, defaultToFirst = true } = options
+  const ctx = getCreateFetchWorkspaceContext()
+  if (!ctx) {
+    accountOptions.value = []
+    return
+  }
+  const wid = ctx.workspaceId
   try {
-    const res = await getPrimaryAccount()
-    primaryId = res?.data?.account_id ?? res?.account_id ?? null
-    if (primaryId != null && !rows.some((r) => Number(r.id) === Number(primaryId))) {
-      const row = syntheticAccount({
-        id: primaryId,
-        name: 'Primary account',
-        currency: cur,
-        workspaceId: null
-      })
-      if (row) rows.push(row)
+    let list = []
+    if (wid != null && wid !== '') {
+      const res = await getAccountsByWorkspace(Number(wid), { is_active: true })
+      list = extractAccountsList(res)
+    } else {
+      const res = await getAccounts({ is_active: true })
+      list = extractAccountsList(res).filter(
+        (a) => a.workspace_id == null || a.workspace_id === ''
+      )
     }
-  } catch (_) {}
+    const rows = list.map(normalizeAccountRow).filter(Boolean)
+    accountOptions.value = mergeUniqueAccounts(rows)
 
-  accountOptions.value = mergeUniqueAccounts(rows)
-  filterAccountOptionsToWorkspace()
-  return { primaryId }
+    const pref =
+      preferredAccountId != null && !Number.isNaN(Number(preferredAccountId))
+        ? Number(preferredAccountId)
+        : null
+    if (pref != null && !accountOptions.value.some((a) => Number(a.id) === pref)) {
+      try {
+        const res = await getAccountById(pref)
+        const acc = res?.data ?? res
+        const row = normalizeAccountRow(acc)
+        if (row) accountOptions.value = mergeUniqueAccounts([...accountOptions.value, row])
+      } catch (_) {
+        /* keep list without orphan id */
+      }
+    }
+
+    let pick = null
+    if (pref != null && accountOptions.value.some((a) => Number(a.id) === pref)) {
+      pick = pref
+    } else if (defaultToFirst && accountOptions.value.length) {
+      pick = Number(accountOptions.value[0].id)
+    }
+    form.account_id = pick
+    const pickedRow = pick != null ? accountOptions.value.find((a) => Number(a.id) === pick) : null
+    if (pickedRow?.currency) {
+      const code = pickedRow.currency
+      if (currencyOptions.value.some((c) => c.value === code)) form.currency = code
+    }
+  } catch (_) {
+    accountOptions.value = []
+    form.account_id = null
+  }
+}
+
+/** When opening with ?account_id= only, resolve island from the account so workspace + account match. */
+async function resolveWorkspaceFromAccountIfNeeded(accountIdNum) {
+  if (!accountIdNum || Number.isNaN(Number(accountIdNum))) return
+  if (workspaceIdFromRoute.value != null) return
+  if (route.query.default_island === '1') return
+  try {
+    const res = await getAccountById(accountIdNum)
+    const acc = res?.data ?? res
+    if (!acc) return
+    workspacePicked.value = true
+    if (acc.workspace_id != null && acc.workspace_id !== '') {
+      manualWorkspaceId.value = Number(acc.workspace_id)
+    } else {
+      manualWorkspaceId.value = null
+    }
+    if (acc.currency) form.currency = acc.currency
+  } catch (_) {
+    /* keep user on picker */
+  }
 }
 
 const showWorkspaceRow = computed(() => {
@@ -864,14 +937,11 @@ function selectWorkspace(wsId) {
   workspacePicked.value = true
   form.category_id = null
   showWorkspacePicker.value = false
-  loadOptions().then(() => {
-    filterAccountOptionsToWorkspace()
-    if (form.account_id != null && !accountOptions.value.some(a => Number(a.id) === Number(form.account_id))) {
-      form.account_id = null
-    }
-    loadCategories()
-    checkCreditLimit()
-  })
+  Promise.all([loadOptions(), loadAccountsForSelectedWorkspace({ preferredAccountId: null, defaultToFirst: true })])
+    .then(() => {
+      loadCategories()
+      checkCreditLimit()
+    })
 }
 
 /** Currencies only — no GET /api/accounting/accounts (mobile loads accounts once; we use synthetic rows). */
@@ -1078,7 +1148,7 @@ async function submit(stayAndAddNew = false) {
       showToast(isEdit ? 'Updated' : 'Created')
     }
     syncStore.setTransactionListInvalidated()
-    await invalidateAccountingCache({ accounts: false, categories: false })
+    await invalidateAccountingCache({ accounts: true, categories: false })
     syncStore.addInvalidatedAccountIds([form.account_id, form.to_account_id].filter(Boolean))
 
     if (stayAndAddNew && !isEdit) {
@@ -1113,7 +1183,7 @@ async function onDelete() {
     await deleteTransaction(id)
     showToast('Deleted')
     syncStore.setTransactionListInvalidated()
-    await invalidateAccountingCache({ accounts: false, categories: false })
+    await invalidateAccountingCache({ accounts: true, categories: false })
     router.back()
   } catch (e) {
     if (e !== 'cancel') showToast(e?.message || 'Delete failed')
@@ -1143,17 +1213,16 @@ onMounted(async () => {
     form.transaction_number = `TXN-${Date.now()}`
     form.transaction_date = getCurrentDateTimeString()
     form.amount = 0
-    await loadCategories()
-    const { primaryId } = await hydrateCreateAccountOptions()
-    const accountId = queryAccountId != null && queryAccountId !== '' ? Number(queryAccountId) : null
-    if (accountId != null && accountOptions.value.some((a) => Number(a.id) === accountId)) {
-      form.account_id = accountId
-    } else if (
-      primaryId != null &&
-      accountOptions.value.some((a) => Number(a.id) === Number(primaryId))
-    ) {
-      form.account_id = primaryId
+    const accountId =
+      queryAccountId != null && queryAccountId !== '' ? Number(queryAccountId) : null
+    if (accountId != null && !Number.isNaN(accountId)) {
+      await resolveWorkspaceFromAccountIfNeeded(accountId)
     }
+    await loadCategories()
+    await loadAccountsForSelectedWorkspace({
+      preferredAccountId: accountId != null && !Number.isNaN(accountId) ? accountId : null,
+      defaultToFirst: true
+    })
     checkCreditLimit()
   }
 })

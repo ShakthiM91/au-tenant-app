@@ -296,7 +296,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { onIonViewDidEnter } from '@ionic/vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent, IonSpinner, IonActionSheet, IonIcon } from '@ionic/vue'
@@ -319,7 +319,8 @@ const syncStore = useSyncStore()
 
 const islandGroups = ref([]) // { island: { id, name, is_shared }, accounts: [] }
 const workspaceMode = ref('shared') // 'shared' | 'private' — driven by tenant setting
-const loading = ref(false)
+/** Start true so first paint shows loading until ionViewDidEnter runs load(). */
+const loading = ref(true)
 const searchQuery = ref('')
 const showSearch = ref(false)
 const showOptions = ref(false)
@@ -578,7 +579,18 @@ function onAccountPopoverSelect(role, account) {
 function handleAccountMenuAction(role, account) {
   if (!account) return
   if (role === 'flow-log') goFlowLog(account)
-  else if (role === 'add-transaction') router.push(`/transactions/create?account_id=${account.id}`)
+  else if (role === 'add-transaction') {
+    const q = new URLSearchParams()
+    q.set('account_id', String(account.id))
+    if (account.name) q.set('account_name', account.name)
+    if (account.currency) q.set('currency', String(account.currency))
+    if (account.workspace_id != null && account.workspace_id !== '') {
+      q.set('workspace_id', String(account.workspace_id))
+    } else {
+      q.set('default_island', '1')
+    }
+    router.push(`/transactions/create?${q.toString()}`)
+  }
   else if (role === 'reconcile') openReconcile(account)
   else if (role === 'edit') openEditAccount(account)
   else if (role === 'destructive') onDelete(account)
@@ -684,6 +696,7 @@ function onFabSelect(type) {
 async function load() {
   loading.value = true
   try {
+    await invalidateAccountingCache({ accounts: true, categories: false })
     let ownWorkspaces = []
     let sharedWorkspaces = []
     let ownAccounts = []
@@ -739,7 +752,6 @@ async function load() {
   }
 }
 
-onMounted(() => load())
 onIonViewDidEnter(async () => {
   if (syncStore.invalidatedAccountIds?.size > 0) syncStore.clearAllInvalidated()
   await load()
