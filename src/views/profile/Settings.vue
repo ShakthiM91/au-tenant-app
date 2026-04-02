@@ -53,12 +53,6 @@
                 <ion-icon :icon="chevronForwardOutline" class="chevron" />
               </div>
             </button>
-            <button type="button" class="st-row" @click="onEnabledCurrencies">
-              <span class="st-label">Enabled Currencies</span>
-              <div class="st-right">
-                <ion-icon :icon="chevronForwardOutline" class="chevron" />
-              </div>
-            </button>
           </div>
         </section>
 
@@ -124,18 +118,20 @@ import {
   IonContent,
   IonIcon,
   IonToast,
-  IonAlert
+  IonAlert,
+  actionSheetController
 } from '@ionic/vue'
 import { chevronForwardOutline, headsetOutline } from 'ionicons/icons'
 import { useUserStore } from '@/store/user'
 import { getTenantSettings } from '@/api/settings'
+import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
+import { showToast as showFeedbackToast } from '@/utils/ionicFeedback'
 
 const LS = {
   language: 'au_settings_language',
   theme: 'au_settings_theme',
   checkIn: 'au_settings_check_in',
-  memberActivity: 'au_settings_member_activity',
-  defaultCurrency: 'au_settings_default_currency'
+  memberActivity: 'au_settings_member_activity'
 }
 
 const router = useRouter()
@@ -153,8 +149,31 @@ const languageLabel = ref('English')
 const themeLabel = ref('Light')
 const checkInOn = ref(true)
 const memberActivityOn = ref(true)
-const defaultCurrencyLabel = ref('Sri Lankan Rupee LKR')
+const enabledCurrencies = ref([])
+const tenantDefaultCurrency = ref(null)
 const logoutConfirmOpen = ref(false)
+
+const defaultCurrencyLabel = computed(() => {
+  const userCode = userStore.defaultCurrencyCode
+  if (userCode) {
+    const row = enabledCurrencies.value.find(
+      (c) => String(c.code).toUpperCase() === userCode
+    )
+    if (row) {
+      return `${row.name || row.code} ${String(row.code).toUpperCase()}`
+    }
+    return userCode
+  }
+  const d = tenantDefaultCurrency.value
+  if (d?.code) {
+    return `${d.name || d.code} ${String(d.code).toUpperCase()}`
+  }
+  const first = enabledCurrencies.value[0]
+  if (first?.code) {
+    return `${first.name || first.code} ${String(first.code).toUpperCase()}`
+  }
+  return '—'
+})
 
 function formatUtcOffset() {
   const offsetMin = -new Date().getTimezoneOffset()
@@ -167,6 +186,25 @@ function formatUtcOffset() {
 
 const timezoneLabel = computed(() => formatUtcOffset())
 
+function normalizeCurrencyList(res) {
+  const raw = res?.data?.data ?? res?.data ?? res ?? []
+  return Array.isArray(raw) ? raw : []
+}
+
+async function loadCurrencyContext() {
+  try {
+    const [curRes, defRes] = await Promise.all([
+      getTenantCurrencies(),
+      getTenantDefaultCurrency()
+    ])
+    enabledCurrencies.value = normalizeCurrencyList(curRes)
+    tenantDefaultCurrency.value = defRes?.data?.data ?? defRes?.data ?? defRes ?? null
+  } catch {
+    enabledCurrencies.value = []
+    tenantDefaultCurrency.value = null
+  }
+}
+
 onMounted(() => {
   try {
     const lang = localStorage.getItem(LS.language)
@@ -177,11 +215,11 @@ onMounted(() => {
     if (ci !== null) checkInOn.value = ci === '1'
     const ma = localStorage.getItem(LS.memberActivity)
     if (ma !== null) memberActivityOn.value = ma === '1'
-    const cur = localStorage.getItem(LS.defaultCurrency)
-    if (cur) defaultCurrencyLabel.value = cur
   } catch {
     /* ignore */
   }
+
+  void loadCurrencyContext()
 
   getTenantSettings()
     .then((res) => {
@@ -198,22 +236,6 @@ onMounted(() => {
       settings = settings || {}
       if (settings.language === 'en') languageLabel.value = 'English'
       else if (settings.language) languageLabel.value = String(settings.language)
-      const code =
-        settings.default_currency_code ||
-        settings.defaultCurrencyCode ||
-        settings.currency ||
-        settings.currency_code
-      const name =
-        settings.default_currency_name ||
-        settings.defaultCurrencyName ||
-        settings.currency_name
-      if (code && name) {
-        defaultCurrencyLabel.value = `${name} ${String(code).toUpperCase()}`
-        localStorage.setItem(LS.defaultCurrency, defaultCurrencyLabel.value)
-      } else if (code) {
-        defaultCurrencyLabel.value = String(code).toUpperCase()
-        localStorage.setItem(LS.defaultCurrency, defaultCurrencyLabel.value)
-      }
     })
     .catch(() => {
       /* keep design default */
@@ -226,7 +248,6 @@ function persist() {
     localStorage.setItem(LS.theme, themeLabel.value)
     localStorage.setItem(LS.checkIn, checkInOn.value ? '1' : '0')
     localStorage.setItem(LS.memberActivity, memberActivityOn.value ? '1' : '0')
-    localStorage.setItem(LS.defaultCurrency, defaultCurrencyLabel.value)
   } catch {
     /* ignore */
   }
@@ -248,12 +269,52 @@ function onTheme() {
   showToast('Theme options will be available soon.')
 }
 
-function onDefaultCurrency() {
-  showToast('Currency selection will be available soon.')
-}
+async function onDefaultCurrency() {
+  await loadCurrencyContext()
+  if (!enabledCurrencies.value.length) {
+    showFeedbackToast('No currencies enabled for your organisation.')
+    return
+  }
 
-function onEnabledCurrencies() {
-  showToast('Enabled currencies will be available soon.')
+  const buttons = enabledCurrencies.value.map((c) => ({
+    text: `${c.name || c.code} (${String(c.code).toUpperCase()})`,
+    handler: () => {
+      void (async () => {
+        try {
+          await userStore.updateUserProfile({
+            defaultCurrencyCode: String(c.code).toUpperCase()
+          })
+          showFeedbackToast('Saved')
+          await loadCurrencyContext()
+        } catch (e) {
+          showFeedbackToast(e?.message || 'Failed to save')
+        }
+      })()
+    }
+  }))
+
+  buttons.push({
+    text: 'Clear',
+    handler: () => {
+      void (async () => {
+        try {
+          await userStore.updateUserProfile({ defaultCurrencyCode: null })
+          showFeedbackToast('Saved')
+          await loadCurrencyContext()
+        } catch (e) {
+          showFeedbackToast(e?.message || 'Failed')
+        }
+      })()
+    }
+  })
+
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+
+  const sheet = await actionSheetController.create({
+    header: 'Default currency',
+    buttons
+  })
+  await sheet.present()
 }
 
 function toggleCheckIn() {

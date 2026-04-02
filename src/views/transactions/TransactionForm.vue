@@ -400,12 +400,14 @@ import {
 } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
+import { useUserStore } from '@/store/user'
 import { useSyncStore } from '@/store/sync'
 import { invalidateAccountingCache } from '@/db/readCache'
 
 const route = useRoute()
 const router = useRouter()
 const syncStore = useSyncStore()
+const userStore = useUserStore()
 const id = route.params.id
 const isEdit = !!id
 
@@ -953,10 +955,25 @@ async function loadOptions() {
       currencyOptions.value = cur.map((c) => ({ value: c.code, text: `${c.code} - ${c.name || c.code}` }))
     }
     if (!isEdit) {
-      const def = await getTenantDefaultCurrency().catch(() => null)
-      const dc = def?.data?.data ?? def?.data
-      if (dc?.code) form.currency = dc.code
-      else if (currencyOptions.value.length && !form.currency) form.currency = currencyOptions.value[0].value
+      const userCode = userStore.defaultCurrencyCode
+      if (
+        userCode &&
+        currencyOptions.value.some((c) => String(c.value).toUpperCase() === userCode)
+      ) {
+        form.currency = userCode
+      } else {
+        const def = await getTenantDefaultCurrency().catch(() => null)
+        const dc = def?.data?.data ?? def?.data
+        const tCode = dc?.code ? String(dc.code).toUpperCase() : null
+        if (
+          tCode &&
+          currencyOptions.value.some((c) => String(c.value).toUpperCase() === tCode)
+        ) {
+          form.currency = tCode
+        } else if (currencyOptions.value.length && !form.currency) {
+          form.currency = currencyOptions.value[0].value
+        }
+      }
     }
   } catch (_) {
     if (!form.currency) form.currency = 'USD'

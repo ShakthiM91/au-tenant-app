@@ -169,6 +169,7 @@ import { showToast } from '@/utils/ionicFeedback'
 import { createAccount, updateAccount } from '@/api/accounting'
 import { getWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
+import { useUserStore } from '@/store/user'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -177,6 +178,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'success'])
+
+const userStore = useUserStore()
 
 const suggestedNames = ['Side Hustle', 'Home Renovation', 'Investments', 'Business', "Client's Project"]
 
@@ -236,19 +239,38 @@ async function loadCurrencies() {
     const data = res?.data ?? res
     const list = Array.isArray(data) ? data : (data?.data || [])
     currencyOptions.value = list
-    if (list.length && !form.currency) {
-      try {
-        const def = await getTenantDefaultCurrency()
-        const d = def?.data ?? def
-        form.currency = d?.code ?? d?.currency_code ?? list[0].code
-      } catch (_) {
-        form.currency = list[0].code
-      }
-    }
   } catch (_) {
     currencyOptions.value = [{ code: 'USD', name: 'US Dollar' }]
-    if (!form.currency) form.currency = 'USD'
   }
+}
+
+/** New account: user preference if still enabled, else tenant default, else first enabled. */
+async function applyDefaultCurrencyForNewAccountForm() {
+  const list = currencyOptions.value
+  if (!list.length) {
+    form.currency = 'USD'
+    return
+  }
+  const userCode = userStore.defaultCurrencyCode
+  if (
+    userCode &&
+    list.some((c) => String(c.code).toUpperCase() === userCode)
+  ) {
+    form.currency = userCode
+    return
+  }
+  try {
+    const def = await getTenantDefaultCurrency()
+    const d = def?.data?.data ?? def?.data ?? def
+    const code = d?.code ? String(d.code).toUpperCase() : null
+    if (code && list.some((c) => String(c.code).toUpperCase() === code)) {
+      form.currency = code
+      return
+    }
+  } catch (_) {
+    /* fall through */
+  }
+  form.currency = list[0].code
 }
 
 function resetForm() {
@@ -284,6 +306,9 @@ watch(
     if (open) {
       await Promise.all([loadWorkspaces(), loadCurrencies()])
       resetForm()
+      if (!props.account?.id) {
+        await applyDefaultCurrencyForNewAccountForm()
+      }
     }
   },
   { immediate: true }

@@ -16,6 +16,7 @@ export const useUserStore = defineStore('user', {
     phone: null,
     birthday: '',
     gender: '',
+    defaultCurrencyCode: null,
     permissions: [],
     menus: []
   }),
@@ -84,6 +85,11 @@ export const useUserStore = defineStore('user', {
         this.phone = user.phone ?? null
         this.birthday = user.birthday || ''
         this.gender = user.gender || ''
+        this.defaultCurrencyCode =
+          user.defaultCurrencyCode &&
+          String(user.defaultCurrencyCode).trim()
+            ? String(user.defaultCurrencyCode).toUpperCase().slice(0, 3)
+            : null
         this.permissions = permissions || []
         this.menus = menus || []
 
@@ -127,6 +133,13 @@ export const useUserStore = defineStore('user', {
         if (u.phone !== undefined) this.phone = u.phone ?? null
         if (u.birthday !== undefined) this.birthday = u.birthday || ''
         if (u.gender !== undefined) this.gender = u.gender || ''
+        if (u.defaultCurrencyCode !== undefined) {
+          this.defaultCurrencyCode =
+            u.defaultCurrencyCode &&
+            String(u.defaultCurrencyCode).trim()
+              ? String(u.defaultCurrencyCode).toUpperCase().slice(0, 3)
+              : null
+        }
         return response
       } catch (error) {
         throw error
@@ -145,6 +158,7 @@ export const useUserStore = defineStore('user', {
       this.phone = null
       this.birthday = ''
       this.gender = ''
+      this.defaultCurrencyCode = null
       this.permissions = []
       this.menus = []
       removeToken()
