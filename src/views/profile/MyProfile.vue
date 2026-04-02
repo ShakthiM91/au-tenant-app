@@ -28,15 +28,15 @@
           </div>
         </button>
 
-        <button type="button" class="mp-row" @click="onFieldClick('Nickname')">
-          <span class="mp-label">Nickname</span>
+        <button type="button" class="mp-row" @click="openProfileDrawer('name')">
+          <span class="mp-label">Name</span>
           <div class="mp-value-wrap">
-            <span class="mp-value">{{ nicknameDisplay }}</span>
+            <span class="mp-value">{{ nameDisplay }}</span>
             <ion-icon :icon="chevronForwardOutline" class="chevron" />
           </div>
         </button>
 
-        <button type="button" class="mp-row" @click="onFieldClick('Username')">
+        <button type="button" class="mp-row" @click="openProfileDrawer('username')">
           <span class="mp-label">Username</span>
           <div class="mp-value-wrap">
             <span class="mp-value">{{ usernameDisplay }}</span>
@@ -60,7 +60,7 @@
           </div>
         </button>
 
-        <button type="button" class="mp-row" @click="onFieldClick('Birthday')">
+        <button type="button" class="mp-row" @click="openProfileDrawer('birthday')">
           <span class="mp-label">Birthday</span>
           <div class="mp-value-wrap">
             <span class="mp-value">{{ birthdayDisplay }}</span>
@@ -68,7 +68,7 @@
           </div>
         </button>
 
-        <button type="button" class="mp-row" @click="onFieldClick('Gender')">
+        <button type="button" class="mp-row" @click="openProfileDrawer('gender')">
           <span class="mp-label">Gender</span>
           <div class="mp-value-wrap">
             <span class="mp-value">{{ genderDisplay }}</span>
@@ -94,6 +94,13 @@
       </div>
 
       <div class="tab-spacer" />
+
+      <ProfileFieldDrawer
+        :is-open="profileDrawerOpen"
+        :field="profileDrawerField"
+        @close="profileDrawerOpen = false"
+        @success="onProfileDrawerSuccess"
+      />
 
       <ion-toast
         :is-open="toastOpen"
@@ -122,6 +129,7 @@ import {
 } from '@ionic/vue'
 import { chevronForwardOutline, headsetOutline } from 'ionicons/icons'
 import { useUserStore } from '@/store/user'
+import ProfileFieldDrawer from '@/views/profile/ProfileFieldDrawer.vue'
 import {
   maskEmail,
   maskPhone,
@@ -130,6 +138,9 @@ import {
 } from '@/utils/profileDisplay'
 
 const userStore = useUserStore()
+
+const profileDrawerOpen = ref(false)
+const profileDrawerField = ref('name')
 
 const toastOpen = ref(false)
 const toastMessage = ref('')
@@ -141,17 +152,14 @@ function showToast(msg) {
 
 const displayName = computed(() => userStore.name || 'User')
 
-const nicknameDisplay = computed(() => {
-  const n = displayName.value.trim()
-  if (!n) return 'User'
-  return n.split(/\s+/)[0]
+const nameDisplay = computed(() => {
+  const n = (userStore.name || '').trim()
+  return n || 'Not set'
 })
 
 const usernameDisplay = computed(() => {
-  const email = userStore.email || ''
-  if (!email) return 'anonymousUser'
-  const local = email.split('@')[0]
-  return local || 'anonymousUser'
+  const u = (userStore.username || '').trim()
+  return u || 'Not set'
 })
 
 const phoneDisplay = computed(() => {
@@ -172,11 +180,18 @@ const birthdayDisplay = computed(() => {
   return b
 })
 
+const GENDER_LABELS = {
+  male: 'Male',
+  female: 'Female',
+  non_binary: 'Non-binary',
+  other: 'Other',
+  prefer_not_say: "I'd rather not say"
+}
+
 const genderDisplay = computed(() => {
-  if (!userStore.gender) return "I'd rather not say"
   const g = userStore.gender
-  if (g === 'prefer_not_say') return "I'd rather not say"
-  return g
+  if (!g) return "I'd rather not say"
+  return GENDER_LABELS[g] || g
 })
 
 const accountVerified = computed(
@@ -191,6 +206,15 @@ function onSupport() {
 
 function onPhotoClick() {
   showToast('Profile photo update will be available soon.')
+}
+
+function openProfileDrawer(field) {
+  profileDrawerField.value = field
+  profileDrawerOpen.value = true
+}
+
+function onProfileDrawerSuccess() {
+  profileDrawerOpen.value = false
 }
 
 function onFieldClick(label) {

@@ -8,6 +8,7 @@ export const useUserStore = defineStore('user', {
     token: getToken(),
     id: null,
     name: '',
+    username: '',
     email: '',
     role: '',
     status: '',
@@ -72,6 +73,10 @@ export const useUserStore = defineStore('user', {
 
         this.id = user.id ?? null
         this.name = user.name || user.email
+        this.username =
+          user.username == null || user.username === ''
+            ? ''
+            : String(user.username)
         this.email = user.email
         this.role = user.role
         this.status = user.status || ''
@@ -107,15 +112,22 @@ export const useUserStore = defineStore('user', {
     async updateUserProfile(data) {
       try {
         const response = await updateProfile(data)
-        if (response && response.user) {
-          const u = response.user
-          this.name = u.name || this.name
-          this.email = u.email || this.email
-          if (u.phone !== undefined) this.phone = u.phone ?? null
-          if (u.birthday !== undefined) this.birthday = u.birthday || ''
-          if (u.gender !== undefined) this.gender = u.gender || ''
-          return response
+        if (!response?.user) {
+          throw new Error('Invalid profile response')
         }
+        const u = response.user
+        this.name = u.name ?? this.name
+        this.email = u.email ?? this.email
+        if (u.username !== undefined) {
+          this.username =
+            u.username == null || u.username === ''
+              ? ''
+              : String(u.username)
+        }
+        if (u.phone !== undefined) this.phone = u.phone ?? null
+        if (u.birthday !== undefined) this.birthday = u.birthday || ''
+        if (u.gender !== undefined) this.gender = u.gender || ''
+        return response
       } catch (error) {
         throw error
       }
@@ -125,6 +137,7 @@ export const useUserStore = defineStore('user', {
       this.token = ''
       this.id = null
       this.name = ''
+      this.username = ''
       this.email = ''
       this.role = ''
       this.status = ''
