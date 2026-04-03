@@ -36,21 +36,7 @@
 
           <div v-else-if="field === 'gender'" class="form-group">
             <label class="form-label">Gender</label>
-            <ion-select
-              v-model="form.gender"
-              interface="action-sheet"
-              :interface-options="{ header: 'Gender' }"
-              placeholder="Select gender"
-              class="ion-select-inline"
-            >
-              <ion-select-option
-                v-for="opt in genderOptions"
-                :key="opt.value"
-                :value="opt.value"
-              >
-                {{ opt.label }}
-              </ion-select-option>
-            </ion-select>
+            <GenderPickerField v-model="form.gender" :options="genderOptions" />
           </div>
 
           <div v-else-if="field === 'birthday'" class="form-group">
@@ -79,10 +65,10 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
-import { IonSelect, IonSelectOption } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { useUserStore } from '@/store/user'
 import BirthdayPickerField from '@/views/profile/BirthdayPickerField.vue'
+import GenderPickerField from '@/views/profile/GenderPickerField.vue'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -105,9 +91,10 @@ const form = reactive({
   birthday: ''
 })
 
+/* Order matches profile UI: Male, Female, Non-binary, Other, prefer not to say */
 const genderOptions = [
-  { value: 'female', label: 'Female' },
   { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
   { value: 'non_binary', label: 'Non-binary' },
   { value: 'other', label: 'Other' },
   { value: 'prefer_not_say', label: "I'd rather not say" }
@@ -283,26 +270,6 @@ async function submit() {
 
 .form-input::placeholder {
   color: #a7a7a7;
-}
-
-/* Matches AccountForm drawer selects — action-sheet UI, not native HTML select */
-.ion-select-inline {
-  width: 100%;
-  padding: 10px 0;
-  padding-inline-start: 0;
-  padding-inline-end: 0;
-  border: none;
-  border-bottom: 1px solid #e8e8e8;
-  border-radius: 0;
-  background: transparent;
-  font-size: 15px;
-  color: #1a1a2e;
-  max-width: 100%;
-}
-
-.ion-select-inline::part(container) {
-  border: none;
-  background: transparent;
 }
 
 .form-hint {
