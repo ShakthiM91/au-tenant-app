@@ -55,19 +55,7 @@
 
           <div v-else-if="field === 'birthday'" class="form-group">
             <label class="form-label">Birthday</label>
-            <input
-              v-model="form.birthday"
-              type="date"
-              class="form-input form-input-date"
-            />
-            <button
-              v-if="form.birthday"
-              type="button"
-              class="link-clear"
-              @click="form.birthday = ''"
-            >
-              Clear date
-            </button>
+            <BirthdayPickerField v-model="form.birthday" />
           </div>
         </div>
 
@@ -94,6 +82,7 @@ import { ref, reactive, computed, watch } from 'vue'
 import { IonSelect, IonSelectOption } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { useUserStore } from '@/store/user'
+import BirthdayPickerField from '@/views/profile/BirthdayPickerField.vue'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -286,11 +275,6 @@ async function submit() {
   color: #1a1a2e;
   outline: none;
   transition: border-color 0.2s;
-}
-
-.form-input-date {
-  padding: 10px 0;
-  min-height: 44px;
 }
 
 .form-input:focus {
