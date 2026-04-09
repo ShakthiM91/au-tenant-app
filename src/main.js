@@ -43,6 +43,7 @@ setInterval(() => {
 async function initAppResumeSync() {
   function onResume() {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return
+    if (!getToken()) return
     runSync().then(() => syncStore.refreshPendingCount())
     refreshBootstrapCache().catch(() => {})
   }
