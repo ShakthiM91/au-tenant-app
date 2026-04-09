@@ -485,7 +485,7 @@ const flowTypeButtonLabel = computed(() => {
 const flowLogAccountMenuItems = [
   { role: 'rename', label: 'Rename', destructive: false },
   { role: 'transaction-log', label: 'Island transaction log', destructive: false },
-  { role: 'add-transaction', label: 'Add Transaction', destructive: false },
+  { role: 'add-transaction', label: 'Add a Transaction', destructive: false },
   { role: 'reconcile', label: 'Reconcile', destructive: false },
   { role: 'manage-categories', label: 'Manage categories', destructive: false },
   // { role: 'all-transactions', label: 'All transactions', destructive: false }

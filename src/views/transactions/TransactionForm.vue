@@ -28,14 +28,20 @@
               type="button"
               class="header-icon-btn"
               aria-label="Save and add new"
-              :disabled="saving"
+              :disabled="saving || noAccountsBlock"
               @click="submitAndAddNew"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
               </svg>
             </button>
-            <button type="button" class="header-icon-btn header-icon-save" aria-label="Save" :disabled="saving" @click="submit(false)">
+            <button
+              type="button"
+              class="header-icon-btn header-icon-save"
+              aria-label="Save"
+              :disabled="saving || noAccountsBlock"
+              @click="submit(false)"
+            >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
               </svg>
@@ -376,13 +382,69 @@
       @close="showCategoryForm = false"
       @success="onCategoryFormSuccess"
     />
+
+    <Teleport to="ion-app">
+      <Transition name="no-acct-fade">
+        <div
+          v-if="noAccountsForWorkspace && !isEdit"
+          class="no-acct-backdrop"
+          aria-hidden="true"
+          @click="onNoAccountsGoBack"
+        />
+      </Transition>
+      <Transition name="no-acct-slide">
+        <div
+          v-if="noAccountsForWorkspace && !isEdit"
+          class="no-acct-sheet"
+          role="dialog"
+          aria-labelledby="no-acct-title"
+          aria-describedby="no-acct-desc"
+          @click.stop
+        >
+          <div class="no-acct-handle" />
+          <div class="no-acct-icon-wrap" aria-hidden="true">
+            <svg class="no-acct-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="6" width="20" height="14" rx="2"/>
+              <path d="M2 10h20"/>
+              <path d="M6 14h4"/>
+            </svg>
+          </div>
+          <h2 id="no-acct-title" class="no-acct-title">No accounts in this workspace</h2>
+          <p id="no-acct-desc" class="no-acct-message">
+            Add an account first so you can record transactions against it.
+          </p>
+          <div class="no-acct-footer">
+            <button type="button" class="no-acct-btn-secondary" @click="onNoAccountsGoBack">
+              Go back
+            </button>
+            <button type="button" class="no-acct-btn-primary" @click="goAccountsAddAccountFromGate">
+              Create account
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </ion-page>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { IonPage, IonContent, IonModal, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonSearchbar, IonList, IonItem, IonLabel } from '@ionic/vue'
+import { onIonViewDidEnter } from '@ionic/vue'
+import {
+  IonPage,
+  IonContent,
+  IonModal,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonButtons,
+  IonButton,
+  IonSearchbar,
+  IonList,
+  IonItem,
+  IonLabel
+} from '@ionic/vue'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import CategoryForm from '@/views/categories/components/CategoryForm.vue'
 import DatePicker from '@/components/DatePicker.vue'
@@ -460,6 +522,9 @@ const categoryOptions = ref([])
 const currencyOptions = ref([{ value: 'USD', text: 'USD' }])
 const saving = ref(false)
 const creditWarning = ref(null)
+/** Create flow: resolved workspace has no accounts — hide form and show alert. */
+const noAccountsForWorkspace = ref(false)
+const noAccountsBlock = computed(() => !isEdit && noAccountsForWorkspace.value)
 const accountSearchQuery = ref('')
 const toAccountSearchQuery = ref('')
 const categorySearchQuery = ref('')
@@ -480,6 +545,8 @@ const workspacePicked = ref(false)
 const editWorkspaceId = ref(null)
 /** Skips form.type watcher reset while hydrating edit payload (avoids clearing category_id). */
 const suppressTypeWatchReset = ref(false)
+/** First ion enter is skipped so onMounted is the only initial account load (avoids duplicate API calls). */
+const skipIonCreateAccountRefreshOnce = ref(true)
 
 function formatCurrency(amount, currency = 'USD') {
   return new Intl.NumberFormat('en-US', {
@@ -755,6 +822,15 @@ function getCreateFetchWorkspaceContext() {
   return { workspaceId: manualWorkspaceId.value }
 }
 
+function syncNoAccountsGate() {
+  if (isEdit) {
+    noAccountsForWorkspace.value = false
+    return
+  }
+  const ctx = getCreateFetchWorkspaceContext()
+  noAccountsForWorkspace.value = Boolean(ctx && accountOptions.value.length === 0)
+}
+
 /**
  * Load all accounts for the current island (create flow). Default selection: preferredAccountId if in list, else first row.
  */
@@ -764,6 +840,7 @@ async function loadAccountsForSelectedWorkspace(options = {}) {
   const ctx = getCreateFetchWorkspaceContext()
   if (!ctx) {
     accountOptions.value = []
+    syncNoAccountsGate()
     return
   }
   const wid = ctx.workspaceId
@@ -808,9 +885,11 @@ async function loadAccountsForSelectedWorkspace(options = {}) {
       const code = pickedRow.currency
       if (currencyOptions.value.some((c) => c.value === code)) form.currency = code
     }
+    syncNoAccountsGate()
   } catch (_) {
     accountOptions.value = []
     form.account_id = null
+    syncNoAccountsGate()
   }
 }
 
@@ -916,7 +995,7 @@ async function loadWorkspaceOptions() {
     const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
     const own = Array.isArray(ownRes?.data) ? ownRes.data : []
     const shared = Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []
-    const opts = [{ id: null, name: 'Default Island' }]
+    const opts = []
     for (const ws of own) {
       opts.push({ id: Number(ws.id), name: ws.name || 'My island', is_shared: false })
     }
@@ -930,7 +1009,7 @@ async function loadWorkspaceOptions() {
     }
     workspaceOptions.value = opts
   } catch (_) {
-    workspaceOptions.value = [{ id: null, name: 'Default Island' }]
+    workspaceOptions.value = []
   }
 }
 
@@ -1122,6 +1201,7 @@ async function loadEdit() {
 
 async function submit(stayAndAddNew = false) {
   const amt = Number(form.amount)
+  if (!isEdit && noAccountsForWorkspace.value) return
   if (!isEdit && effectiveWorkspaceId.value === undefined) {
     showToast('Select an island')
     return
@@ -1207,17 +1287,49 @@ async function onDelete() {
   }
 }
 
-onMounted(async () => {
-  await loadWorkspaceOptions()
+function goAccountsAddAccountFromGate() {
+  const ctx = getCreateFetchWorkspaceContext()
+  const q = { add_account: '1' }
+  if (ctx && ctx.workspaceId != null && ctx.workspaceId !== '') {
+    q.workspace_id = String(ctx.workspaceId)
+  }
+  noAccountsForWorkspace.value = false
+  router.replace({ path: '/accounts', query: q })
+}
 
+function onNoAccountsGoBack() {
+  noAccountsForWorkspace.value = false
+  router.back()
+}
+
+onIonViewDidEnter(async () => {
+  if (isEdit) return
+  if (skipIonCreateAccountRefreshOnce.value) {
+    skipIonCreateAccountRefreshOnce.value = false
+    return
+  }
+  if (!getCreateFetchWorkspaceContext()) return
+  const qid = route.query.account_id
+  const queryAccountId = qid != null && qid !== '' ? Number(qid) : null
+  const preferred =
+    queryAccountId != null && !Number.isNaN(queryAccountId) ? queryAccountId : null
+  await loadAccountsForSelectedWorkspace({
+    preferredAccountId: form.account_id != null ? form.account_id : preferred,
+    defaultToFirst: true
+  })
+  checkCreditLimit()
+})
+
+onMounted(async () => {
   if (!isEdit && workspaceIdFromRoute.value != null) {
     workspacePicked.value = true
   }
-
   if (!isEdit && route.query.default_island === '1') {
     workspacePicked.value = true
     manualWorkspaceId.value = null
   }
+
+  await loadWorkspaceOptions()
 
   if (isEdit) {
     editWorkspaceId.value = null
@@ -1734,6 +1846,130 @@ onMounted(async () => {
   background: rgba(255, 193, 7, 0.15);
   color: #856404;
   font-size: 13px;
+}
+
+/* No-accounts notice — matches AccountForm drawer (brand sheet + footer) */
+.no-acct-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 2000;
+}
+
+.no-acct-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2001;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  padding: 0 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0));
+  max-width: 100%;
+}
+
+.no-acct-handle {
+  width: 36px;
+  height: 4px;
+  background: #d6d9dd;
+  border-radius: 2px;
+  margin: 12px auto 16px;
+}
+
+.no-acct-icon-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.no-acct-icon {
+  color: #ff8d28;
+  opacity: 0.9;
+}
+
+.no-acct-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a2e;
+  text-align: center;
+  margin: 0 0 10px;
+  letter-spacing: -0.02em;
+}
+
+.no-acct-message {
+  font-size: 15px;
+  line-height: 1.45;
+  color: #a7a7a7;
+  text-align: center;
+  margin: 0 0 24px;
+  padding: 0 4px;
+}
+
+.no-acct-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.no-acct-btn-secondary {
+  padding: 10px 20px;
+  margin-right: auto;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: #a7a7a7;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.no-acct-btn-secondary:active {
+  opacity: 0.7;
+}
+
+.no-acct-btn-primary {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  background: #ff8d28;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.no-acct-btn-primary:active {
+  opacity: 0.92;
+}
+
+.no-acct-fade-enter-active,
+.no-acct-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.no-acct-fade-enter-from,
+.no-acct-fade-leave-to {
+  opacity: 0;
+}
+
+.no-acct-slide-enter-active,
+.no-acct-slide-leave-active {
+  transition: transform 0.3s ease-out;
+}
+
+.no-acct-slide-enter-from,
+.no-acct-slide-leave-to {
+  transform: translateY(100%);
 }
 
 </style>

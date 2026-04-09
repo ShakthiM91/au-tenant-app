@@ -77,7 +77,7 @@
             </div>
           </div>
 
-          <div class="form-group">
+          <div v-if="form.type !== 'cash'" class="form-group">
             <label class="form-label">Account Number</label>
             <input
               v-model="form.account_number"
@@ -222,14 +222,14 @@ async function loadWorkspaces() {
   try {
     const res = await getWorkspaces()
     const list = res?.data ?? []
-    const opts = [{ value: null, text: 'Default Island' }]
+    const opts = []
     for (const w of Array.isArray(list) ? list : []) {
       const name = w.name?.endsWith('Island') ? w.name : (w.name || 'My Island') + ' Island'
       opts.push({ value: Number(w.id), text: name })
     }
     workspaceOptions.value = opts
   } catch (_) {
-    workspaceOptions.value = [{ value: null, text: 'Default Island' }]
+    workspaceOptions.value = []
   }
 }
 
@@ -328,7 +328,8 @@ async function submit() {
   try {
     const data = {
       name,
-      account_number: form.account_number?.trim() || null,
+      account_number:
+        form.type === 'cash' ? null : (form.account_number?.trim() || null),
       type: form.type,
       currency: form.currency || 'USD',
       workspace_id: form.workspace_id != null ? form.workspace_id : null,

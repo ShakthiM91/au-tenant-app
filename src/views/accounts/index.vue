@@ -98,7 +98,7 @@
                     </Transition>
                   </div>
                 </div>
-                <div class="account-rows">
+                <div v-if="group.accounts.length" class="account-rows">
                   <div
                     v-for="account in group.accounts"
                     :key="account.id"
@@ -143,6 +143,13 @@
                     </div>
                   </div>
                 </div>
+                <div v-else-if="!group.hasAccountsRaw" class="workspace-empty-prompt">
+                  <p>Create your first account in this workspace to start tracking balances and transactions.</p>
+                  <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
+                    Create your first account
+                  </button>
+                </div>
+                <p v-else class="workspace-search-empty">No accounts match your search.</p>
               </div>
             </div>
           </section>
@@ -191,7 +198,7 @@
                     </Transition>
                   </div>
                 </div>
-                <div class="account-rows">
+                <div v-if="group.accounts.length" class="account-rows">
                   <div
                     v-for="account in group.accounts"
                     :key="account.id"
@@ -236,6 +243,13 @@
                     </div>
                   </div>
                 </div>
+                <div v-else-if="!group.hasAccountsRaw" class="workspace-empty-prompt">
+                  <p>Create your first account in this workspace to start tracking balances and transactions.</p>
+                  <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
+                    Create your first account
+                  </button>
+                </div>
+                <p v-else class="workspace-search-empty">No accounts match your search.</p>
               </div>
             </div>
           </section>
@@ -298,7 +312,7 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue'
 import { onIonViewDidEnter } from '@ionic/vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { IonPage, IonContent, IonSpinner, IonActionSheet, IonIcon } from '@ionic/vue'
 import { peopleOutline } from 'ionicons/icons'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
@@ -314,6 +328,7 @@ import ReconcileModal from './components/ReconcileModal.vue'
 import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
 
 
+const route = useRoute()
 const router = useRouter()
 const syncStore = useSyncStore()
 
@@ -360,7 +375,8 @@ function filterAndSortAccounts(accounts) {
 const islandGroupsFiltered = computed(() =>
   islandGroups.value.map(g => ({
     ...g,
-    accounts: filterAndSortAccounts(g.accounts)
+    accounts: filterAndSortAccounts(g.accounts),
+    hasAccountsRaw: (g.accounts || []).length > 0
   }))
 )
 
@@ -374,7 +390,7 @@ const sharedWithMeGroups = computed(() =>
 
 const accountMenuItems = [
   { role: 'flow-log', label: 'View Flow Log', destructive: false },
-  { role: 'add-transaction', label: 'Add Transaction', destructive: false },
+  { role: 'add-transaction', label: 'Add a Transaction', destructive: false },
   { role: 'reconcile', label: 'Reconcile', destructive: false },
   { role: 'edit', label: 'Edit', destructive: false },
   { role: 'destructive', label: 'Delete', destructive: true }
@@ -401,7 +417,7 @@ function buildIslandMenuItems(group) {
   const hideRename = isDefault || isShared
   const hideShare = isShared
   const items = [
-    { role: 'add-entry', label: 'Add Entry', destructive: false },
+    { role: 'add-entry', label: 'Add a Transaction', destructive: false },
     { role: 'add-account', label: 'Add Account', destructive: false },
     { role: 'transaction-log', label: 'Transaction Log', destructive: false },
     { role: 'manage-categories', label: 'Manage Categories', destructive: false }
@@ -619,6 +635,11 @@ function onAddAccount() {
   openAddAccount()
 }
 
+function openAddAccountForGroup(group) {
+  const island = group?.island
+  openAddAccount(island?.id != null ? island.id : null)
+}
+
 async function onIslandFormSuccess() {
   islandFormOpen.value = false
   islandFormWorkspace.value = null
@@ -755,6 +776,13 @@ async function load() {
 onIonViewDidEnter(async () => {
   if (syncStore.invalidatedAccountIds?.size > 0) syncStore.clearAllInvalidated()
   await load()
+  const add = route.query.add_account
+  if (add === '1' || add === 'true') {
+    const wid = route.query.workspace_id
+    const pre = wid != null && wid !== '' ? Number(wid) : null
+    openAddAccount(pre != null && !Number.isNaN(pre) ? pre : null)
+    router.replace({ path: '/accounts' }).catch(() => {})
+  }
   refreshBootstrapCache().catch(() => {})
 })
 </script>
@@ -1107,6 +1135,26 @@ onIonViewDidEnter(async () => {
   padding: 4px;
   display: flex;
   -webkit-tap-highlight-color: transparent;
+}
+
+.workspace-empty-prompt {
+  text-align: center;
+  padding: 20px 12px 16px;
+}
+
+.workspace-empty-prompt p {
+  font-size: 14px;
+  color: #A7A7A7;
+  line-height: 1.45;
+  margin: 0 0 14px;
+}
+
+.workspace-search-empty {
+  font-size: 13px;
+  color: #A7A7A7;
+  text-align: center;
+  padding: 16px 12px;
+  margin: 0;
 }
 
 .empty-state {
