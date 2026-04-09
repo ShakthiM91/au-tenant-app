@@ -55,19 +55,19 @@ const currentIndex = ref(0)
 const slides = [
   {
     image: '/onboarding-1.png',
-    heading: 'Know Your Balance, Find Your Balance',
+    heading: 'Know Your Balance, Find Your \nBalance',
     subheading: null,
     cta: 'Find My Balance !'
   },
   {
     image: '/onboarding-2.png',
-    heading: "Turn Your 'To-Dos' Into 'Ta-Das'",
+    heading: 'Build wealth,\none entry at a time',
     subheading: null,
-    cta: 'Ta-Das !'
+    cta: 'Build my wealth !'
   },
   {
     image: '/onboarding-3.png',
-    heading: 'Welcome to a world of new possibilities',
+    heading: 'Welcome to a world of \nnew possibilities',
     subheading: 'It all starts Today',
     cta: "I'm All In !"
   }
@@ -114,6 +114,8 @@ function onCtaClick() {
 }
 
 .onboarding-container {
+  --onboarding-indicators-bottom: 120px;
+  --onboarding-slide-clearance-above-indicators: 56px;
   position: relative;
   width: 100%;
   height: 100%;
@@ -122,7 +124,13 @@ function onCtaClick() {
 
 .slides-wrapper {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(
+    var(--onboarding-indicators-bottom) + var(--onboarding-slide-clearance-above-indicators) +
+      env(safe-area-inset-bottom, 0px)
+  );
   overflow: hidden;
   touch-action: pan-y;
 }
@@ -178,6 +186,7 @@ function onCtaClick() {
   color: #6E6A7C;
   margin: 0;
   padding: 0 16px;
+  white-space: pre-line;
 }
 
 .slide-subheading {
@@ -185,11 +194,12 @@ function onCtaClick() {
   font-weight: 600;
   color: rgba(0, 0, 0, 0.72);
   margin: 0;
+  white-space: pre-line;
 }
 
 .slide-indicators {
   position: absolute;
-  bottom: 120px;
+  bottom: var(--onboarding-indicators-bottom);
   left: 0;
   right: 0;
   display: flex;

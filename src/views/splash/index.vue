@@ -4,9 +4,9 @@
       <div class="splash-container">
         <div class="splash-top">
           <div class="logo-wrapper">
-            <img src="/logo.png" alt="Revo ERP" class="logo-image" />
+            <img src="/logo.png" alt="Rupee" class="logo-image" />
           </div>
-          <h1 class="app-name">Revo ERP</h1>
+          <h1 class="app-name">Rupee</h1>
           <p class="app-tagline">Nurturing Today for a Better Tomorrow</p>
         </div>
 
@@ -14,7 +14,7 @@
           <img src="/splash-artwork.png" alt="" class="artwork-image" />
         </div>
 
-        <p class="version-text">{{ appVersion }}</p>
+        <p class="version-text">{{ appVersion }} V</p>
       </div>
     </ion-content>
   </ion-page>
@@ -113,7 +113,10 @@ onMounted(() => {
 }
 
 .version-text {
-  font-size: 11px;
+  font-family: 'Handjet', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   color: #6E6A7C;
   margin: 0;
   padding-bottom: 24px;
