@@ -409,7 +409,7 @@
               <path d="M6 14h4"/>
             </svg>
           </div>
-          <h2 id="no-acct-title" class="no-acct-title">No accounts in this workspace</h2>
+          <h2 id="no-acct-title" class="no-acct-title">No accounts in this Island</h2>
           <p id="no-acct-desc" class="no-acct-message">
             Add an account first so you can record transactions against it.
           </p>

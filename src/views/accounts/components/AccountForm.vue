@@ -33,7 +33,7 @@
             </ion-select>
           </div>
 
-          <div v-if="!isEdit" class="form-group">
+          <div v-if="!isEdit && showSuggestedNames" class="form-group">
             <label class="form-label-suggested">Suggested Account Names</label>
             <div class="suggested-pills">
               <button
@@ -41,7 +41,7 @@
                 :key="s"
                 type="button"
                 class="pill"
-                @click="form.name = s"
+                @click="selectSuggestedName(s)"
               >
                 {{ s }}
               </button>
@@ -181,10 +181,12 @@ const emit = defineEmits(['close', 'success'])
 
 const userStore = useUserStore()
 
-const suggestedNames = ['Side Hustle', 'Home Renovation', 'Investments', 'Business', "Client's Project"]
+const suggestedNames = ['Cash', 'Bank Account', 'Credit Card', 'PayPal','Binance Account']
 
 const isEdit = computed(() => !!props.account?.id)
 const saving = ref(false)
+/** Shown only for new accounts; hidden after user picks a suggestion pill. */
+const showSuggestedNames = ref(true)
 const currencyOptions = ref([])
 const workspaceOptions = ref([])
 
@@ -273,6 +275,11 @@ async function applyDefaultCurrencyForNewAccountForm() {
   form.currency = list[0].code
 }
 
+function selectSuggestedName(s) {
+  form.name = s
+  showSuggestedNames.value = false
+}
+
 function resetForm() {
   const acc = props.account
   if (acc?.id) {
@@ -286,7 +293,9 @@ function resetForm() {
     form.bank_name = acc.bank_name || ''
     form.description = acc.description || ''
     form.is_active = toBoolean(acc.is_active)
+    showSuggestedNames.value = false
   } else {
+    showSuggestedNames.value = true
     form.name = ''
     form.account_number = ''
     form.type = 'bank'
