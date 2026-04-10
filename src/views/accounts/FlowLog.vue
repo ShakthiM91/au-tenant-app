@@ -245,7 +245,7 @@
               </svg>
             </div>
             <div class="tx-info">
-              <span class="tx-description">{{ row.description || formatFlowType(row.flow_type) }}</span>
+              <span class="tx-description">{{ flowRowPrimaryLabel(row) }}</span>
               <span class="tx-meta">
                 {{ formatFlowType(row.flow_type) }} · {{ formatDate(row.transaction_date) }}
                 <template v-if="flowCategoryLabel(row)"> · {{ flowCategoryLabel(row) }}</template>
@@ -638,6 +638,13 @@ function formatFlowType(type) {
     adjustment: 'Adjustment', initial_balance: 'Initial'
   }
   return map[type] || type || '-'
+}
+
+/** Main line: transaction title when linked row has one, else description, else flow type label. */
+function flowRowPrimaryLabel(row) {
+  const title = (row.transaction_title ?? row.title ?? '').toString().trim()
+  if (title) return title
+  return row.description || formatFlowType(row.flow_type)
 }
 
 function amountClass(type) {
