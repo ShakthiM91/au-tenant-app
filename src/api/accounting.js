@@ -115,10 +115,11 @@ export function deleteTransaction(id) {
   })
 }
 
-export function getSummary() {
+export function getSummary(params = {}) {
   return request({
     url: '/api/accounting/summary',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 

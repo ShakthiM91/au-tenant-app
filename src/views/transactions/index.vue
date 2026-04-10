@@ -426,7 +426,11 @@ async function load(append = false) {
 
 async function fetchSummary() {
   try {
-    const res = await getSummary()
+    const params = {}
+    if (workspaceId.value != null && workspaceId.value !== '') {
+      params.workspace_id = workspaceId.value
+    }
+    const res = await getSummary(params)
     if (res?.success && res?.data) summary.value = res.data
   } catch (_) {}
 }
