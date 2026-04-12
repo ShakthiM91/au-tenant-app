@@ -74,8 +74,8 @@ watch(
     if (v) {
       const from = props.modelValue?.from || ''
       const to = props.modelValue?.to || ''
-      tempFrom.value = from
-      tempTo.value = to
+      tempFrom.value = from ? dateKey(from) : ''
+      tempTo.value = to ? dateKey(to) : ''
       if (from) {
         const d = new Date(from)
         if (!Number.isNaN(d.getTime())) {
@@ -156,8 +156,8 @@ const calendarCells = computed(() => {
 
     const d = new Date(dateStr)
     const inRange = isInRange(dateStr)
-    const isFrom = dateStr === tempFrom.value
-    const isTo = dateStr === tempTo.value
+    const isFrom = dateStr === dateKey(tempFrom.value)
+    const isTo = dateStr === dateKey(tempTo.value)
     const selected = isFrom || isTo
 
     if (inRange) classes.push('in-range')
@@ -180,11 +180,19 @@ function pad(n) {
   return String(n).padStart(2, '0')
 }
 
+/** Calendar cells use YYYY-MM-DD; model values may be ISO strings — normalize for class matching. */
+function dateKey(value) {
+  if (!value) return ''
+  const s = String(value).trim()
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(s)
+  return m ? m[1] : s
+}
+
 function isInRange(dateStr) {
   if (!tempFrom.value || !tempTo.value) return false
   const d = dateStr
-  const from = tempFrom.value
-  const to = tempTo.value
+  const from = dateKey(tempFrom.value)
+  const to = dateKey(tempTo.value)
   return d >= from && d <= to
 }
 
@@ -209,8 +217,9 @@ function onDayClick(cell) {
     tempFrom.value = dateStr
     tempTo.value = ''
   } else {
-    if (dateStr < tempFrom.value) {
-      tempTo.value = tempFrom.value
+    const fromKey = dateKey(tempFrom.value)
+    if (dateStr < fromKey) {
+      tempTo.value = fromKey
       tempFrom.value = dateStr
     } else {
       tempTo.value = dateStr
@@ -234,9 +243,10 @@ function setYesterday() {
 }
 
 function onConfirm() {
-  const from = tempFrom.value
-  const to = tempTo.value || from
-  const result = { from, to: from && to ? (to >= from ? to : from) : '' }
+  const from = dateKey(tempFrom.value)
+  const toRaw = tempTo.value ? dateKey(tempTo.value) : from
+  const to = from && toRaw ? (toRaw >= from ? toRaw : from) : ''
+  const result = { from, to }
   emit('update:modelValue', result)
   emit('select', result)
   emit('close')
@@ -384,7 +394,7 @@ function onClear() {
   background: rgba(255, 141, 40, 0.2);
 }
 
-.day-cell:not(.other-month):hover {
+.day-cell:not(.other-month):not(.range-start):not(.range-end):not(.selected):hover {
   background: rgba(255, 141, 40, 0.15);
 }
 
