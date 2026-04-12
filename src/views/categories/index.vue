@@ -81,9 +81,9 @@
         </div>
 
         <div v-else class="empty-state">
-          <p v-if="workspaceId">{{ workspaceName ? `No categories in ${workspaceName}` : 'No categories in this workspace' }}</p>
+          <p v-if="workspaceId">{{ workspaceName ? `No categories in ${workspaceName}` : 'No categories in this island' }}</p>
           <p v-else>No {{ activeTab }} categories</p>
-          <p v-if="workspaceId" class="empty-hint">Create your first category in this workspace.</p>
+          <p v-if="workspaceId" class="empty-hint">Create your first category in this island.</p>
           <button class="add-first-btn" @click="openForm()">{{ workspaceId ? 'Create your first category' : 'Add category' }}</button>
         </div>
       </div>

@@ -18,10 +18,10 @@
             <ion-label position="stacked">Type</ion-label>
             <ion-note slot="end">{{ type === 'income' ? 'Income' : 'Expense' }}</ion-note>
           </ion-item>
-          <ion-item v-if="!category?.id" button detail @click="showParentPicker = true">
+          <!-- <ion-item v-if="!category?.id" button detail @click="showParentPicker = true">
             <ion-label position="stacked">Parent Category</ion-label>
             <ion-note slot="end">{{ parentText || 'None' }}</ion-note>
-          </ion-item>
+          </ion-item> -->
           <ion-item>
             <ion-label position="stacked">Name</ion-label>
             <ion-input v-model="form.name" placeholder="Enter category name" />
@@ -30,10 +30,10 @@
             <ion-label position="stacked">Description</ion-label>
             <ion-textarea v-model="form.description" placeholder="Optional" :rows="2" />
           </ion-item>
-          <ion-item>
+          <!-- <ion-item>
             <ion-label position="stacked">Sort Order</ion-label>
             <ion-input v-model.number="form.sort_order" type="number" min="0" />
-          </ion-item>
+          </ion-item> -->
           <ion-item v-if="category?.id" button detail @click="showActivePicker = true">
             <ion-label position="stacked">Status</ion-label>
             <ion-note slot="end">{{ form.is_active ? 'Active' : 'Inactive' }}</ion-note>
