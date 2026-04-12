@@ -233,12 +233,12 @@
             class="transaction-row"
             @click="openTransactionDetail(row)"
           >
-            <div class="tx-icon" :class="flowTypeClass(row.flow_type)">
-              <svg v-if="row.flow_type === 'income' || row.flow_type === 'transfer_in'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="7 11 12 6 17 11"/><line x1="12" y1="6" x2="12" y2="18"/>
-              </svg>
-              <svg v-else-if="row.flow_type === 'expense' || row.flow_type === 'transfer_out'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="tx-icon" :class="flowTypeClassForRow(row)">
+              <svg v-if="isUpArrowFlowIcon(row)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/>
+              </svg>
+              <svg v-else-if="isDownArrowFlowIcon(row)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="7 11 12 6 17 11"/><line x1="12" y1="6" x2="12" y2="18"/>
               </svg>
               <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/>
@@ -252,8 +252,8 @@
               </span>
             </div>
             <div class="tx-amounts">
-              <span class="tx-amount" :class="amountClass(row.flow_type)">
-                {{ (row.flow_type === 'income' || row.flow_type === 'transfer_in') ? '+' : '-' }}{{ formatCurrency(row.amount, row.currency) }}
+              <span class="tx-amount" :class="amountClassForRow(row)">
+                {{ formatFlowAmountSignPrefix(row) }}{{ formatCurrency(Math.abs(Number(row.amount) || 0), row.currency) }}
               </span>
               <span class="tx-balance" :class="(row.balance_after || 0) >= 0 ? 'positive' : 'negative'">
                 Bal: {{ formatCurrency(row.balance_after, row.currency) }}
@@ -280,7 +280,12 @@
     </ion-content>
 
     <!-- Transaction Detail Popup -->
-    <ion-modal :is-open="detailVisible" @didDismiss="detailVisible = false" :initial-breakpoint="0.55" :breakpoints="[0, 0.55, 0.85]">
+    <ion-modal
+      :is-open="detailVisible"
+      @didDismiss="detailVisible = false"
+      :initial-breakpoint="1"
+      :breakpoints="[0, 0.55, 0.85, 1]"
+    >
       <ion-content class="detail-modal-content" v-if="selectedTransaction">
         <div class="detail-sheet">
           <div class="detail-handle" />
@@ -296,10 +301,10 @@
             </div>
             <div class="detail-cell">
               <div class="detail-cell-label">
-                <span class="detail-item-icon type-icon" :class="amountClass(selectedTransaction.flow_type)"><svg v-if="isIncomeType(selectedTransaction.flow_type)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 11 12 6 17 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg><svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/></svg></span>
+                <span class="detail-item-icon type-icon" :class="amountClassForRow(selectedTransaction)"><svg v-if="isUpArrowFlowIcon(selectedTransaction)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/></svg><svg v-else-if="isDownArrowFlowIcon(selectedTransaction)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 11 12 6 17 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg><svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/></svg></span>
                 <span>Type</span>
               </div>
-              <span class="detail-cell-value" :class="amountClass(selectedTransaction.flow_type)">{{ formatFlowType(selectedTransaction.flow_type) }}</span>
+              <span class="detail-cell-value" :class="amountClassForRow(selectedTransaction)">{{ formatFlowType(selectedTransaction.flow_type) }}</span>
             </div>
             <div class="detail-cell">
               <div class="detail-cell-label">
@@ -320,9 +325,21 @@
                 <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>
                 <span>Category</span>
               </div>
-              <span class="detail-cell-value"><span class="detail-pill">{{ flowCategoryLabel(selectedTransaction) || '—' }}</span></span>
+              <span class="detail-cell-value">
+                <span class="detail-pill">{{ flowCategoryLabel(selectedTransaction) || '—' }}</span>
+              </span>
             </div>
-            <div class="detail-cell" v-if="detailReferenceLabel(selectedTransaction)">
+            <div class="detail-cell">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg></span>
+                <span>Title</span>
+              </div>
+              <span class="detail-cell-value">{{ flowTransactionTitle(selectedTransaction) || '—' }}</span>
+            </div>
+            <div
+              class="detail-cell detail-cell-span-full"
+              v-if="detailReferenceLabel(selectedTransaction)"
+            >
               <div class="detail-cell-label">
                 <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
                 <span>Reference</span>
@@ -332,7 +349,7 @@
           </div>
 
           <div class="detail-amount-block">
-            <span class="detail-amount-full" :class="amountClass(selectedTransaction.flow_type)">{{ formatCurrencyFull(selectedTransaction) }}</span>
+            <span class="detail-amount-full" :class="amountClassForRow(selectedTransaction)">{{ formatCurrencyFull(selectedTransaction) }}</span>
           </div>
 
           <div class="detail-audit" v-if="hasAuditInfo(selectedTransaction)">
@@ -590,8 +607,55 @@ function formatDateAtTime(dateString) {
   return `${date} at ${time}`
 }
 
-function isIncomeType(flowType) {
-  return flowType === 'income' || flowType === 'transfer_in'
+const nAmount = (row) => Number(row?.amount ?? 0)
+
+/** '+' / '-' shown before the absolute amount in list and detail. */
+function formatFlowAmountSignPrefix(row) {
+  const t = row?.flow_type
+  const n = nAmount(row)
+  if (t === 'income') return '+'
+  if (t === 'expense') return '-'
+  if (t === 'transfer_out') return n >= 0 ? '-' : '+'
+  if (t === 'transfer_in' || t === 'adjustment' || t === 'initial_balance') return n >= 0 ? '+' : '-'
+  return n >= 0 ? '+' : '-'
+}
+
+/** Green / red styling from flow type + amount where sign can vary. */
+function amountClassForRow(row) {
+  const t = row?.flow_type
+  const n = nAmount(row)
+  if (t === 'income') return 'positive'
+  if (t === 'expense') return 'negative'
+  if (t === 'transfer_out') return n >= 0 ? 'negative' : 'positive'
+  if (t === 'transfer_in' || t === 'adjustment' || t === 'initial_balance') return n >= 0 ? 'positive' : 'negative'
+  return ''
+}
+
+function isUpArrowFlowIcon(row) {
+  const t = row?.flow_type
+  const n = nAmount(row)
+  if (t === 'income') return true
+  if (t === 'expense') return false
+  if (t === 'transfer_out') return n < 0
+  if (t === 'transfer_in' || t === 'adjustment' || t === 'initial_balance') return n >= 0
+  return false
+}
+
+function isDownArrowFlowIcon(row) {
+  const t = row?.flow_type
+  const n = nAmount(row)
+  if (t === 'income') return false
+  if (t === 'expense') return true
+  if (t === 'transfer_out') return n >= 0
+  if (t === 'transfer_in' || t === 'adjustment' || t === 'initial_balance') return n < 0
+  return false
+}
+
+function flowTypeClassForRow(row) {
+  const c = amountClassForRow(row)
+  if (c === 'positive') return 'income'
+  if (c === 'negative') return 'expense'
+  return 'neutral'
 }
 
 function paymentStatusLabel(row) {
@@ -615,7 +679,7 @@ function formatCurrencyDecimals(row) {
 function formatCurrencyFull(row) {
   const cur = row.currency || currency.value || 'USD'
   const n = Number(row.amount)
-  const sign = isIncomeType(row.flow_type) ? '+' : '-'
+  const sign = formatFlowAmountSignPrefix(row)
   return sign + new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, minimumFractionDigits: 2 }).format(Math.abs(n))
 }
 
@@ -637,7 +701,9 @@ function formatFlowType(type) {
     transfer_in: 'Transfer In', transfer_out: 'Transfer Out',
     adjustment: 'Adjustment', initial_balance: 'Initial'
   }
-  return map[type] || type || '-'
+  if (type && map[type]) return map[type]
+  if (type) return String(type)
+  return '—'
 }
 
 /** Main line: transaction title when linked row has one, else description, else flow type label. */
@@ -647,17 +713,11 @@ function flowRowPrimaryLabel(row) {
   return row.description || formatFlowType(row.flow_type)
 }
 
-function amountClass(type) {
-  if (type === 'income' || type === 'transfer_in') return 'positive'
-  if (type === 'expense' || type === 'transfer_out') return 'negative'
-  return ''
+/** Linked transaction title only (for detail row next to category). */
+function flowTransactionTitle(row) {
+  return (row.transaction_title ?? row.title ?? '').toString().trim()
 }
 
-function flowTypeClass(type) {
-  if (type === 'income' || type === 'transfer_in') return 'income'
-  if (type === 'expense' || type === 'transfer_out') return 'expense'
-  return 'neutral'
-}
 
 function closeFilterMenus() {
   categoryMenuOpen.value = false
@@ -1731,11 +1791,12 @@ onUnmounted(() => {
 }
 
 .detail-sheet {
+  box-sizing: border-box;
   min-height: 100%;
   background: #fff;
   border-radius: 20px 20px 0 0;
-  padding: 12px 20px 28px;
-  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0));
+  padding: 12px 20px 0;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
 }
 
 .detail-handle {
@@ -1841,6 +1902,13 @@ onUnmounted(() => {
   color: #6E6A7C;
 }
 
+.detail-cell.detail-cell-span-full {
+  grid-column: 1 / -1;
+  border-right: none !important;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .detail-amount-block {
   text-align: center;
   margin-bottom: 24px;
@@ -1910,7 +1978,14 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding-top: 8px;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 20px;
+  padding-top: 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+  background: #fff;
+  border-top: 1px solid #F0F0F0;
 }
 
 .detail-btn {

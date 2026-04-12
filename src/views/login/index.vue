@@ -125,7 +125,7 @@ async function onLogin() {
     await userStore.getInfo()
     const redirect = route.query.redirect || '/dashboard'
     router.push(redirect)
-    showToast('Login successful')
+    // showToast('Login successful')
   } catch (error) {
     const msg = error.response?.data?.error || error.message || 'Login failed'
     showToast(msg)
