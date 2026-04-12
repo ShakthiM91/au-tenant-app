@@ -286,10 +286,25 @@
       :initial-breakpoint="1"
       :breakpoints="[0, 0.55, 0.85, 1]"
     >
+      <ion-header v-if="selectedTransaction">
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button @click="detailVisible = false">Close</ion-button>
+          </ion-buttons>
+          <ion-title>Transaction Details</ion-title>
+          <ion-buttons slot="end">
+            <ion-button
+              v-if="selectedTransaction.transaction_id"
+              @click="goEditTransaction(selectedTransaction)"
+            >
+              Edit
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
       <ion-content class="detail-modal-content" v-if="selectedTransaction">
         <div class="detail-sheet">
           <div class="detail-handle" />
-          <h2 class="detail-title">Transaction Details</h2>
 
           <div class="detail-grid">
             <div class="detail-cell">
@@ -368,11 +383,6 @@
               </div>
             </div>
           </div>
-
-          <div class="detail-actions">
-            <button v-if="selectedTransaction.transaction_id" type="button" class="detail-btn detail-btn-edit" @click="goEditTransaction(selectedTransaction)">Edit</button>
-            <button type="button" class="detail-btn detail-btn-close" @click="detailVisible = false">Close</button>
-          </div>
         </div>
       </ion-content>
     </ion-modal>
@@ -400,7 +410,17 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { IonPage, IonContent, IonSpinner, IonModal } from '@ionic/vue'
+import {
+  IonPage,
+  IonContent,
+  IonSpinner,
+  IonModal,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonButtons,
+  IonButton
+} from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { getAccountFlowLog, getAccountFlowSummary, getAccountById, getCategoryTree } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
@@ -1806,14 +1826,6 @@ onUnmounted(() => {
   margin: 0 auto 16px;
 }
 
-.detail-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #1A1A2E;
-  margin: 0 0 20px;
-  letter-spacing: -0.02em;
-}
-
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1972,51 +1984,5 @@ onUnmounted(() => {
   font-size: 12px;
   color: #A7A7A7;
   margin-top: 2px;
-}
-
-.detail-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  margin-top: 20px;
-  padding-top: 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
-  background: #fff;
-  border-top: 1px solid #F0F0F0;
-}
-
-.detail-btn {
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: opacity 0.2s;
-}
-
-.detail-btn-edit {
-  background: #FF8D28;
-  color: #fff;
-  border: none;
-}
-
-.detail-btn-edit:hover,
-.detail-btn-edit:active {
-  opacity: 0.92;
-}
-
-.detail-btn-close {
-  background: transparent;
-  color: #6E6A7C;
-  border: 1px solid #E8E8E8;
-}
-
-.detail-btn-close:hover,
-.detail-btn-close:active {
-  background: #F5F5F5;
 }
 </style>

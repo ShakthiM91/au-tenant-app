@@ -3,6 +3,17 @@
     <Transition name="fade">
       <div v-if="visible" class="picker-backdrop" @click="onCancel">
         <div class="picker-popup" @click.stop>
+          <ion-header class="picker-ion-header">
+            <ion-toolbar>
+              <ion-buttons slot="start">
+                <ion-button @click="onCancel">Cancel</ion-button>
+              </ion-buttons>
+              <ion-title>Select time</ion-title>
+              <ion-buttons slot="end">
+                <ion-button @click="onConfirm">OK</ion-button>
+              </ion-buttons>
+            </ion-toolbar>
+          </ion-header>
 
           <!-- Time display -->
           <div class="time-display">
@@ -102,11 +113,6 @@
             <button type="button" class="quick-btn" @click="setMinutesAgo(5)">5 mins ago</button>
             <button type="button" class="quick-btn" @click="setMinutesAgo(60)">An Hour ago</button>
           </div>
-
-          <div class="picker-actions">
-            <button type="button" class="action-btn" @click="onCancel">Cancel</button>
-            <button type="button" class="action-btn primary" @click="onConfirm">OK</button>
-          </div>
         </div>
       </div>
     </Transition>
@@ -115,6 +121,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -290,12 +297,21 @@ function onCancel() { emit('close') }
 }
 
 .picker-popup {
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  padding: 20px;
+  padding: 0 20px 20px;
   max-width: 320px;
   width: 100%;
+  max-height: min(90vh, 640px);
+  overflow: hidden;
+}
+
+.picker-ion-header {
+  flex-shrink: 0;
+  margin: 0 -20px;
 }
 
 .time-display {
@@ -303,6 +319,7 @@ function onCancel() { emit('close') }
   align-items: center;
   justify-content: center;
   gap: 4px;
+  margin-top: 16px;
   margin-bottom: 20px;
 }
 
@@ -346,7 +363,7 @@ function onCancel() { emit('close') }
 .picker-quick {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .quick-btn {
@@ -362,25 +379,6 @@ function onCancel() { emit('close') }
   -webkit-tap-highlight-color: transparent;
   white-space: nowrap;
 }
-
-.picker-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  padding: 8px 16px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #6e6a7c;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.action-btn.primary { color: #ff8d28; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

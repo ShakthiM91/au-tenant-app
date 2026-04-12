@@ -44,10 +44,12 @@
       <ion-modal :is-open="showParentPicker" @didDismiss="showParentPicker = false">
         <ion-header>
           <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button @click="showParentPicker = false">Cancel</ion-button>
+            </ion-buttons>
             <ion-title>Parent Category</ion-title>
             <ion-buttons slot="end">
               <ion-button @click="form.parent_id = null; showParentPicker = false">None</ion-button>
-              <ion-button @click="showParentPicker = false">Cancel</ion-button>
             </ion-buttons>
           </ion-toolbar>
         </ion-header>
@@ -68,10 +70,10 @@
       <ion-modal :is-open="showActivePicker" @didDismiss="showActivePicker = false">
         <ion-header>
           <ion-toolbar>
-            <ion-title>Status</ion-title>
-            <ion-buttons slot="end">
+            <ion-buttons slot="start">
               <ion-button @click="showActivePicker = false">Cancel</ion-button>
             </ion-buttons>
+            <ion-title>Status</ion-title>
           </ion-toolbar>
         </ion-header>
         <ion-content>

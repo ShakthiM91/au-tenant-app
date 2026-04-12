@@ -254,10 +254,10 @@
     <ion-modal :is-open="showWorkspacePicker" @didDismiss="showWorkspacePicker = false">
       <ion-header>
         <ion-toolbar>
-          <ion-title>Select island</ion-title>
-          <ion-buttons slot="end">
+          <ion-buttons slot="start">
             <ion-button @click="showWorkspacePicker = false">Cancel</ion-button>
           </ion-buttons>
+          <ion-title>Select island</ion-title>
         </ion-toolbar>
       </ion-header>
       <ion-content>
@@ -285,10 +285,10 @@
     <ion-modal :is-open="showAccountPicker" @didDismiss="showAccountPicker = false">
       <ion-header>
         <ion-toolbar>
-          <ion-title>{{ form.type === 'transfer' ? 'From Account' : 'Account' }}</ion-title>
-          <ion-buttons slot="end">
+          <ion-buttons slot="start">
             <ion-button @click="showAccountPicker = false">Cancel</ion-button>
           </ion-buttons>
+          <ion-title>{{ form.type === 'transfer' ? 'From Account' : 'Account' }}</ion-title>
         </ion-toolbar>
       </ion-header>
       <ion-content>
@@ -308,10 +308,10 @@
     <ion-modal :is-open="showToAccountPicker" @didDismiss="showToAccountPicker = false">
       <ion-header>
         <ion-toolbar>
-          <ion-title>To Account</ion-title>
-          <ion-buttons slot="end">
+          <ion-buttons slot="start">
             <ion-button @click="showToAccountPicker = false">Cancel</ion-button>
           </ion-buttons>
+          <ion-title>To Account</ion-title>
         </ion-toolbar>
       </ion-header>
       <ion-content>
@@ -331,10 +331,10 @@
     <ion-modal :is-open="showCategoryPicker" @didDismiss="showCategoryPicker = false">
       <ion-header>
         <ion-toolbar>
-          <ion-title>Category</ion-title>
-          <ion-buttons slot="end">
+          <ion-buttons slot="start">
             <ion-button @click="showCategoryPicker = false">Cancel</ion-button>
           </ion-buttons>
+          <ion-title>Category</ion-title>
         </ion-toolbar>
       </ion-header>
       <ion-content>
@@ -354,10 +354,10 @@
     <ion-modal :is-open="showCurrencyPicker" @didDismiss="showCurrencyPicker = false">
       <ion-header>
         <ion-toolbar>
-          <ion-title>Currency</ion-title>
-          <ion-buttons slot="end">
+          <ion-buttons slot="start">
             <ion-button @click="showCurrencyPicker = false">Cancel</ion-button>
           </ion-buttons>
+          <ion-title>Currency</ion-title>
         </ion-toolbar>
       </ion-header>
       <ion-content>
@@ -402,24 +402,28 @@
           @click.stop
         >
           <div class="no-acct-handle" />
-          <div class="no-acct-icon-wrap" aria-hidden="true">
-            <svg class="no-acct-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="2" y="6" width="20" height="14" rx="2"/>
-              <path d="M2 10h20"/>
-              <path d="M6 14h4"/>
-            </svg>
-          </div>
-          <h2 id="no-acct-title" class="no-acct-title">No accounts in this Island</h2>
-          <p id="no-acct-desc" class="no-acct-message">
-            Add an account first so you can record transactions against it.
-          </p>
-          <div class="no-acct-footer">
-            <button type="button" class="no-acct-btn-secondary" @click="onNoAccountsGoBack">
-              Go back
-            </button>
-            <button type="button" class="no-acct-btn-primary" @click="goAccountsAddAccountFromGate">
-              Create account
-            </button>
+          <ion-header class="no-acct-ion-header">
+            <ion-toolbar>
+              <ion-buttons slot="start">
+                <ion-button @click="onNoAccountsGoBack">Go back</ion-button>
+              </ion-buttons>
+              <ion-title id="no-acct-title">No accounts in this Island</ion-title>
+              <ion-buttons slot="end">
+                <ion-button @click="goAccountsAddAccountFromGate">Create account</ion-button>
+              </ion-buttons>
+            </ion-toolbar>
+          </ion-header>
+          <div class="no-acct-body">
+            <div class="no-acct-icon-wrap" aria-hidden="true">
+              <svg class="no-acct-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="6" width="20" height="14" rx="2"/>
+                <path d="M2 10h20"/>
+                <path d="M6 14h4"/>
+              </svg>
+            </div>
+            <p id="no-acct-desc" class="no-acct-message">
+              Add an account first so you can record transactions against it.
+            </p>
           </div>
         </div>
       </Transition>
@@ -1864,12 +1868,21 @@ onMounted(async () => {
   right: 0;
   bottom: 0;
   z-index: 2001;
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  padding: 0 24px;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0));
+  padding: 0 0 calc(24px + env(safe-area-inset-bottom, 0));
   max-width: 100%;
+}
+
+.no-acct-ion-header {
+  flex-shrink: 0;
+}
+
+.no-acct-body {
+  padding: 0 24px;
 }
 
 .no-acct-handle {
@@ -1891,65 +1904,13 @@ onMounted(async () => {
   opacity: 0.9;
 }
 
-.no-acct-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1a1a2e;
-  text-align: center;
-  margin: 0 0 10px;
-  letter-spacing: -0.02em;
-}
-
 .no-acct-message {
   font-size: 15px;
   line-height: 1.45;
   color: #a7a7a7;
   text-align: center;
-  margin: 0 0 24px;
+  margin: 0 0 8px;
   padding: 0 4px;
-}
-
-.no-acct-footer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 12px 16px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.no-acct-btn-secondary {
-  padding: 10px 20px;
-  margin-right: auto;
-  border: none;
-  background: transparent;
-  font-size: 15px;
-  font-weight: 500;
-  color: #a7a7a7;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.no-acct-btn-secondary:active {
-  opacity: 0.7;
-}
-
-.no-acct-btn-primary {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 10px;
-  background: #ff8d28;
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.no-acct-btn-primary:active {
-  opacity: 0.92;
 }
 
 .no-acct-fade-enter-active,

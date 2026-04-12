@@ -6,8 +6,20 @@
     <Transition name="drawer-slide">
       <div v-if="isOpen" class="drawer-sheet">
         <div class="drawer-handle" />
-        <h2 class="drawer-title">{{ title }}</h2>
-
+        <ion-header class="drawer-ion-header">
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button @click="$emit('close')">Cancel</ion-button>
+            </ion-buttons>
+            <ion-title>{{ title }}</ion-title>
+            <ion-buttons slot="end">
+              <ion-button :disabled="saving" @click="submit">
+                {{ saving ? 'Saving...' : 'Save' }}
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+        <div class="drawer-body-scroll">
         <div class="drawer-form">
           <div v-if="field === 'name'" class="form-group">
             <label class="form-label">Name</label>
@@ -44,19 +56,6 @@
             <BirthdayPickerField v-model="form.birthday" />
           </div>
         </div>
-
-        <div class="drawer-footer">
-          <button type="button" class="btn-cancel" @click="$emit('close')">
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn-add"
-            :disabled="saving"
-            @click="submit"
-          >
-            {{ saving ? 'Saving...' : 'Save' }}
-          </button>
         </div>
       </div>
     </Transition>
@@ -65,6 +64,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
+import { IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { useUserStore } from '@/store/user'
 import BirthdayPickerField from '@/views/profile/BirthdayPickerField.vue'
@@ -186,13 +186,25 @@ async function submit() {
   left: 0;
   right: 0;
   bottom: 0;
+  display: flex;
+  flex-direction: column;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
   background: #fff;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
   z-index: 1001;
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.drawer-ion-header {
+  flex-shrink: 0;
+}
+
+.drawer-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .drawer-handle {
@@ -201,23 +213,6 @@ async function submit() {
   background: #d6d9dd;
   border-radius: 2px;
   margin: 12px auto 8px;
-}
-
-.drawer-title {
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: #1a1a2e;
-  text-align: center;
-  margin: 0 0 24px;
-  padding: 0 24px;
 }
 
 .drawer-form {
@@ -289,43 +284,6 @@ async function submit() {
   color: #ff8d28;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.drawer-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-  padding: 16px 24px 24px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.btn-cancel {
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
-  color: #a7a7a7;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 10px;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn-add {
-  padding: 10px 24px;
-  border: none;
-  background: #ff8d28;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 10px;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn-add:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .drawer-fade-enter-active,

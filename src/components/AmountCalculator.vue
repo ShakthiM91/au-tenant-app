@@ -4,7 +4,14 @@
       <div v-if="visible" class="calc-backdrop" @click="onCancel">
         <div class="calc-sheet" @click.stop>
           <div class="drag-handle" />
-          <div class="calc-title">Add Amount</div>
+          <ion-header class="calc-ion-header">
+            <ion-toolbar>
+              <ion-buttons slot="start">
+                <ion-button @click="onCancel">Cancel</ion-button>
+              </ion-buttons>
+              <ion-title>Add Amount</ion-title>
+            </ion-toolbar>
+          </ion-header>
 
           <!-- Budget context (only if data is available) -->
           <div v-if="hasBudget" class="budget-row">
@@ -67,6 +74,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -193,8 +201,19 @@ function onCancel() {
   width: 100%;
   background: #fff;
   border-radius: 20px 20px 0 0;
-  padding: 12px 16px 24px;
+  padding: 12px 0 24px;
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.calc-ion-header {
+  margin: 0 0 4px;
+}
+
+.calc-sheet .budget-row,
+.calc-sheet .amount-display,
+.calc-sheet .keypad {
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 .drag-handle {
@@ -202,14 +221,7 @@ function onCancel() {
   height: 4px;
   border-radius: 2px;
   background: #d0d0d0;
-  margin: 0 auto 12px;
-}
-
-.calc-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a2e;
-  margin-bottom: 12px;
+  margin: 0 auto 8px;
 }
 
 /* Budget row */

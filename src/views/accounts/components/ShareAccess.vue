@@ -6,9 +6,16 @@
     <Transition name="drawer-slide">
       <div v-if="isOpen" class="drawer-sheet">
         <div class="drawer-handle" />
-        <h2 class="drawer-title">Share Access</h2>
+        <ion-header class="drawer-ion-header">
+          <ion-toolbar>
+            <ion-title>Share Access</ion-title>
+            <ion-buttons slot="end">
+              <ion-button @click="$emit('close')">Done</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+        <div class="drawer-body-scroll">
         <p class="drawer-subtitle">{{ islandName }}</p>
-
         <div class="drawer-body">
           <div v-if="!readonly" class="invite-section">
             <div class="search-row">
@@ -64,11 +71,6 @@
             </div>
           </div>
         </div>
-
-        <div class="drawer-footer">
-          <button type="button" class="btn-cancel" @click="$emit('close')">
-            Done
-          </button>
         </div>
       </div>
     </Transition>
@@ -77,7 +79,14 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { IonSpinner } from '@ionic/vue'
+import {
+  IonSpinner,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonButtons,
+  IonButton
+} from '@ionic/vue'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import {
   getWorkspaceMembers,
@@ -200,13 +209,25 @@ async function removeMember(row) {
   left: 0;
   right: 0;
   bottom: 0;
+  display: flex;
+  flex-direction: column;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
   background: #fff;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
   z-index: 1001;
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.drawer-ion-header {
+  flex-shrink: 0;
+}
+
+.drawer-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .drawer-handle {
@@ -217,20 +238,11 @@ async function removeMember(row) {
   margin: 12px auto 8px;
 }
 
-.drawer-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1a1a2e;
-  text-align: center;
-  margin: 0 0 4px;
-  padding: 0 24px;
-}
-
 .drawer-subtitle {
   font-size: 14px;
   color: #a7a7a7;
   text-align: center;
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   padding: 0 24px;
 }
 
@@ -378,23 +390,6 @@ async function removeMember(row) {
   color: rgba(195, 0, 16, 0.74);
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
-}
-
-.drawer-footer {
-  padding: 16px 24px 24px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.btn-cancel {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  background: #ff8d28;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 10px;
   cursor: pointer;
 }
 

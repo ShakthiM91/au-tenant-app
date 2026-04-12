@@ -6,8 +6,23 @@
     <Transition name="drawer-slide">
       <div v-if="visible && account" class="drawer-sheet" @click.stop>
         <div class="drawer-handle" />
-        <h2 class="drawer-title">Reconcile Balance</h2>
-
+        <ion-header class="drawer-ion-header">
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button @click="handleClose">Cancel</ion-button>
+            </ion-buttons>
+            <ion-title>Reconcile Balance</ion-title>
+            <ion-buttons slot="end">
+              <ion-button
+                :disabled="submitDisabled || submitLoading"
+                @click="handleSubmit"
+              >
+                {{ submitLoading ? 'Saving…' : difference === 0 ? 'Close' : 'Save' }}
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+        <div class="drawer-body-scroll">
         <div class="drawer-form">
           <div class="form-group">
             <label class="form-label subtle-label">Account</label>
@@ -85,19 +100,6 @@
             </div>
           </template>
         </div>
-
-        <div class="drawer-footer">
-          <button type="button" class="btn-cancel" @click="handleClose">
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn-add"
-            :disabled="submitDisabled || submitLoading"
-            @click="handleSubmit"
-          >
-            {{ submitLoading ? 'Saving…' : difference === 0 ? 'Close' : 'Save' }}
-          </button>
         </div>
       </div>
     </Transition>
@@ -108,10 +110,10 @@
     >
       <ion-header>
         <ion-toolbar>
-          <ion-title>Category</ion-title>
-          <ion-buttons slot="end">
+          <ion-buttons slot="start">
             <ion-button @click="showCategoryPicker = false">Cancel</ion-button>
           </ion-buttons>
+          <ion-title>Category</ion-title>
         </ion-toolbar>
       </ion-header>
       <ion-content>
@@ -133,8 +135,16 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import {
-  IonModal, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton,
-  IonContent, IonList, IonItem, IonLabel
+  IonModal,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonButtons,
+  IonButton,
+  IonContent,
+  IonList,
+  IonItem,
+  IonLabel
 } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { createTransaction, getCategoryTree } from '@/api/accounting'
@@ -352,13 +362,25 @@ async function handleSubmit() {
   left: 0;
   right: 0;
   bottom: 0;
+  display: flex;
+  flex-direction: column;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
   background: #fff;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
   z-index: 1001;
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.drawer-ion-header {
+  flex-shrink: 0;
+}
+
+.drawer-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .drawer-handle {
@@ -367,15 +389,6 @@ async function handleSubmit() {
   background: #d6d9dd;
   border-radius: 2px;
   margin: 12px auto 8px;
-}
-
-.drawer-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1a1a2e;
-  text-align: center;
-  margin: 0 0 20px;
-  padding: 0 24px;
 }
 
 .drawer-form {
@@ -449,43 +462,6 @@ async function handleSubmit() {
   font-size: 13px;
   font-weight: 500;
   color: #9e9e9e;
-}
-
-.drawer-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-  padding: 16px 24px 24px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.btn-cancel {
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
-  font-size: 15px;
-  font-weight: 500;
-  color: #a7a7a7;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn-add {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 10px;
-  background: #ff8d28;
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn-add:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* Reconcile-specific */

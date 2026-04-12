@@ -27,4 +27,14 @@ html, body, #app {
   height: 100%;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Toolbar text buttons: brand accent (default Ionic blue → app orange) */
+ion-toolbar ion-button {
+  --color: #ff8d28;
+}
+
+/* Dismiss / secondary actions on the leading side */
+ion-toolbar ion-buttons[slot='start'] ion-button {
+  --color: #6e6a7c;
+}
 </style>

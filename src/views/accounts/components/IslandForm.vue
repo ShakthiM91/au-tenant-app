@@ -6,8 +6,20 @@
     <Transition name="drawer-slide">
       <div v-if="isOpen" class="drawer-sheet">
         <div class="drawer-handle" />
-        <h2 class="drawer-title">{{ isEdit ? 'Rename Island' : 'Add an Island' }}</h2>
-
+        <ion-header class="drawer-ion-header">
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button @click="$emit('close')">Cancel</ion-button>
+            </ion-buttons>
+            <ion-title>{{ isEdit ? 'Rename Island' : 'Add an Island' }}</ion-title>
+            <ion-buttons slot="end">
+              <ion-button :disabled="saving" @click="submit">
+                {{ saving ? 'Saving...' : (isEdit ? 'Save' : 'Add') }}
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+        <div class="drawer-body-scroll">
         <form @submit.prevent="submit" class="drawer-form">
           <div class="form-group">
             <label class="form-label">Island Name</label>
@@ -20,19 +32,6 @@
             />
           </div>
         </form>
-
-        <div class="drawer-footer">
-          <button type="button" class="btn-cancel" @click="$emit('close')">
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn-add"
-            :disabled="saving"
-            @click="submit"
-          >
-            {{ saving ? 'Saving...' : (isEdit ? 'Save' : 'Add') }}
-          </button>
         </div>
       </div>
     </Transition>
@@ -41,6 +40,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
+import { IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { createWorkspace, updateWorkspace } from '@/api/workspace'
 
@@ -108,13 +108,25 @@ async function submit() {
   left: 0;
   right: 0;
   bottom: 0;
+  display: flex;
+  flex-direction: column;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
   background: #fff;
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
   z-index: 1001;
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.drawer-ion-header {
+  flex-shrink: 0;
+}
+
+.drawer-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .drawer-handle {
@@ -123,15 +135,6 @@ async function submit() {
   background: #D6D9DD;
   border-radius: 2px;
   margin: 12px auto 8px;
-}
-
-.drawer-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1A1A2E;
-  text-align: center;
-  margin: 0 0 24px;
-  padding: 0 24px;
 }
 
 .drawer-form {
@@ -168,43 +171,6 @@ async function submit() {
 
 .form-input::placeholder {
   color: #A7A7A7;
-}
-
-.drawer-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-  padding: 16px 24px 24px;
-  border-top: 1px solid #F0F0F0;
-}
-
-.btn-cancel {
-  padding: 10px 20px;
-  border: none;
-  background: transparent;
-  color: #A7A7A7;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 10px;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn-add {
-  padding: 10px 24px;
-  border: none;
-  background: #FF8D28;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 10px;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn-add:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .drawer-fade-enter-active,
