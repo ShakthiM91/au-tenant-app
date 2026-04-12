@@ -24,8 +24,10 @@
             <svg
               class="clock-svg"
               viewBox="0 0 260 260"
-              @click="onClockClick"
-              @touchend.prevent="onClockTouch"
+              @pointerdown="onClockPointerDown"
+              @pointermove="onClockPointerMove"
+              @pointerup="onClockPointerUp"
+              @pointercancel="onClockPointerUp"
             >
               <!-- Clock face -->
               <circle cx="130" cy="130" r="120" fill="#f5f5f7" />
@@ -173,19 +175,31 @@ const selectedClockPos = computed(() => {
     }
   } else {
     const m = tempMinute.value
-    const pos = (m / 5) % 12 || 12
-    return { x: outerX(pos), y: outerY(pos) }
+    const theta = (m / 60) * 2 * Math.PI - Math.PI / 2
+    return {
+      x: CX + OUTER_R * Math.cos(theta),
+      y: CY + OUTER_R * Math.sin(theta)
+    }
   }
 })
 
 const selectedX = computed(() => selectedClockPos.value.x)
 const selectedY = computed(() => selectedClockPos.value.y)
 
+function setMinuteFromSvgPoint(svgX, svgY) {
+  const dx = svgX - CX
+  const dy = svgY - CY
+  let angle = Math.atan2(dy, dx) + Math.PI / 2
+  if (angle < 0) angle += 2 * Math.PI
+  let m = Math.round((angle / (2 * Math.PI)) * 60)
+  if (m === 60) m = 0
+  tempMinute.value = m
+}
+
 function getClockValue(svgX, svgY) {
   const dx = svgX - CX
   const dy = svgY - CY
   const dist = Math.sqrt(dx * dx + dy * dy)
-  // Angle from 12-o'clock, clockwise
   let angle = Math.atan2(dy, dx) + Math.PI / 2
   if (angle < 0) angle += 2 * Math.PI
   const unit = Math.round(angle / (Math.PI / 6)) % 12 || 12 // 1–12
@@ -195,12 +209,12 @@ function getClockValue(svgX, svgY) {
     if (isInner) {
       tempHour.value = innerHourValue(unit)
     } else {
-      tempHour.value = unit === 12 ? 0 : unit
+      tempHour.value = unit === 12 ? 12 : unit
     }
     // Auto-advance to minute selection after picking hour
     setTimeout(() => { mode.value = 'minute' }, 200)
   } else {
-    tempMinute.value = minuteLabel(unit)
+    setMinuteFromSvgPoint(svgX, svgY)
   }
 }
 
@@ -214,15 +228,29 @@ function getSvgCoords(el, clientX, clientY) {
   }
 }
 
-function onClockClick(e) {
-  const { x, y } = getSvgCoords(e.currentTarget, e.clientX, e.clientY)
-  getClockValue(x, y)
+function onClockPointerDown(e) {
+  if (e.button != null && e.button !== 0) return
+  const el = e.currentTarget
+  const { x, y } = getSvgCoords(el, e.clientX, e.clientY)
+  if (mode.value === 'minute') {
+    el.setPointerCapture(e.pointerId)
+    setMinuteFromSvgPoint(x, y)
+  } else {
+    getClockValue(x, y)
+  }
 }
 
-function onClockTouch(e) {
-  const touch = e.changedTouches[0]
-  const { x, y } = getSvgCoords(e.currentTarget, touch.clientX, touch.clientY)
-  getClockValue(x, y)
+function onClockPointerMove(e) {
+  if (mode.value !== 'minute') return
+  if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
+  const { x, y } = getSvgCoords(e.currentTarget, e.clientX, e.clientY)
+  setMinuteFromSvgPoint(x, y)
+}
+
+function onClockPointerUp(e) {
+  if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
 }
 
 function setNow() {
@@ -311,7 +339,8 @@ function onCancel() { emit('close') }
   width: 100%;
   max-width: 260px;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: none;
+  user-select: none;
 }
 
 .picker-quick {
