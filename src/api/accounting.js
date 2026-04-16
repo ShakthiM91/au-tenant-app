@@ -274,8 +274,12 @@ export function setPrimaryAccount(accountId) {
 export function getBudgets(params = {}) {
   return request({ url: '/api/accounting/budgets', method: 'get', params })
 }
-export function getOngoingBudget() {
-  return request({ url: '/api/accounting/budgets/ongoing', method: 'get' })
+export function getOngoingBudget(params = {}) {
+  return request({
+    url: '/api/accounting/budgets/ongoing',
+    method: 'get',
+    params: Object.keys(params).length ? params : undefined
+  })
 }
 
 export function getBudgetContext(params) {
