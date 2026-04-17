@@ -106,7 +106,8 @@
     >
       <ion-content class="category-actions-popover-content" :scroll-y="false">
         <ion-list lines="none" class="popover-list">
-          <!-- <ion-item
+          <ion-item
+            v-if="depth === 0"
             button
             :detail="false"
             lines="none"
@@ -114,7 +115,7 @@
             @click="handleAction('add-child')"
           >
             <ion-label>Sub-category</ion-label>
-          </ion-item> -->
+          </ion-item>
           <ion-item
             button
             :detail="false"
