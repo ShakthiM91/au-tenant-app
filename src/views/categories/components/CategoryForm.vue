@@ -18,10 +18,10 @@
             <ion-label position="stacked">Type</ion-label>
             <ion-note slot="end">{{ type === 'income' ? 'Income' : 'Expense' }}</ion-note>
           </ion-item>
-          <!-- <ion-item v-if="!category?.id" button detail @click="showParentPicker = true">
+          <ion-item v-if="!category?.id" button detail @click="showParentPicker = true">
             <ion-label position="stacked">Parent Category</ion-label>
             <ion-note slot="end">{{ parentText || 'None' }}</ion-note>
-          </ion-item> -->
+          </ion-item>
           <ion-item>
             <ion-label position="stacked">Name</ion-label>
             <ion-input v-model="form.name" placeholder="Enter category name" />
@@ -56,12 +56,12 @@
         <ion-content>
           <ion-list>
             <ion-item
-              v-for="p in flatParents"
+              v-for="p in rootParentOptions"
               :key="p.id"
               button
               @click="form.parent_id = p.id; showParentPicker = false"
             >
-              <ion-label :style="{ paddingLeft: (p.depth || 0) * 16 + 'px' }">{{ p.name }}</ion-label>
+              <ion-label>{{ p.name }}</ion-label>
             </ion-item>
           </ion-list>
         </ion-content>
@@ -126,19 +126,11 @@ function toBoolean(v) {
   return Boolean(v)
 }
 
-const flatParents = computed(() => {
-  const out = []
-  function walk(items, depth = 0) {
-    for (const item of items || []) {
-      if (item.is_active !== false && item.id !== props.category?.id) {
-        out.push({ ...item, depth })
-        walk(item.children, depth + 1)
-      }
-    }
-  }
-  walk(parentCategories.value)
-  return out
-})
+const rootParentOptions = computed(() =>
+  (parentCategories.value || []).filter(
+    (item) => item.is_active !== false && item.id !== props.category?.id
+  )
+)
 
 const parentText = computed(() => {
   if (!form.parent_id) return 'None'
