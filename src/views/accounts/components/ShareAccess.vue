@@ -40,10 +40,11 @@
                   >{{ statusLabel(m) }}</span>
                   <div v-if="!readonly" class="member-actions">
                     <button
+                      v-if="m.status !== 'declined' && !isCurrentUser(m)"
                       type="button"
                       class="icon-btn"
-                      aria-label="Edit"
-                      @click="editMember(m)"
+                      aria-label="Edit access"
+                      @click="openEditMember(m)"
                     >
                       <ion-icon :icon="createOutline" />
                     </button>
@@ -61,7 +62,108 @@
             </div>
           </section>
 
-          <section v-if="!readonly" class="add-section">
+          <section v-if="!readonly && editingMember" class="edit-member-section">
+            <div class="edit-member-header">
+              <button type="button" class="btn-edit-cancel" @click="closeEditMember">Cancel</button>
+              <h2 class="section-heading edit-member-heading">Edit access</h2>
+            </div>
+            <p class="edit-member-name">{{ displayName(editingMember) }}</p>
+
+            <div v-if="loadingMemberGrants" class="accounts-loading">
+              <ion-spinner name="crescent" />
+            </div>
+            <template v-else>
+              <div class="invite-panel invite-panel--embedded">
+                <h3 class="invite-panel-title">Permissions</h3>
+                <div class="perm-list">
+                  <label class="perm-row">
+                    <input
+                      v-model="perm.full_access"
+                      type="checkbox"
+                      class="perm-check"
+                      @change="onFullAccessChange"
+                    />
+                    <span>Full access</span>
+                  </label>
+                  <label class="perm-row" :class="{ 'perm-row--muted': perm.full_access }">
+                    <input
+                      v-model="perm.view_only"
+                      type="checkbox"
+                      class="perm-check"
+                      :disabled="perm.full_access"
+                      @change="onViewOnlyChange"
+                    />
+                    <span>View only</span>
+                  </label>
+                  <label class="perm-row" :class="{ 'perm-row--muted': perm.full_access || perm.view_only }">
+                    <input
+                      v-model="perm.add_transaction"
+                      type="checkbox"
+                      class="perm-check"
+                      :disabled="perm.full_access || perm.view_only"
+                      @change="onGranularChange"
+                    />
+                    <span>Add transactions</span>
+                  </label>
+                  <label class="perm-row" :class="{ 'perm-row--muted': perm.full_access || perm.view_only }">
+                    <input
+                      v-model="perm.edit_transaction"
+                      type="checkbox"
+                      class="perm-check"
+                      :disabled="perm.full_access || perm.view_only"
+                      @change="onGranularChange"
+                    />
+                    <span>Edit transactions</span>
+                  </label>
+                  <label class="perm-row" :class="{ 'perm-row--muted': perm.full_access || perm.view_only }">
+                    <input
+                      v-model="perm.reconcile"
+                      type="checkbox"
+                      class="perm-check"
+                      :disabled="perm.full_access || perm.view_only"
+                      @change="onGranularChange"
+                    />
+                    <span>Reconcile</span>
+                  </label>
+                </div>
+
+                <h3 class="invite-panel-title invite-panel-title--accounts">Accounts</h3>
+                <div v-if="loadingAccounts" class="accounts-loading">
+                  <ion-spinner name="crescent" />
+                </div>
+                <p v-else-if="!workspaceAccounts.length" class="accounts-empty">
+                  No accounts in this workspace.
+                </p>
+                <div v-else class="account-grid">
+                  <label
+                    v-for="acc in workspaceAccounts"
+                    :key="acc.id"
+                    class="account-chip"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="acc.id"
+                      :checked="selectedAccountIds.includes(Number(acc.id))"
+                      class="perm-check"
+                      @change="toggleAccount(acc.id, $event.target.checked)"
+                    />
+                    <span class="account-chip-label">{{ acc.name }}</span>
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  class="btn-invite-primary"
+                  :disabled="savingMemberGrants || !canSaveMemberGrants"
+                  @click="saveMemberGrants"
+                >
+                  {{ savingMemberGrants ? '…' : 'Save' }}
+                </button>
+              </div>
+            </template>
+          </section>
+
+          <section v-if="!readonly && !editingMember" class="add-section">
             <div class="add-people-heading">
               <ion-icon :icon="addOutline" class="add-people-icon" aria-hidden="true" />
               <span>Add People</span>
@@ -97,16 +199,106 @@
               </button>
             </div>
             <div v-if="searchResults.length > 0" class="search-results">
-              <div v-for="u in searchResults" :key="u.id" class="search-item">
-                <span class="search-item-label">{{ u.name || u.email }} ({{ u.email }})</span>
-                <button
-                  type="button"
-                  class="btn-invite"
-                  :disabled="isAlreadyMember(u.id)"
-                  @click="inviteUser(u)"
-                >
-                  {{ isAlreadyMember(u.id) ? 'Member' : 'Invite' }}
-                </button>
+              <div v-for="u in searchResults" :key="u.id" class="search-result-block">
+                <div class="search-item">
+                  <span class="search-item-label">{{ u.name || u.email }} ({{ u.email }})</span>
+                  <button
+                    type="button"
+                    class="btn-select"
+                    :disabled="isAlreadyMember(u.id)"
+                    @click="toggleSelectUser(u)"
+                  >
+                    {{ isAlreadyMember(u.id) ? 'Member' : selectedUser?.id === u.id ? 'Collapse' : 'Select' }}
+                  </button>
+                </div>
+
+                <div v-if="selectedUser?.id === u.id && !isAlreadyMember(u.id)" class="invite-panel">
+                  <h3 class="invite-panel-title">Permissions</h3>
+                  <div class="perm-list">
+                    <label class="perm-row">
+                      <input
+                        v-model="perm.full_access"
+                        type="checkbox"
+                        class="perm-check"
+                        @change="onFullAccessChange"
+                      />
+                      <span>Full access</span>
+                    </label>
+                    <label class="perm-row" :class="{ 'perm-row--muted': perm.full_access }">
+                      <input
+                        v-model="perm.view_only"
+                        type="checkbox"
+                        class="perm-check"
+                        :disabled="perm.full_access"
+                        @change="onViewOnlyChange"
+                      />
+                      <span>View only</span>
+                    </label>
+                    <label class="perm-row" :class="{ 'perm-row--muted': perm.full_access || perm.view_only }">
+                      <input
+                        v-model="perm.add_transaction"
+                        type="checkbox"
+                        class="perm-check"
+                        :disabled="perm.full_access || perm.view_only"
+                        @change="onGranularChange"
+                      />
+                      <span>Add transactions</span>
+                    </label>
+                    <label class="perm-row" :class="{ 'perm-row--muted': perm.full_access || perm.view_only }">
+                      <input
+                        v-model="perm.edit_transaction"
+                        type="checkbox"
+                        class="perm-check"
+                        :disabled="perm.full_access || perm.view_only"
+                        @change="onGranularChange"
+                      />
+                      <span>Edit transactions</span>
+                    </label>
+                    <label class="perm-row" :class="{ 'perm-row--muted': perm.full_access || perm.view_only }">
+                      <input
+                        v-model="perm.reconcile"
+                        type="checkbox"
+                        class="perm-check"
+                        :disabled="perm.full_access || perm.view_only"
+                        @change="onGranularChange"
+                      />
+                      <span>Reconcile</span>
+                    </label>
+                  </div>
+
+                  <h3 class="invite-panel-title invite-panel-title--accounts">Accounts</h3>
+                  <div v-if="loadingAccounts" class="accounts-loading">
+                    <ion-spinner name="crescent" />
+                  </div>
+                  <p v-else-if="!workspaceAccounts.length" class="accounts-empty">
+                    No accounts in this workspace.
+                  </p>
+                  <div v-else class="account-grid">
+                    <label
+                      v-for="acc in workspaceAccounts"
+                      :key="acc.id"
+                      class="account-chip"
+                    >
+                      <input
+                        type="checkbox"
+                        :value="acc.id"
+                        :checked="selectedAccountIds.includes(Number(acc.id))"
+                        class="perm-check"
+                        @change="toggleAccount(acc.id, $event.target.checked)"
+                      />
+                      <span class="account-chip-label">{{ acc.name }}</span>
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="btn-invite-primary"
+                    :disabled="inviting || !canSubmitInvite"
+                    @click="sendInvite(u)"
+                  >
+                    {{ inviting ? '…' : 'Invite' }}
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -120,14 +312,17 @@
 import { ref, computed, watch } from 'vue'
 import { IonSpinner, IonIcon } from '@ionic/vue'
 import { createOutline, trashOutline, addOutline } from 'ionicons/icons'
-import { showToast, showConfirmDialog, showActionSheet } from '@/utils/ionicFeedback'
+import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { useUserStore } from '@/store/user'
 import {
   getWorkspaceMembers,
+  getWorkspaceMemberGrants,
   inviteWorkspaceMember,
   removeWorkspaceMember,
-  searchWorkspaceUsers
+  searchWorkspaceUsers,
+  updateWorkspaceMember
 } from '@/api/workspace'
+import { getAccountsByWorkspace } from '@/api/accounting'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -154,6 +349,22 @@ const searchResults = ref([])
 const searching = ref(false)
 const members = ref([])
 const loading = ref(false)
+
+const workspaceAccounts = ref([])
+const loadingAccounts = ref(false)
+const selectedUser = ref(null)
+const selectedAccountIds = ref([])
+const inviting = ref(false)
+const editingMember = ref(null)
+const loadingMemberGrants = ref(false)
+const savingMemberGrants = ref(false)
+const perm = ref({
+  view_only: true,
+  add_transaction: false,
+  edit_transaction: false,
+  reconcile: false,
+  full_access: false
+})
 
 const roleOrder = { owner: 0, admin: 1, member: 2 }
 
@@ -184,6 +395,202 @@ function statusLabel(m) {
 const isAlreadyMember = (userId) =>
   members.value.some((m) => Number(m.user_id) === Number(userId))
 
+function defaultPermState() {
+  return {
+    view_only: true,
+    add_transaction: false,
+    edit_transaction: false,
+    reconcile: false,
+    full_access: false
+  }
+}
+
+function resetInviteFlow() {
+  selectedUser.value = null
+  selectedAccountIds.value = []
+  perm.value = defaultPermState()
+}
+
+function closeEditMember() {
+  editingMember.value = null
+  loadingMemberGrants.value = false
+}
+
+function resetInviteForm() {
+  resetInviteFlow()
+  closeEditMember()
+}
+
+function buildPermissionsPayload() {
+  const p = perm.value
+  if (p.full_access) {
+    return {
+      view: true,
+      add_transaction: true,
+      edit_transaction: true,
+      reconcile: true,
+      full_access: true
+    }
+  }
+  if (p.view_only) {
+    return {
+      view: true,
+      add_transaction: false,
+      edit_transaction: false,
+      reconcile: false,
+      full_access: false
+    }
+  }
+  return {
+    view: true,
+    add_transaction: !!p.add_transaction,
+    edit_transaction: !!p.edit_transaction,
+    reconcile: !!p.reconcile,
+    full_access: false
+  }
+}
+
+const canSubmitInvite = computed(() => {
+  if (selectedAccountIds.value.length === 0) return false
+  const p = perm.value
+  if (p.full_access) return true
+  if (p.view_only) return true
+  return !!(p.add_transaction || p.edit_transaction || p.reconcile)
+})
+
+const canSaveMemberGrants = computed(() => {
+  if (!editingMember.value) return false
+  if (selectedAccountIds.value.length === 0) return true
+  const p = perm.value
+  if (p.full_access) return true
+  if (p.view_only) return true
+  return !!(p.add_transaction || p.edit_transaction || p.reconcile)
+})
+
+function onFullAccessChange() {
+  if (perm.value.full_access) {
+    perm.value.view_only = false
+  }
+}
+
+function onViewOnlyChange() {
+  if (perm.value.view_only) {
+    perm.value.full_access = false
+    perm.value.add_transaction = false
+    perm.value.edit_transaction = false
+    perm.value.reconcile = false
+  }
+}
+
+function onGranularChange() {
+  if (perm.value.add_transaction || perm.value.edit_transaction || perm.value.reconcile) {
+    perm.value.view_only = false
+    perm.value.full_access = false
+  }
+}
+
+function toggleAccount(accountId, checked) {
+  const id = Number(accountId)
+  const set = new Set(selectedAccountIds.value.map(Number))
+  if (checked) set.add(id)
+  else set.delete(id)
+  selectedAccountIds.value = [...set]
+}
+
+function toggleSelectUser(u) {
+  if (isAlreadyMember(u.id)) return
+  closeEditMember()
+  if (selectedUser.value?.id === u.id) {
+    resetInviteForm()
+    return
+  }
+  selectedUser.value = u
+  perm.value = defaultPermState()
+  selectedAccountIds.value = []
+}
+
+function applyPermissionsFromGrantsList(grants) {
+  const list = Array.isArray(grants) ? grants : []
+  if (list.length === 0) {
+    perm.value = defaultPermState()
+    selectedAccountIds.value = []
+    return
+  }
+  selectedAccountIds.value = list.map((g) => Number(g.account_id)).filter((id) => !Number.isNaN(id))
+  const p = list[0]?.permissions || {}
+  if (p.full_access) {
+    perm.value = {
+      full_access: true,
+      view_only: false,
+      add_transaction: false,
+      edit_transaction: false,
+      reconcile: false
+    }
+    return
+  }
+  const onlyView =
+    p.view !== false &&
+    !p.add_transaction &&
+    !p.edit_transaction &&
+    !p.reconcile &&
+    !p.full_access
+  if (onlyView) {
+    perm.value = {
+      full_access: false,
+      view_only: true,
+      add_transaction: false,
+      edit_transaction: false,
+      reconcile: false
+    }
+    return
+  }
+  perm.value = {
+    full_access: false,
+    view_only: false,
+    add_transaction: !!p.add_transaction,
+    edit_transaction: !!p.edit_transaction,
+    reconcile: !!p.reconcile
+  }
+}
+
+async function openEditMember(m) {
+  if (!workspaceId.value) return
+  resetInviteFlow()
+  editingMember.value = m
+  loadingMemberGrants.value = true
+  try {
+    const res = await getWorkspaceMemberGrants(workspaceId.value, m.id)
+    const grants = res?.data?.account_grants ?? []
+    applyPermissionsFromGrantsList(grants)
+  } catch {
+    applyPermissionsFromGrantsList([])
+    showToast('Failed to load access settings')
+  } finally {
+    loadingMemberGrants.value = false
+  }
+}
+
+async function saveMemberGrants() {
+  if (!canSaveMemberGrants.value || !workspaceId.value || !editingMember.value) return
+  const permissions = buildPermissionsPayload()
+  const account_grants = selectedAccountIds.value.map((aid) => ({
+    account_id: Number(aid),
+    permissions
+  }))
+  savingMemberGrants.value = true
+  try {
+    await updateWorkspaceMember(workspaceId.value, editingMember.value.id, { account_grants })
+    showToast('Access updated')
+    closeEditMember()
+    await loadMembers()
+    emit('success')
+  } catch (e) {
+    showToast(e?.response?.data?.error || e?.message || 'Failed to save')
+  } finally {
+    savingMemberGrants.value = false
+  }
+}
+
 /**
  * Practical single-address check (must match full email before API search).
  */
@@ -211,6 +618,7 @@ function validateInviteEmail(email) {
 watch(searchEmail, () => {
   searchEmailError.value = ''
   searchNotFound.value = false
+  resetInviteForm()
 })
 
 watch(
@@ -221,13 +629,16 @@ watch(
       searchEmailError.value = ''
       searchNotFound.value = false
       searchResults.value = []
-      await loadMembers()
+      resetInviteForm()
+      await Promise.all([loadMembers(), loadWorkspaceAccounts()])
     } else if (!open) {
       searchEmail.value = ''
       searchEmailError.value = ''
       searchNotFound.value = false
       searchResults.value = []
       members.value = []
+      workspaceAccounts.value = []
+      resetInviteForm()
     }
   }
 )
@@ -246,11 +657,27 @@ async function loadMembers() {
   }
 }
 
+async function loadWorkspaceAccounts() {
+  if (!workspaceId.value) return
+  loadingAccounts.value = true
+  try {
+    const res = await getAccountsByWorkspace(workspaceId.value, { is_active: true })
+    const raw = res?.data ?? res
+    workspaceAccounts.value = Array.isArray(raw) ? raw : []
+  } catch {
+    workspaceAccounts.value = []
+    showToast('Failed to load accounts')
+  } finally {
+    loadingAccounts.value = false
+  }
+}
+
 async function searchUsers() {
   if (!workspaceId.value) return
   searchEmailError.value = ''
   searchNotFound.value = false
   searchResults.value = []
+  resetInviteForm()
 
   const check = validateInviteEmail(searchEmail.value)
   if (!check.ok) {
@@ -274,32 +701,30 @@ async function searchUsers() {
   }
 }
 
-async function inviteUser(user) {
+async function sendInvite(user) {
+  if (!canSubmitInvite.value || !workspaceId.value) return
+  const permissions = buildPermissionsPayload()
+  const account_grants = selectedAccountIds.value.map((aid) => ({
+    account_id: Number(aid),
+    permissions
+  }))
+  inviting.value = true
   try {
     await inviteWorkspaceMember(workspaceId.value, {
       user_id: user.id,
       role: 'member',
-      invite_mode: 'pending'
+      invite_mode: 'pending',
+      account_grants
     })
     showToast('Invitation sent')
     searchResults.value = searchResults.value.filter((u) => u.id !== user.id)
+    resetInviteForm()
     await loadMembers()
     emit('success')
   } catch (e) {
-    showToast(e?.message || 'Failed to invite')
-  }
-}
-
-async function editMember(row) {
-  const role = await showActionSheet({
-    header: displayName(row),
-    buttons: [
-      { text: 'Remove from workspace', role: 'remove' },
-      { text: 'Cancel', role: 'cancel' }
-    ]
-  })
-  if (role === 'remove') {
-    await removeMember(row)
+    showToast(e?.response?.data?.error || e?.message || 'Failed to invite')
+  } finally {
+    inviting.value = false
   }
 }
 
@@ -513,6 +938,49 @@ async function removeMember(row) {
   background: rgba(0, 0, 0, 0.06);
 }
 
+.edit-member-section {
+  margin-bottom: 24px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f2f2f7;
+}
+
+.edit-member-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.btn-edit-cancel {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  font-size: 16px;
+  font-weight: 400;
+  color: #5856d6;
+  cursor: pointer;
+}
+
+.edit-member-heading {
+  margin: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.edit-member-name {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1c1c1e;
+  text-align: center;
+}
+
+.invite-panel--embedded {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .add-section {
   padding-top: 4px;
 }
@@ -612,24 +1080,21 @@ async function removeMember(row) {
   margin-top: 4px;
 }
 
+.search-result-block {
+  border-bottom: 1px solid #f2f2f7;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
 .search-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #f2f2f7;
+  padding: 12px 0 8px;
 }
 
-.search-item-label {
-  font-size: 15px;
-  color: #1c1c1e;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.btn-invite {
+.btn-select {
+  flex-shrink: 0;
   padding: 6px 14px;
   border: none;
   background: rgba(255, 141, 40, 0.18);
@@ -640,9 +1105,119 @@ async function removeMember(row) {
   cursor: pointer;
 }
 
-.btn-invite:disabled {
+.btn-select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.invite-panel {
+  padding: 8px 0 16px 4px;
+}
+
+.invite-panel-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.invite-panel-title--accounts {
+  margin-top: 18px;
+}
+
+.perm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.perm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  color: #1c1c1e;
+  cursor: pointer;
+}
+
+.perm-row--muted {
+  opacity: 0.45;
+}
+
+.perm-check {
+  width: 20px;
+  height: 20px;
+  accent-color: #ff8d28;
+}
+
+.accounts-loading {
+  padding: 16px;
+  text-align: center;
+}
+
+.accounts-empty {
+  margin: 0;
+  font-size: 15px;
+  color: #8e8e93;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+@media (max-width: 360px) {
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.account-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 15px;
+  color: #1c1c1e;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.account-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.btn-invite-primary {
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 12px;
+  background: #ff8d28;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-invite-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.search-item-label {
+  font-size: 15px;
+  color: #1c1c1e;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .drawer-fade-enter-active,

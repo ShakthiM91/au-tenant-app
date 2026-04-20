@@ -74,11 +74,25 @@ export function getWorkspaceMembers(id) {
   })
 }
 
+/**
+ * @param {object} data
+ * @param {number} data.user_id
+ * @param {string} [data.role]
+ * @param {'pending'|'instant'} [data.invite_mode]
+ * @param {Array<{ account_id: number, access_level?: string, permissions?: object }>} [data.account_grants]
+ */
 export function inviteWorkspaceMember(id, data) {
   return request({
     url: `/api/accounting/workspaces/${id}/members`,
     method: 'post',
     data
+  })
+}
+
+export function getWorkspaceMemberGrants(id, memberId) {
+  return request({
+    url: `/api/accounting/workspaces/${id}/members/${memberId}/grants`,
+    method: 'get'
   })
 }
 
