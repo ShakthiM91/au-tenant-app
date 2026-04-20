@@ -21,6 +21,20 @@ export function getSharedWorkspaces() {
   })
 }
 
+export function acceptWorkspaceInvitation(workspaceId) {
+  return request({
+    url: `/api/accounting/workspaces/${workspaceId}/invitations/accept`,
+    method: 'patch'
+  })
+}
+
+export function declineWorkspaceInvitation(workspaceId) {
+  return request({
+    url: `/api/accounting/workspaces/${workspaceId}/invitations/decline`,
+    method: 'patch'
+  })
+}
+
 /**
  * Create a new workspace (island).
  */

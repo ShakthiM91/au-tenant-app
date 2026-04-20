@@ -56,6 +56,40 @@
         </div>
 
         <div class="accounts-island" v-if="!loading">
+          <!-- Pending workspace invitations (cross-tenant) -->
+          <section v-if="pendingWorkspaceInvitations.length" class="section-block">
+            <h3 class="section-label">Invitations</h3>
+            <div class="invitation-cards">
+              <div
+                v-for="inv in pendingWorkspaceInvitations"
+                :key="'inv-' + inv.id"
+                class="invitation-card"
+              >
+                <div class="invitation-text">
+                  <p class="invitation-title">{{ formatInvitationMessage(inv) }}</p>
+                </div>
+                <div class="invitation-actions">
+                  <button
+                    type="button"
+                    class="invitation-btn invitation-btn--decline"
+                    :disabled="invitationBusyId === inv.id"
+                    @click="onDeclineInvitation(inv)"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    type="button"
+                    class="invitation-btn invitation-btn--accept"
+                    :disabled="invitationBusyId === inv.id"
+                    @click="onAcceptInvitation(inv)"
+                  >
+                    Accept
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- My Accounts -->
           <section v-if="myAccountsGroups.length" class="section-block">
             <h3 class="section-label">My Accounts</h3>
@@ -254,7 +288,10 @@
             </div>
           </section>
 
-          <div v-if="!myAccountsGroups.length && !sharedWithMeGroups.length" class="empty-state">
+          <div
+            v-if="!myAccountsGroups.length && !sharedWithMeGroups.length && !pendingWorkspaceInvitations.length"
+            class="empty-state"
+          >
             <p>No accounts found</p>
             <button class="add-first-btn" @click="showAddMenu = true">Add your first account</button>
           </div>
@@ -317,7 +354,13 @@ import { IonPage, IonContent, IonSpinner, IonActionSheet, IonIcon } from '@ionic
 import { peopleOutline } from 'ionicons/icons'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getAccounts, getAccountsByWorkspace, deleteAccount } from '@/api/accounting'
-import { getWorkspaces, getSharedWorkspaces, deleteWorkspace } from '@/api/workspace'
+import {
+  getWorkspaces,
+  getSharedWorkspaces,
+  deleteWorkspace,
+  acceptWorkspaceInvitation,
+  declineWorkspaceInvitation
+} from '@/api/workspace'
 import { useSyncStore } from '@/store/sync'
 import { refreshBootstrapCache } from '@/utils/bootstrapCache'
 import { invalidateAccountingCache } from '@/db/readCache'
@@ -333,6 +376,9 @@ const router = useRouter()
 const syncStore = useSyncStore()
 
 const islandGroups = ref([]) // { island: { id, name, is_shared }, accounts: [] }
+/** Cross-tenant workspaces with member_status === 'pending' from GET /workspaces/shared */
+const pendingWorkspaceInvitations = ref([])
+const invitationBusyId = ref(null)
 const workspaceMode = ref('shared') // 'shared' | 'private' — driven by tenant setting
 /** Start true so first paint shows loading until ionViewDidEnter runs load(). */
 const loading = ref(true)
@@ -387,6 +433,67 @@ const myAccountsGroups = computed(() =>
 const sharedWithMeGroups = computed(() =>
   islandGroupsFiltered.value.filter(g => g.island.is_shared)
 )
+
+/** Inviter label: prefer email (matches “user2@gami.com …”), then name, then fallback. */
+function inviterDisplayLabel(inv) {
+  if (inv.invited_by_email) return inv.invited_by_email
+  if (inv.invited_by_name) return inv.invited_by_name
+  return 'Someone'
+}
+
+/** Workspace phrase for “… invited you to the …” — lowercase, always ends with “island”. */
+function workspacePhraseForInvite(inv) {
+  const raw = (inv.name || 'workspace').trim()
+  const lower = raw.toLowerCase()
+  if (lower.endsWith('island')) return lower
+  return `${lower} island`
+}
+
+function formatInvitationMessage(inv) {
+  return `${inviterDisplayLabel(inv)} invited you to the ${workspacePhraseForInvite(inv)}`
+}
+
+async function onAcceptInvitation(inv) {
+  const id = inv.id
+  if (invitationBusyId.value != null) return
+  invitationBusyId.value = id
+  try {
+    await acceptWorkspaceInvitation(id)
+    showToast('Invitation accepted')
+    await invalidateAccountingCache({ accounts: true })
+    await load()
+  } catch (e) {
+    showToast(e?.message || 'Could not accept invitation')
+  } finally {
+    invitationBusyId.value = null
+  }
+}
+
+async function onDeclineInvitation(inv) {
+  try {
+    await showConfirmDialog({
+      title: 'Decline invitation',
+      message: 'Decline this workspace invitation?',
+      confirmText: 'Decline',
+      cancelText: 'Cancel'
+    })
+  } catch {
+    return
+  }
+  const id = inv.id
+  if (invitationBusyId.value != null) return
+  invitationBusyId.value = id
+  try {
+    await declineWorkspaceInvitation(id)
+    showToast('Invitation declined')
+    await invalidateAccountingCache({ accounts: true })
+    await load()
+  } catch (e) {
+    showToast(e?.message || 'Could not decline invitation')
+  } finally {
+    invitationBusyId.value = null
+  }
+}
 
 const accountMenuItems = [
   { role: 'flow-log', label: 'View Flow Log', destructive: false },
@@ -722,14 +829,21 @@ async function load() {
     let sharedWorkspaces = []
     let ownAccounts = []
 
-    try {
-      const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
-      ownWorkspaces = ownRes?.data ?? []
-      // Capture workspace_mode returned by the list endpoint; falls back to 'shared'
-      workspaceMode.value = ownRes?.workspace_mode || 'shared'
-      sharedWorkspaces = sharedRes?.data?.active ?? []
-    } catch {
-      // Fallback: still try to load accounts
+    const [ownResult, sharedResult] = await Promise.all([
+      getWorkspaces().then((r) => ({ ok: true, r })).catch(() => ({ ok: false })),
+      getSharedWorkspaces().then((r) => ({ ok: true, r })).catch(() => ({ ok: false }))
+    ])
+    if (ownResult.ok) {
+      ownWorkspaces = ownResult.r?.data ?? []
+      workspaceMode.value = ownResult.r?.workspace_mode || 'shared'
+    } else {
+      workspaceMode.value = 'shared'
+    }
+    if (sharedResult.ok) {
+      sharedWorkspaces = sharedResult.r?.data?.active ?? []
+      pendingWorkspaceInvitations.value = sharedResult.r?.data?.pending ?? []
+    } else {
+      pendingWorkspaceInvitations.value = []
     }
 
     const res = await getAccounts()
@@ -768,6 +882,7 @@ async function load() {
   } catch (e) {
     showToast('Failed to load accounts')
     islandGroups.value = []
+    pendingWorkspaceInvitations.value = []
   } finally {
     loading.value = false
   }
@@ -1203,5 +1318,65 @@ onIonViewDidEnter(async () => {
   background: rgba(255, 141, 40, 0.12);
   color: #FF8D28;
   vertical-align: middle;
+}
+
+.invitation-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.invitation-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.invitation-text {
+  margin-bottom: 14px;
+}
+
+.invitation-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.invitation-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.invitation-btn {
+  flex: 1;
+  max-width: 140px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.invitation-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.invitation-btn--decline {
+  background: #fff;
+  color: #1a1a2e;
+  border: 1px solid #d1d1d6;
+}
+
+.invitation-btn--accept {
+  background: #ff8d28;
+  color: #fff;
 }
 </style>
