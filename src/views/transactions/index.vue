@@ -4,8 +4,8 @@
       <div class="page-container">
         <!-- Header (Accounts Ledger design style) -->
         <div class="top-header">
-          <button class="back-btn" @click="$router.back()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button type="button" class="back-btn" @click="$router.back()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
           </button>
@@ -13,49 +13,7 @@
             <span class="header-title">Transactions</span>
             <span class="header-subtitle">{{ workspaceName || 'All transactions' }}</span>
           </div>
-          <div class="header-actions">
-            <button class="icon-btn" @click="filterMode = filterMode === 'search' ? '' : 'search'">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-            </button>
-            <button class="icon-btn" @click="filterMode = filterMode === 'calendar' ? '' : 'calendar'">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            </button>
-          </div>
         </div>
-
-        <!-- Search Bar (Accounts Ledger Page Search Active) -->
-        <div v-if="filterMode === 'search'" class="search-bar">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search transactions..."
-            class="search-input"
-          />
-        </div>
-
-        <!-- Calendar / Date Range (single picker) -->
-        <div v-if="filterMode === 'calendar'" class="date-range-bar">
-          <button type="button" class="date-range-input" @click="showDatePicker = true">
-            <svg class="calendar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            {{ dateRangeLabel }}
-          </button>
-          <button v-if="dateFrom || dateTo" class="clear-dates-btn" @click="clearDates">Clear</button>
-        </div>
-
-        <DateRangePicker
-          :model-value="{ from: dateFrom, to: dateTo }"
-          :visible="showDatePicker"
-          @close="showDatePicker = false"
-          @select="onDateRangeSelect"
-        />
 
         <!-- Summary Grid -->
         <div class="summary-grid">
@@ -73,18 +31,148 @@
           </div>
         </div>
 
-        <!-- Type Filter -->
-        <div class="filter-bar">
-          <button
-            v-for="f in typeFilterOptions"
-            :key="f.value"
-            class="filter-chip"
-            :class="{ active: listQuery.type === f.value }"
-            @click="setTypeFilter(f.value)"
+        <!-- Filter row (same pattern as Flow Log) -->
+        <div class="ledger-filter-row" :class="{ 'ledger-filter-row--search-open': filterMode === 'search' }">
+          <div
+            class="ledger-filter-search-slot"
+            :class="{ 'ledger-filter-search-slot--expanded': filterMode === 'search' }"
           >
-            {{ f.label }}
-          </button>
+            <button
+              type="button"
+              class="filter-pill filter-pill-icon"
+              :class="{ active: filterMode === 'search' }"
+              aria-label="Search"
+              @click="toggleSearchMode"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+            <input
+              v-if="filterMode === 'search'"
+              ref="searchInputRef"
+              v-model="searchQuery"
+              type="search"
+              class="ledger-inline-search-input"
+              placeholder="Search transactions…"
+              enterkeyhint="search"
+              autocapitalize="off"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="ledger-filter-trailing">
+            <button
+              type="button"
+              class="filter-pill filter-pill-date"
+              :class="{ active: !!(dateFrom || dateTo) }"
+              @click="openDateFilter"
+            >
+              <svg class="filter-pill-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            <div class="filter-pill-wrap">
+              <button
+                type="button"
+                class="filter-pill filter-pill-grow"
+                :class="{ active: categoryMenuOpen || categoryFilterIds.length > 0 }"
+                @click.stop="openCategoryMenu"
+              >
+                <span class="filter-pill-label filter-pill-label-truncate">{{ categoryButtonLabel }}</span>
+                <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+              <div v-if="categoryMenuOpen" class="filter-flyout filter-flyout-categories" @click.stop>
+                <div v-if="categoriesLoading && !categoryMenuOptions.length" class="filter-flyout-loading">
+                  Loading…
+                </div>
+                <template v-else>
+                  <label class="filter-flyout-row">
+                    <input
+                      type="checkbox"
+                      class="filter-flyout-cb"
+                      :checked="categoryFilterIds.length === 0"
+                      @change="onAllCategoriesCheckboxChange"
+                    />
+                    <span class="filter-flyout-row-text">All categories</span>
+                  </label>
+                  <label
+                    v-for="opt in categoryMenuOptions"
+                    :key="opt.id"
+                    class="filter-flyout-row"
+                  >
+                    <input
+                      type="checkbox"
+                      class="filter-flyout-cb"
+                      :checked="isCategoryFilterSelected(opt.id)"
+                      @change="onCategoryCheckboxChange(opt.id, $event)"
+                    />
+                    <span class="filter-flyout-row-text">{{ opt.label }}</span>
+                  </label>
+                </template>
+              </div>
+            </div>
+            <div class="filter-pill-wrap filter-pill-wrap-type">
+              <button
+                type="button"
+                class="filter-pill filter-pill-grow filter-pill-type-btn"
+                :class="{ active: typeMenuOpen || flowTypeFilterValues.length > 0 }"
+                @click.stop="openTypeMenu"
+              >
+                <span class="filter-pill-label filter-pill-label-truncate">{{ flowTypeButtonLabel }}</span>
+                <svg class="filter-caret-solid" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
+                  <path fill="#A8A8A8" d="M0 0h10L5 6z"/>
+                </svg>
+              </button>
+              <div v-if="typeMenuOpen" class="filter-flyout filter-flyout-type" @click.stop>
+                <label class="filter-flyout-row">
+                  <input
+                    type="checkbox"
+                    class="filter-flyout-cb"
+                    :checked="flowTypeFilterValues.length === 0"
+                    @change="onAllFlowTypesCheckboxChange"
+                  />
+                  <span class="filter-flyout-row-text">All types</span>
+                </label>
+                <label
+                  v-for="f in filterTypeOptions"
+                  :key="f.value"
+                  class="filter-flyout-row"
+                >
+                  <input
+                    type="checkbox"
+                    class="filter-flyout-cb"
+                    :checked="isFlowTypeFilterSelected(f.value)"
+                    @change="onFlowTypeCheckboxChange(f.value, $event)"
+                  />
+                  <span class="filter-flyout-row-text">{{ f.label }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <Transition name="fade">
+          <div
+            v-if="categoryMenuOpen || typeMenuOpen"
+            class="filter-menu-backdrop"
+            @click="closeFilterMenus"
+          />
+        </Transition>
+
+        <DateRangePicker
+          :model-value="{ from: dateFrom, to: dateTo }"
+          :visible="showDatePicker"
+          @close="showDatePicker = false"
+          @select="onDateRangeSelect"
+        />
 
         <!-- Entry count -->
         <div v-if="!loading && displayList.length" class="entry-count-wrapper">
@@ -167,12 +255,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { IonPage, IonContent, IonSpinner, IonIcon, onIonViewDidEnter } from '@ionic/vue'
 import { cloudOfflineOutline } from 'ionicons/icons'
 import { showToast, showActionSheet, showConfirmDialog } from '@/utils/ionicFeedback'
-import { getTransactions, deleteTransaction, getSummary } from '@/api/accounting'
+import { getTransactions, deleteTransaction, getSummary, getCategoryTree } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { getPendingWrites, deleteEntry } from '@/db/pendingWrites'
@@ -193,6 +281,13 @@ const workspaceId = computed(() => {
 const workspaceName = computed(() => {
   const name = route.query.workspace_name
   return name ? decodeURIComponent(name) : null
+})
+
+const resolvedWorkspaceId = computed(() => {
+  const id = workspaceId.value
+  if (id == null || id === '') return null
+  const n = Number(id)
+  return Number.isNaN(n) ? null : n
 })
 
 /** Hide FAB when viewing another tenant’s workspace with view-only merged scope. */
@@ -241,24 +336,54 @@ async function refreshWorkspaceListPermissions() {
   }
 }
 const list = ref([])
-const listQuery = ref({ type: '', limit: 30, offset: 0 })
+const listQuery = ref({ limit: 30, offset: 0 })
 const summary = ref({ total_income: 0, total_expense: 0 })
 const defaultCurrency = ref({ code: 'USD' })
 const loading = ref(false)
 const loadingMore = ref(false)
 const finished = ref(false)
-const filterMode = ref('') // '' | 'search' | 'calendar'
+const filterMode = ref('') // '' | 'search'
 const searchQuery = ref('')
+const searchInputRef = ref(null)
 const dateFrom = ref('')
 const dateTo = ref('')
 const showDatePicker = ref(false)
+/** Selected flow-style types; empty = all. Maps to API `types` (transfer_in/out → transfer). */
+const flowTypeFilterValues = ref([])
+const categoryFilterIds = ref([])
+const categoryMenuOptions = ref([])
+const categoriesLoading = ref(false)
+const categoryMenuOpen = ref(false)
+const typeMenuOpen = ref(false)
 
-const typeFilterOptions = [
-  { label: 'All', value: '' },
+const filterTypeOptions = [
   { label: 'Income', value: 'income' },
   { label: 'Expense', value: 'expense' },
-  { label: 'Transfer', value: 'transfer' }
+  { label: 'Transfer In', value: 'transfer_in' },
+  { label: 'Transfer Out', value: 'transfer_out' }
 ]
+
+const categoryButtonLabel = computed(() => {
+  const ids = categoryFilterIds.value
+  if (!ids.length) return 'Category'
+  if (ids.length === 1) {
+    const label = categoryMenuOptions.value.find((o) => o.id === ids[0])?.label ?? ''
+    if (!label) return 'Category'
+    return label.length > 16 ? `${label.slice(0, 14)}…` : label
+  }
+  return `${ids.length} categories`
+})
+
+const flowTypeButtonLabel = computed(() => {
+  const sel = flowTypeFilterValues.value
+  if (!sel.length) return 'Type'
+  if (sel.length === 1) {
+    const f = filterTypeOptions.find((o) => o.value === sel[0])
+    const label = f?.label ?? sel[0]
+    return label.length > 16 ? `${label.slice(0, 14)}…` : label
+  }
+  return `${sel.length} types`
+})
 
 function isTransactionEntry(entry) {
   return entry.method === 'POST' && typeof entry.url === 'string' && entry.url.includes('transactions')
@@ -304,18 +429,7 @@ const net = computed(() => (summary.value.total_income || 0) - (summary.value.to
 
 const hasMore = computed(() => !finished.value)
 
-const displayList = computed(() => {
-  let items = list.value
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    items = items.filter(r =>
-      (r.title || '').toLowerCase().includes(q) ||
-      (r.transaction_number || '').toLowerCase().includes(q) ||
-      (r.category_name || r.category || '').toLowerCase().includes(q)
-    )
-  }
-  return items
-})
+const displayList = computed(() => list.value)
 
 /** Normalize any date string to YYYY-MM-DD for consistent grouping by calendar day */
 function toDateKey(dateStr) {
@@ -344,16 +458,6 @@ const groupedByDate = computed(() => {
     groups.get(dateKey).items.push(row)
   }
   return Array.from(groups.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
-})
-
-const dateRangeLabel = computed(() => {
-  if (dateFrom.value && dateTo.value) {
-    const f = new Date(dateFrom.value)
-    const t = new Date(dateTo.value)
-    const fmt = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-    return dateFrom.value === dateTo.value ? fmt(f) : `${fmt(f)} – ${fmt(t)}`
-  }
-  return 'Select date range'
 })
 
 function onDateRangeSelect({ from, to }) {
@@ -422,15 +526,211 @@ function amountClass(type) {
   return 'expense'
 }
 
+function pendingMatchesTypeFilter(rowType) {
+  const sel = flowTypeFilterValues.value
+  if (!sel.length) return true
+  const allowed = new Set()
+  for (const v of sel) {
+    if (v === 'transfer_in' || v === 'transfer_out') allowed.add('transfer')
+    else allowed.add(v)
+  }
+  return allowed.has(rowType)
+}
+
+function normalizeCategoryTreeResponse(res) {
+  const data = res?.data ?? (res?.success ? res?.data : []) ?? []
+  return Array.isArray(data) ? data : []
+}
+
+function filterActiveCategoriesForMenu(categories) {
+  return (categories || [])
+    .filter((cat) => cat.is_active !== false)
+    .map((cat) => ({
+      ...cat,
+      children: cat.children?.length ? filterActiveCategoriesForMenu(cat.children) : []
+    }))
+}
+
+function flattenCategoryLabels(arr, prefix = '') {
+  const out = []
+  for (const c of arr || []) {
+    const label = prefix ? `${prefix} > ${c.name}` : c.name
+    out.push({ id: Number(c.id), label })
+    if (c.children?.length) out.push(...flattenCategoryLabels(c.children, label))
+  }
+  return out
+}
+
+async function loadCategoryMenu() {
+  categoriesLoading.value = true
+  try {
+    const wsId = resolvedWorkspaceId.value
+    const [incomeRes, expenseRes] = await Promise.all([
+      getCategoryTree('income', wsId),
+      getCategoryTree('expense', wsId)
+    ])
+    const incomeData = filterActiveCategoriesForMenu(normalizeCategoryTreeResponse(incomeRes))
+    const expenseData = filterActiveCategoriesForMenu(normalizeCategoryTreeResponse(expenseRes))
+    const flat = [...flattenCategoryLabels(incomeData), ...flattenCategoryLabels(expenseData)]
+    const byId = new Map()
+    for (const o of flat) {
+      if (!byId.has(o.id)) byId.set(o.id, o)
+    }
+    categoryMenuOptions.value = [...byId.values()].sort((a, b) => a.label.localeCompare(b.label))
+  } catch (_) {
+    categoryMenuOptions.value = []
+  } finally {
+    categoriesLoading.value = false
+  }
+}
+
+function closeFilterMenus() {
+  categoryMenuOpen.value = false
+  typeMenuOpen.value = false
+}
+
+function openCategoryMenu() {
+  typeMenuOpen.value = false
+  categoryMenuOpen.value = !categoryMenuOpen.value
+}
+
+function openTypeMenu() {
+  categoryMenuOpen.value = false
+  typeMenuOpen.value = !typeMenuOpen.value
+}
+
+function openDateFilter() {
+  closeFilterMenus()
+  showDatePicker.value = true
+}
+
+function isCategoryFilterSelected(id) {
+  return categoryFilterIds.value.includes(Number(id))
+}
+
+function isFlowTypeFilterSelected(value) {
+  return flowTypeFilterValues.value.includes(value)
+}
+
+function reloadAfterCategoryChange() {
+  onFilter()
+}
+
+function reloadAfterFlowTypeChange() {
+  onFilter()
+}
+
+function onAllCategoriesCheckboxChange(ev) {
+  if (ev.target.checked) {
+    categoryFilterIds.value = []
+    reloadAfterCategoryChange()
+    return
+  }
+  ev.target.checked = true
+}
+
+function onCategoryCheckboxChange(id, ev) {
+  const n = Number(id)
+  const checked = ev.target.checked
+  const cur = categoryFilterIds.value
+  if (checked && !cur.includes(n)) {
+    categoryFilterIds.value = [...cur, n].sort((a, b) => a - b)
+  } else if (!checked && cur.includes(n)) {
+    categoryFilterIds.value = cur.filter((x) => x !== n)
+  }
+  reloadAfterCategoryChange()
+}
+
+function onAllFlowTypesCheckboxChange(ev) {
+  if (ev.target.checked) {
+    flowTypeFilterValues.value = []
+    reloadAfterFlowTypeChange()
+    return
+  }
+  ev.target.checked = true
+}
+
+function onFlowTypeCheckboxChange(value, ev) {
+  const checked = ev.target.checked
+  const cur = flowTypeFilterValues.value
+  if (checked && !cur.includes(value)) {
+    flowTypeFilterValues.value = [...cur, value].sort()
+  } else if (!checked && cur.includes(value)) {
+    flowTypeFilterValues.value = cur.filter((x) => x !== value)
+  }
+  reloadAfterFlowTypeChange()
+}
+
+let searchDebounceTimer = null
+function clearSearchDebounce() {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+}
+
+async function toggleSearchMode() {
+  closeFilterMenus()
+  const opening = filterMode.value !== 'search'
+  if (!opening) {
+    clearSearchDebounce()
+    searchQuery.value = ''
+  }
+  filterMode.value = opening ? 'search' : ''
+  if (opening) {
+    await nextTick()
+    searchInputRef.value?.focus?.()
+  } else {
+    onFilter()
+  }
+}
+
+function appendCategoryFilterParams(params) {
+  const ids = categoryFilterIds.value
+  if (!ids.length) return
+  params.category_ids = ids.join(',')
+}
+
+function appendTransactionTypesParam(params) {
+  const sel = flowTypeFilterValues.value
+  if (!sel.length) return
+  params.types = sel.join(',')
+}
+
+function appendSearchParam(params) {
+  if (filterMode.value !== 'search') return
+  const q = searchQuery.value.trim()
+  if (q) params.search = q
+}
+
 async function loadPendingRows() {
-  const typeFilter = listQuery.value.type || ''
   try {
     const entries = await getPendingWrites()
-    const transactionEntries = entries.filter(isTransactionEntry)
-    const filtered = typeFilter
-      ? transactionEntries.filter((e) => (e.payload?.type || '') === typeFilter)
-      : transactionEntries
-    return filtered.map(pendingEntryToRow)
+    let transactionEntries = entries.filter(isTransactionEntry)
+    transactionEntries = transactionEntries.filter((e) =>
+      pendingMatchesTypeFilter(e.payload?.type || 'expense')
+    )
+    if (filterMode.value === 'search') {
+      const q = searchQuery.value.trim().toLowerCase()
+      if (q) {
+        transactionEntries = transactionEntries.filter((e) => {
+          const p = e.payload || {}
+          return (
+            (p.title || '').toLowerCase().includes(q) ||
+            (p.transaction_number || '').toLowerCase().includes(q) ||
+            (p.category_name || '').toLowerCase().includes(q)
+          )
+        })
+      }
+    }
+    if (categoryFilterIds.value.length) {
+      const allow = new Set(categoryFilterIds.value)
+      transactionEntries = transactionEntries.filter((e) => {
+        const cid = e.payload?.category_id
+        return cid != null && allow.has(Number(cid))
+      })
+    }
+    return transactionEntries.map(pendingEntryToRow)
   } catch (_) {
     return []
   }
@@ -451,19 +751,26 @@ async function load(append = false) {
   if (append) loadingMore.value = true
   else loading.value = true
   try {
-    const params = { ...listQuery.value }
+    const params = {
+      limit: listQuery.value.limit,
+      offset: append ? listQuery.value.offset : 0
+    }
     if (dateFrom.value) params.start_date = dateFrom.value
     if (dateTo.value) params.end_date = dateTo.value
     if (workspaceId.value) params.workspace_id = workspaceId.value
+    appendCategoryFilterParams(params)
+    appendTransactionTypesParam(params)
+    appendSearchParam(params)
     const res = await getTransactions(params)
     const data = res?.data || []
     if (!append) {
       const pendingRows = await loadPendingRows()
       list.value = mergeAndSort(pendingRows, data)
+      listQuery.value.offset = data.length
     } else {
       list.value.push(...data)
+      listQuery.value.offset += data.length
     }
-    listQuery.value.offset += data.length
     finished.value = data.length < (listQuery.value.limit || 30)
   } catch (e) {
     showToast('Failed to load')
@@ -481,26 +788,20 @@ async function fetchSummary() {
     if (workspaceId.value != null && workspaceId.value !== '') {
       params.workspace_id = workspaceId.value
     }
+    if (dateFrom.value) params.start_date = dateFrom.value
+    if (dateTo.value) params.end_date = dateTo.value
+    appendCategoryFilterParams(params)
+    appendTransactionTypesParam(params)
+    appendSearchParam(params)
     const res = await getSummary(params)
     if (res?.success && res?.data) summary.value = res.data
   } catch (_) {}
 }
 
-function setTypeFilter(value) {
-  listQuery.value.type = value
-  onFilter()
-}
-
-function clearDates() {
-  dateFrom.value = ''
-  dateTo.value = ''
-  onFilter()
-}
-
 async function onFilter() {
   listQuery.value.offset = 0
   finished.value = false
-  await load()
+  await Promise.all([load(), fetchSummary()])
 }
 
 async function loadMore() {
@@ -585,10 +886,35 @@ watch(workspaceId, () => {
   refreshWorkspaceListPermissions()
 })
 
-watch([dateFrom, dateTo], () => {
-  if (filterMode.value === 'calendar' && (dateFrom.value || dateTo.value)) {
+watch(
+  () => resolvedWorkspaceId.value,
+  async (_wid, prev) => {
+    await loadCategoryMenu()
+    if (prev !== undefined) {
+      categoryFilterIds.value = []
+      flowTypeFilterValues.value = []
+      await onFilter()
+    }
+  },
+  { immediate: true }
+)
+
+watch(categoryMenuOptions, (opts) => {
+  const valid = new Set(opts.map((o) => o.id))
+  const next = categoryFilterIds.value.filter((id) => valid.has(id))
+  if (next.length !== categoryFilterIds.value.length) {
+    categoryFilterIds.value = next
     onFilter()
   }
+})
+
+watch(searchQuery, () => {
+  if (filterMode.value !== 'search') return
+  clearSearchDebounce()
+  searchDebounceTimer = setTimeout(() => {
+    searchDebounceTimer = null
+    onFilter()
+  }, 320)
 })
 
 watch(
@@ -603,8 +929,7 @@ onIonViewDidEnter(() => {
   const queued = syncStore.consumeLastQueuedTransaction()
   if (queued) {
     const row = payloadToRow(queued.id, queued.payload)
-    const typeFilter = listQuery.value.type || ''
-    if (!typeFilter || row.type === typeFilter) {
+    if (pendingMatchesTypeFilter(row.type)) {
       list.value = mergeAndSort([row], list.value)
     }
   } else {
@@ -619,6 +944,10 @@ onMounted(async () => {
     const c = r?.data?.data ?? r?.data
     if (c?.code) defaultCurrency.value = c
   } catch (_) {}
+})
+
+onUnmounted(() => {
+  clearSearchDebounce()
 })
 </script>
 
@@ -662,87 +991,15 @@ onMounted(async () => {
 .header-title {
   font-size: 16px;
   font-weight: 700;
-  color: #1A1A2E;
+  color: #1a1a2e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-subtitle {
   font-size: 11px;
   color: #A7A7A7;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.search-bar {
-  margin-bottom: 10px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid #E8E8E8;
-  background: #fff;
-  font-size: 14px;
-  color: #1A1A2E;
-  outline: none;
-  box-sizing: border-box;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.date-range-bar {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.date-range-input {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid #E8E8E8;
-  background: #fff;
-  font-size: 14px;
-  color: #1A1A2E;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.date-range-input:focus {
-  outline: none;
-  border-color: #FF8D28;
-}
-
-.date-range-input .calendar-icon {
-  color: #FF8D28;
-  flex-shrink: 0;
-}
-
-.clear-dates-btn {
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid #E8E8E8;
-  background: #fff;
-  font-size: 13px;
-  color: #6E6A7C;
-  cursor: pointer;
 }
 
 .summary-grid {
@@ -751,8 +1008,234 @@ onMounted(async () => {
   background: #fff;
   border-radius: 14px;
   padding: 14px 12px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Ledger filter row (matches Flow Log) */
+.ledger-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.ledger-filter-row--search-open {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.ledger-filter-search-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.ledger-filter-search-slot--expanded {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ledger-inline-search-input {
+  flex: 1 1 0;
+  min-width: 64px;
+  width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #ff8d28;
+  background: #fff;
+  font-size: 13px;
+  color: #1a1a2e;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.ledger-inline-search-input::placeholder {
+  color: #a8a8a8;
+}
+
+.ledger-inline-search-input:focus {
+  border-color: #ff8d28;
+  box-shadow: 0 0 0 2px rgba(255, 141, 40, 0.12);
+}
+
+.ledger-filter-trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.ledger-filter-row--search-open .ledger-filter-trailing {
+  margin-left: auto;
+}
+
+.ledger-filter-row--search-open .ledger-filter-trailing .filter-pill-grow {
+  max-width: 112px;
+}
+
+.ledger-filter-row--search-open .ledger-filter-trailing .filter-pill-type-btn {
+  max-width: 96px;
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid #ff8d28;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-pill.active {
+  background: rgba(255, 141, 40, 0.08);
+}
+
+.filter-pill-icon {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+}
+
+.filter-pill-date {
+  padding: 0 6px 0 8px;
+}
+
+.filter-chevron {
+  flex-shrink: 0;
+}
+
+.filter-pill-wrap {
+  position: relative;
+  z-index: 55;
+}
+
+.filter-pill-label {
+  color: #a8a8a8;
+  font-weight: 500;
+}
+
+.filter-pill-grow {
+  min-width: 0;
+  max-width: 140px;
+  flex: 1 1 auto;
+  justify-content: space-between;
+  padding: 0 8px 0 10px;
+  gap: 6px;
+}
+
+.filter-pill-label-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.filter-pill-type-btn {
+  max-width: 120px;
+  gap: 8px;
+  padding-right: 10px;
+}
+
+.filter-caret-solid {
+  flex-shrink: 0;
+  display: block;
+}
+
+.filter-flyout {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  max-width: min(280px, 90vw);
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  z-index: 60;
+}
+
+.filter-flyout-type {
+  min-width: 140px;
+}
+
+.filter-flyout-categories {
+  max-height: min(320px, 55dvh);
+}
+
+.filter-flyout-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-flyout-row:active {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.filter-flyout-cb {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  margin: 2px 0 0 0;
+  flex-shrink: 0;
+  accent-color: #ff8d28;
+  cursor: pointer;
+}
+
+.filter-flyout-row-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.72);
+  line-height: 1.35;
+}
+
+.filter-flyout-loading {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #a8a8a8;
+}
+
+.filter-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: transparent;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 .sum-cell {
@@ -780,38 +1263,6 @@ onMounted(async () => {
 
 .sum-val.negative {
   color: rgba(195, 0, 16, 0.74);
-}
-
-.filter-bar {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.filter-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.filter-chip {
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid #E8E8E8;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  color: #6E6A7C;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.filter-chip.active {
-  background: #FF8D28;
-  color: #fff;
-  border-color: #FF8D28;
 }
 
 .entry-count-wrapper {
