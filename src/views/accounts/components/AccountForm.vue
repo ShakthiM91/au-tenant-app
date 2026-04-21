@@ -33,12 +33,17 @@
               v-model="form.workspace_id"
               interface="action-sheet"
               placeholder="Select island"
-              class="ion-select-inline"
+              class="ion-select-inline ion-select-flow-chevron"
               :disabled="formDisabled"
             >
               <ion-select-option v-for="w in workspaceOptions" :key="w.value ?? 'default'" :value="w.value">
                 {{ w.text }}
               </ion-select-option>
+              <span slot="end" class="select-flow-chevron" aria-hidden="true">
+                <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </span>
             </ion-select>
           </div>
           <div class="form-group">
@@ -77,12 +82,17 @@
                 v-model="form.currency"
                 interface="action-sheet"
                 placeholder="Select currency"
-                class="ion-select-inline"
+                class="ion-select-inline ion-select-flow-chevron"
                 :disabled="formDisabled"
               >
                 <ion-select-option v-for="c in currencyOptions" :key="c.code" :value="c.code">
                   {{ c.name }} ({{ c.code }})
                 </ion-select-option>
+                <span slot="end" class="select-flow-chevron" aria-hidden="true">
+                  <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
               </ion-select>
             </div>
             <div class="form-group flex-1">
@@ -91,12 +101,17 @@
                 v-model="form.type"
                 interface="action-sheet"
                 placeholder="Select type"
-                class="ion-select-inline"
+                class="ion-select-inline ion-select-flow-chevron"
                 :disabled="formDisabled"
               >
                 <ion-select-option v-for="t in typeOptions" :key="t.value" :value="t.value">
                   {{ t.text }}
                 </ion-select-option>
+                <span slot="end" class="select-flow-chevron" aria-hidden="true">
+                  <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
               </ion-select>
             </div>
           </div>
@@ -164,11 +179,16 @@
               v-model="form.is_active"
               interface="action-sheet"
               placeholder="Select status"
-              class="ion-select-inline"
+              class="ion-select-inline ion-select-flow-chevron"
               :disabled="formDisabled"
             >
               <ion-select-option :value="true">Active</ion-select-option>
               <ion-select-option :value="false">Inactive</ion-select-option>
+              <span slot="end" class="select-flow-chevron" aria-hidden="true">
+                <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </span>
             </ion-select>
           </div>
         </form>

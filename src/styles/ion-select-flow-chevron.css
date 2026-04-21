@@ -1,0 +1,20 @@
+/**
+ * Flow Log–style chevron for ion-select:
+ * add class `ion-select-flow-chevron` and a child
+ * `<span slot="end" class="select-flow-chevron" aria-hidden="true">…svg…</span>`
+ */
+ion-select.ion-select-flow-chevron::part(icon) {
+  display: none;
+}
+
+.select-flow-chevron {
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  margin-inline-start: 4px;
+}
+
+.select-flow-chevron .filter-chevron {
+  flex-shrink: 0;
+  display: block;
+}
