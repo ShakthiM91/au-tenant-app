@@ -10,8 +10,8 @@
             </svg>
           </button>
           <div class="header-center">
-            <span class="header-title">Transactions</span>
-            <span class="header-subtitle">{{ workspaceName || 'All transactions' }}</span>
+            <span class="header-title">{{ workspaceName || 'All transactions' }}</span>
+            <span class="header-subtitle">Transaction Log</span>
           </div>
         </div>
 
@@ -205,7 +205,7 @@
                       <span class="tx-amount" :class="amountClass(row.type)">
                         {{ formatAmountShort(row) }}
                       </span>
-                      <button
+                      <!-- <button
                         v-if="rowHasOverflowActions(row)"
                         class="more-btn"
                         @click.stop="openRowOptions(row)"
@@ -213,7 +213,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="#6E6A7C">
                           <circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/>
                         </svg>
-                      </button>
+                      </button> -->
                     </span>
                   </div>
                   <div class="tx-row-bottom">
@@ -251,13 +251,153 @@
 
     <FloatingAddButton v-if="transactionsFabVisible" @select="onFabSelect" />
 
+    <!-- Transaction detail (same flow as Flow Log: preview then Edit) -->
+    <ion-modal
+      :is-open="detailVisible"
+      @didDismiss="onDetailModalDismiss"
+      :initial-breakpoint="1"
+      :breakpoints="[0, 0.55, 0.85, 1]"
+    >
+      <ion-header v-if="selectedTransaction">
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button @click="onDetailModalDismiss">Close</ion-button>
+          </ion-buttons>
+          <ion-title>Transaction Details</ion-title>
+          <ion-buttons slot="end">
+            <ion-button
+              v-if="detailModalShowEditButton()"
+              @click="goEditTransaction(selectedTransaction)"
+            >
+              Edit
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content v-if="selectedTransaction" class="detail-modal-content">
+        <div class="detail-sheet">
+          <div class="detail-handle" />
+
+          <div class="detail-grid">
+            <div class="detail-cell">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
+                <span>Transaction ID</span>
+              </div>
+              <span class="detail-cell-value">{{ selectedTransaction.transaction_number || selectedTransaction.id || '—' }}</span>
+            </div>
+            <div class="detail-cell">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon type-icon" :class="detailAmountToneClass(selectedTransaction)">
+                  <svg v-if="selectedTransaction.type === 'income'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/>
+                  </svg>
+                  <svg v-else-if="selectedTransaction.type === 'expense'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="7 11 12 6 17 11"/><line x1="12" y1="6" x2="12" y2="18"/>
+                  </svg>
+                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/>
+                  </svg>
+                </span>
+                <span>Type</span>
+              </div>
+              <span class="detail-cell-value" :class="detailAmountToneClass(selectedTransaction)">{{ formatTransactionTypeLabel(selectedTransaction.type) }}</span>
+            </div>
+            <div class="detail-cell">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                <span>Date & time</span>
+              </div>
+              <span class="detail-cell-value">{{ formatDateAtTime(selectedTransaction.transaction_date) }}</span>
+            </div>
+            <div class="detail-cell">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg></span>
+                <span>Status</span>
+              </div>
+              <span class="detail-cell-value">{{ paymentStatusLabel(selectedTransaction) }}</span>
+            </div>
+            <div class="detail-cell">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>
+                <span>Category</span>
+              </div>
+              <span class="detail-cell-value">
+                <span class="detail-pill">{{ getCategoryLabel(selectedTransaction) || '—' }}</span>
+              </span>
+            </div>
+            <div class="detail-cell">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg></span>
+                <span>Title</span>
+              </div>
+              <span class="detail-cell-value">{{ detailTransactionTitle(selectedTransaction) || '—' }}</span>
+            </div>
+            <div
+              class="detail-cell detail-cell-span-full"
+              v-if="selectedTransaction.type === 'transfer' && (selectedTransaction.account_name || selectedTransaction.to_account_name)"
+            >
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                <span>Accounts</span>
+              </div>
+              <span class="detail-cell-value">{{ selectedTransaction.account_name || '—' }} → {{ selectedTransaction.to_account_name || '—' }}</span>
+            </div>
+            <div
+              class="detail-cell detail-cell-span-full"
+              v-if="detailReferenceLabel(selectedTransaction)"
+            >
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                <span>Reference</span>
+              </div>
+              <span class="detail-cell-value">{{ detailReferenceLabel(selectedTransaction) }}</span>
+            </div>
+          </div>
+
+          <div class="detail-amount-block">
+            <span class="detail-amount-full" :class="detailAmountToneClass(selectedTransaction)">{{ formatDetailPrimaryAmount(selectedTransaction) }}</span>
+          </div>
+
+          <div class="detail-audit" v-if="hasAuditInfo(selectedTransaction)">
+            <div class="detail-audit-row" v-if="selectedTransaction.created_by_name">
+              <span class="detail-audit-label">Created by</span>
+              <div class="detail-audit-right">
+                <span class="detail-audit-who">{{ selectedTransaction.created_by_name }}</span>
+                <span class="detail-audit-when" v-if="selectedTransaction.created_at">On {{ formatDateAtTime(selectedTransaction.created_at) }}</span>
+              </div>
+            </div>
+            <div class="detail-audit-row" v-if="selectedTransaction.updated_by_name || selectedTransaction.updated_at">
+              <span class="detail-audit-label">Last edited by</span>
+              <div class="detail-audit-right">
+                <span class="detail-audit-who">{{ selectedTransaction.updated_by_name || '—' }}</span>
+                <span class="detail-audit-when" v-if="selectedTransaction.updated_at">On {{ formatDateAtTime(selectedTransaction.updated_at) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ion-content>
+    </ion-modal>
+
   </ion-page>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { IonPage, IonContent, IonSpinner, IonIcon, onIonViewDidEnter } from '@ionic/vue'
+import {
+  IonPage,
+  IonContent,
+  IonSpinner,
+  IonIcon,
+  IonModal,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonButtons,
+  IonButton,
+  onIonViewDidEnter
+} from '@ionic/vue'
 import { cloudOfflineOutline } from 'ionicons/icons'
 import { showToast, showActionSheet, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getTransactions, deleteTransaction, getSummary, getCategoryTree } from '@/api/accounting'
@@ -355,6 +495,8 @@ const categoryMenuOptions = ref([])
 const categoriesLoading = ref(false)
 const categoryMenuOpen = ref(false)
 const typeMenuOpen = ref(false)
+const detailVisible = ref(false)
+const selectedTransaction = ref(null)
 
 const filterTypeOptions = [
   { label: 'Income', value: 'income' },
@@ -524,6 +666,70 @@ function amountClass(type) {
   if (type === 'income') return 'income'
   if (type === 'transfer') return 'transfer'
   return 'expense'
+}
+
+function formatDateAtTime(dateString) {
+  if (!dateString) return '—'
+  const d = new Date(String(dateString).replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return '—'
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return `${date} at ${time}`
+}
+
+function formatTransactionTypeLabel(type) {
+  if (type === 'income') return 'Income'
+  if (type === 'expense') return 'Expense'
+  if (type === 'transfer') return 'Transfer'
+  if (type) return String(type)
+  return '—'
+}
+
+function paymentStatusLabel(row) {
+  if (!row) return '—'
+  return row.status === 'pending' ? 'Pending' : row.status === 'cancelled' ? 'Cancelled' : 'Paid'
+}
+
+/** Modal amount / type icon tone: matches Flow Log positive / negative / transfer. */
+function detailAmountToneClass(row) {
+  if (!row) return ''
+  if (row.type === 'income') return 'positive'
+  if (row.type === 'expense') return 'negative'
+  if (row.type === 'transfer') return 'transfer'
+  return ''
+}
+
+function detailTransactionTitle(row) {
+  if (!row) return ''
+  return (row.title || '').toString().trim()
+}
+
+function detailReferenceLabel(row) {
+  if (!row) return ''
+  const desc = (row.description || '').trim()
+  const txnNum = row.transaction_number || ''
+  if (desc && desc !== txnNum) return desc
+  return ''
+}
+
+function hasAuditInfo(row) {
+  if (!row) return false
+  return !!(row.created_by_name || row.updated_by_name || row.updated_at)
+}
+
+function formatDetailPrimaryAmount(row) {
+  if (!row) return '—'
+  const cur = row.currency || defaultCurrency.value?.code || 'USD'
+  const n = Math.abs(Number(row.amount) || 0)
+  const formatted = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: cur,
+    minimumFractionDigits: 2
+  }).format(n)
+  if (row.type === 'transfer') return `→ ${formatted}`
+  if (row.type === 'income') return `+${formatted}`
+  if (row.type === 'expense') return `-${formatted}`
+  return formatted
 }
 
 function pendingMatchesTypeFilter(rowType) {
@@ -819,7 +1025,36 @@ function onRowClick(row) {
     showToast('Syncing when online')
     return
   }
-  router.push(`/transactions/${row.id}`)
+  openTransactionDetail(row)
+}
+
+function openTransactionDetail(row) {
+  selectedTransaction.value = { ...row }
+  detailVisible.value = true
+}
+
+function goEditTransaction(row) {
+  const rawId = row?.transaction_id ?? row?.id
+  const txnId = rawId != null && rawId !== '' ? String(rawId).replace(/^pending_/, '') : ''
+  if (!txnId) return
+  detailVisible.value = false
+  clearSearchDebounce()
+  const q = new URLSearchParams()
+  if (workspaceId.value) q.set('workspace_id', workspaceId.value)
+  if (workspaceName.value) q.set('workspace_name', encodeURIComponent(workspaceName.value))
+  const qs = q.toString()
+  router.push(qs ? `/transactions/${txnId}?${qs}` : `/transactions/${txnId}`)
+}
+
+function detailModalShowEditButton() {
+  const row = selectedTransaction.value
+  if (!row || row._pending) return false
+  return transactionRowActionFlags().showEdit
+}
+
+function onDetailModalDismiss() {
+  detailVisible.value = false
+  selectedTransaction.value = null
 }
 
 function transactionRowActionFlags() {
@@ -1463,5 +1698,202 @@ onUnmounted(() => {
 
 .tab-spacer {
   height: 80px;
+}
+
+/* Transaction detail modal (aligned with Flow Log) */
+.detail-modal-content {
+  --background: #f8f8fa;
+  --padding-top: 0;
+  --padding-bottom: 0;
+}
+
+.detail-sheet {
+  box-sizing: border-box;
+  min-height: 100%;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 12px 20px 0;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+}
+
+.detail-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  margin: 0 auto 16px;
+  background: #d0d0d0;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin-bottom: 20px;
+}
+
+.detail-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  min-width: 0;
+}
+
+.detail-cell:nth-child(odd) {
+  padding-right: 12px;
+}
+
+.detail-cell:nth-child(odd):not(:last-child) {
+  border-right: 1px solid #f0f0f0;
+}
+
+.detail-cell:nth-child(even) {
+  padding-left: 12px;
+}
+
+.detail-cell:nth-child(1),
+.detail-cell:nth-child(2) {
+  padding-top: 0;
+}
+
+.detail-cell-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #a7a7a7;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.detail-item-icon {
+  flex-shrink: 0;
+  color: #6e6a7c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-item-icon.type-icon.positive {
+  color: #52bf90;
+}
+
+.detail-item-icon.type-icon.negative {
+  color: rgba(195, 0, 16, 0.74);
+}
+
+.detail-item-icon.type-icon.transfer {
+  color: #1989fa;
+}
+
+.detail-cell-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a2e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-cell-value.positive {
+  color: #52bf90;
+  font-weight: 600;
+}
+
+.detail-cell-value.negative {
+  color: rgba(195, 0, 16, 0.74);
+  font-weight: 600;
+}
+
+.detail-cell-value.transfer {
+  color: #1989fa;
+  font-weight: 600;
+}
+
+.detail-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: #f0f0f0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6e6a7c;
+}
+
+.detail-cell.detail-cell-span-full {
+  grid-column: 1 / -1;
+  border-right: none !important;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.detail-amount-block {
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 20px 16px;
+  background: #f8f8fa;
+  border-radius: 14px;
+}
+
+.detail-amount-full {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: -0.02em;
+}
+
+.detail-amount-full.positive {
+  color: #52bf90;
+}
+
+.detail-amount-full.negative {
+  color: rgba(195, 0, 16, 0.74);
+}
+
+.detail-amount-full.transfer {
+  color: #1989fa;
+}
+
+.detail-audit {
+  margin-bottom: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.detail-audit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.detail-audit-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-audit-label {
+  font-size: 13px;
+  color: #a7a7a7;
+  flex-shrink: 0;
+}
+
+.detail-audit-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.detail-audit-who {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a2e;
+}
+
+.detail-audit-when {
+  font-size: 12px;
+  color: #a7a7a7;
+  margin-top: 2px;
 }
 </style>

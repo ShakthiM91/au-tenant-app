@@ -11,7 +11,7 @@
           </button>
           <div class="header-center">
             <span class="header-title">{{ accountName }}</span>
-            <span class="header-subtitle">Flow Log</span>
+            <span class="header-subtitle">Transaction Log</span>
           </div>
           <div class="header-actions">
             <div class="flow-log-menu-wrapper" @click.stop>
@@ -57,10 +57,10 @@
 
         <!-- Stats Dashboard -->
         <div v-if="summary" class="stats-dashboard">
-          <div class="stat-item">
+          <!-- <div class="stat-item">
             <span class="stat-label">Entries</span>
             <span class="stat-value">{{ summary.total_entries ?? 0 }}</span>
-          </div>
+          </div> -->
           <div class="stat-item">
             <span class="stat-label">Income</span>
             <span class="stat-value positive">{{ formatCurrency(summary.total_income, currency) }}</span>
@@ -173,8 +173,8 @@
                 @click.stop="openTypeMenu"
               >
                 <span class="filter-pill-label filter-pill-label-truncate">{{ flowTypeButtonLabel }}</span>
-                <svg class="filter-caret-solid" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
-                  <path fill="#A8A8A8" d="M0 0h10L5 6z"/>
+                <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
                 </svg>
               </button>
               <div v-if="typeMenuOpen" class="filter-flyout filter-flyout-type" @click.stop>
@@ -225,39 +225,34 @@
           Showing {{ flowLogEntriesDisplay }}
         </div>
 
-        <!-- Transactions -->
-        <div class="transactions-island" v-if="!loading && flowLog.length">
+        <!-- Transactions (row layout matches Transactions index) -->
+        <div class="flow-log-list-card" v-if="!loading && flowLog.length">
           <div
-            v-for="row in flowLog"
+            v-for="(row, idx) in flowLog"
             :key="row.id"
             class="transaction-row"
+            :class="{ 'has-separator': idx < flowLog.length - 1 }"
             @click="openTransactionDetail(row)"
           >
-            <div class="tx-icon" :class="flowTypeClassForRow(row)">
-              <svg v-if="isUpArrowFlowIcon(row)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="7 13 12 18 17 13"/><line x1="12" y1="18" x2="12" y2="6"/>
-              </svg>
-              <svg v-else-if="isDownArrowFlowIcon(row)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="7 11 12 6 17 11"/><line x1="12" y1="6" x2="12" y2="18"/>
-              </svg>
-              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/>
-              </svg>
-            </div>
-            <div class="tx-info">
-              <span class="tx-description">{{ flowRowPrimaryLabel(row) }}</span>
-              <span class="tx-meta">
-                {{ formatFlowType(row.flow_type) }} · {{ formatDate(row.transaction_date) }}
-                <template v-if="flowCategoryLabel(row)"> · {{ flowCategoryLabel(row) }}</template>
-              </span>
-            </div>
-            <div class="tx-amounts">
-              <span class="tx-amount" :class="amountClassForRow(row)">
-                {{ formatFlowAmountSignPrefix(row) }}{{ formatCurrency(Math.abs(Number(row.amount) || 0), row.currency) }}
-              </span>
-              <span class="tx-balance" :class="(row.balance_after || 0) >= 0 ? 'positive' : 'negative'">
-                Bal: {{ formatCurrency(row.balance_after, row.currency) }}
-              </span>
+            <div class="tx-main">
+              <div class="tx-row-top">
+                <span class="tx-description">{{ flowRowPrimaryLabel(row) }}</span>
+                <span class="tx-top-right">
+                  <span class="tx-amount" :class="flowListAmountClass(row)">
+                    {{ formatFlowListAmountShort(row) }}
+                  </span>
+                </span>
+              </div>
+              <div class="tx-row-bottom">
+                <span class="tx-user-line">
+                  <svg class="person-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>
+                  </svg>
+                  {{ getFlowLogUserLabel(row) }} <strong>at</strong> {{ formatFlowLogListTime(row.transaction_date) }}
+                </span>
+                <span v-if="flowCategoryLabel(row)" class="tx-category-pill">{{ flowCategoryLabel(row) }}</span>
+                <span v-if="formatFlowLogBalanceLine(row)" class="tx-balance">{{ formatFlowLogBalanceLine(row) }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -761,11 +756,42 @@ function isDownArrowFlowIcon(row) {
   return false
 }
 
-function flowTypeClassForRow(row) {
+/** Primary line amount — same pattern as Transactions index (color carries sign; → for transfers). */
+function formatFlowListAmountShort(row) {
+  const n = Math.abs(Number(row?.amount) || 0)
+  const amt = formatCurrency(n, row?.currency)
+  const t = row?.flow_type
+  if (t === 'income') return amt
+  if (t === 'expense') return amt
+  if (t === 'transfer_in' || t === 'transfer_out') return `→ ${amt}`
+  if (t === 'adjustment' || t === 'initial_balance') return amt
+  return amt
+}
+
+/** Map flow sign styling to Transactions list amount classes (.income / .expense / .transfer). */
+function flowListAmountClass(row) {
   const c = amountClassForRow(row)
   if (c === 'positive') return 'income'
   if (c === 'negative') return 'expense'
-  return 'neutral'
+  return 'transfer'
+}
+
+function formatFlowLogListTime(s) {
+  if (!s) return '-'
+  const d = new Date(String(s).replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return '-'
+  const h = d.getHours()
+  const m = d.getMinutes()
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function getFlowLogUserLabel(row) {
+  return row?.created_by_name || row?.user_name || 'Me'
+}
+
+function formatFlowLogBalanceLine(row) {
+  if (row?.balance_after == null) return ''
+  return `Bal: ${formatCurrency(row.balance_after, row.currency)}`
 }
 
 function paymentStatusLabel(row) {
@@ -1772,103 +1798,116 @@ onUnmounted(() => {
   padding-left: 4px;
 }
 
-.transactions-island {
+.flow-log-list-card {
   background: #fff;
   border-radius: 16px;
-  padding: 8px 12px;
+  padding: 0 14px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
 }
 
 .transaction-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid #F5F5F7;
+  position: relative;
+  padding: 12px 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.transaction-row:last-child {
-  border-bottom: none;
-}
-
 .transaction-row:active {
-  background: #FAFAFA;
-  border-radius: 8px;
-  margin: 0 -4px;
-  padding: 10px 4px;
+  background: #fafafa;
+  margin: 0 -14px;
+  padding: 12px 14px;
 }
 
-.tx-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.tx-icon.income {
-  background: rgba(82, 191, 144, 0.12);
-  color: #52BF90;
-}
-
-.tx-icon.expense {
-  background: rgba(195, 0, 16, 0.08);
-  color: rgba(195, 0, 16, 0.74);
-}
-
-.tx-icon.neutral {
-  background: rgba(255, 141, 40, 0.1);
-  color: #FF8D28;
-}
-
-.tx-info {
+.tx-main {
   flex: 1;
   min-width: 0;
+}
+
+.tx-row-top {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 6px;
 }
 
 .tx-description {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1A1A2E;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tx-meta {
-  font-size: 10px;
-  color: #A7A7A7;
-}
-
-.tx-amounts {
+.tx-top-right {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
 
 .tx-amount {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 
-.tx-balance {
-  font-size: 10px;
+.tx-amount.income {
+  color: #52bf90;
 }
 
-.positive {
-  color: #52BF90;
-}
-
-.negative {
+.tx-amount.expense {
   color: rgba(195, 0, 16, 0.74);
+}
+
+.tx-amount.transfer {
+  color: #1989fa;
+}
+
+.tx-row-bottom {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tx-user-line {
+  font-size: 12px;
+  color: #6e6a7c;
+}
+
+.tx-user-line .person-icon {
+  vertical-align: middle;
+  margin-right: 4px;
+  color: #ff8d28;
+}
+
+.tx-user-line strong {
+  color: #1a1a2e;
+  font-weight: 600;
+}
+
+.tx-category-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f0f0f0;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6e6a7c;
+}
+
+.tx-balance {
+  margin-left: auto;
+  font-size: 11px;
+  color: #a7a7a7;
+}
+
+.transaction-row.has-separator {
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .loading-state {
