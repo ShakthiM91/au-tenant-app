@@ -4,6 +4,7 @@ import { getToken } from './auth'
 import { enqueue } from '@/db/pendingWrites'
 import { runSync } from '@/utils/syncWorker'
 import { useSyncStore } from '@/store/sync'
+import { useUserStore } from '@/store/user'
 
 let _router = null
 
@@ -50,15 +51,27 @@ service.interceptors.response.use(
     const status = error.response?.status
     const message = error.response?.data?.error || error.message
     const currentPath = _router?.currentRoute?.value?.path
+    const isInvalidOrExpiredToken403 =
+      status === 403 && /invalid or expired token/i.test(message || '')
+
+    function redirectToLogin() {
+      if (_router) {
+        _router.push('/login')
+      } else {
+        window.location.href = '/login'
+      }
+    }
 
     if (status === 401) {
       if (currentPath !== '/login') {
+        useUserStore().resetState()
         showToast('Session expired. Please login again.')
-        if (_router) {
-          _router.push('/login')
-        } else {
-          window.location.href = '/login'
-        }
+        redirectToLogin()
+      }
+    } else if (isInvalidOrExpiredToken403) {
+      if (currentPath !== '/login') {
+        useUserStore().resetState()
+        redirectToLogin()
       }
     } else if (status === 403) {
       showToast(message || 'Access denied')
