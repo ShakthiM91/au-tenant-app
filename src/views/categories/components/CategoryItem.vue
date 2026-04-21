@@ -34,6 +34,7 @@
             :key="child.id"
             :category="child"
             :depth="1"
+            :read-only="readOnly"
             @edit="$emit('edit', $event)"
             @delete="$emit('delete', $event)"
             @toggle-active="(c, a) => $emit('toggle-active', c, a)"
@@ -88,6 +89,7 @@
           :key="child.id"
           :category="child"
           :depth="depth + 1"
+          :read-only="readOnly"
           @edit="$emit('edit', $event)"
           @delete="$emit('delete', $event)"
           @toggle-active="(c, a) => $emit('toggle-active', c, a)"
@@ -158,7 +160,8 @@ const AMOUNT_KEYS = ['budget_amount', 'total_amount', 'amount', 'allocated_amoun
 
 const props = defineProps({
   category: { type: Object, required: true },
-  depth: { type: Number, default: 0 }
+  depth: { type: Number, default: 0 },
+  readOnly: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['edit', 'delete', 'toggle-active', 'add-child'])
@@ -169,7 +172,9 @@ const popoverEvent = ref(undefined)
 
 const hasChildren = computed(() => Boolean(props.category.children?.length))
 
-const editable = computed(() => !props.category.is_default && props.category.tenant_id != null)
+const editable = computed(
+  () => !props.readOnly && !props.category.is_default && props.category.tenant_id != null
+)
 
 function pickAmount(obj) {
   for (const k of AMOUNT_KEYS) {

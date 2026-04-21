@@ -30,7 +30,13 @@
               <Transition name="popover-fade">
                 <div v-if="showAddMenu" class="add-popover" @click.stop>
                   <button class="popover-option" @click="onAddIsland">Add an Island</button>
-                  <button class="popover-option" @click="onAddAccount">Add an Account</button>
+                  <button
+                    v-if="headerShowsAddAccount"
+                    class="popover-option"
+                    @click="onAddAccount"
+                  >
+                    Add an Account
+                  </button>
                 </div>
               </Transition>
             </div>
@@ -149,7 +155,7 @@
                       </span>
                       <ion-icon :icon="peopleOutline" class="group-icon" />
                       <div class="account-more-wrapper" @click.stop>
-                        <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, $event)">
+                        <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, group, $event)">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
                             <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                           </svg>
@@ -162,7 +168,7 @@
                             @click.stop
                           >
                             <button
-                              v-for="item in accountMenuItems"
+                              v-for="item in buildAccountMenuItems(account, group)"
                               :key="item.role"
                               type="button"
                               class="island-popover-option"
@@ -178,10 +184,15 @@
                   </div>
                 </div>
                 <div v-else-if="!group.hasAccountsRaw" class="workspace-empty-prompt">
-                  <p>Create your first account in this workspace to start tracking balances and transactions.</p>
-                  <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
-                    Create your first account
-                  </button>
+                  <template v-if="islandScopeAllowsAddAccount(effectiveIslandPermissionScope(group.island))">
+                    <p>Create your first account in this workspace to start tracking balances and transactions.</p>
+                    <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
+                      Create your first account
+                    </button>
+                  </template>
+                  <template v-else>
+                    <p>No accounts in this workspace yet.</p>
+                  </template>
                 </div>
                 <p v-else class="workspace-search-empty">No accounts match your search.</p>
               </div>
@@ -249,7 +260,7 @@
                       </span>
                       <ion-icon :icon="peopleOutline" class="group-icon" title="Shared" />
                       <div class="account-more-wrapper" @click.stop>
-                        <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, $event)">
+                        <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, group, $event)">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
                             <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                           </svg>
@@ -262,7 +273,7 @@
                             @click.stop
                           >
                             <button
-                              v-for="item in accountMenuItems"
+                              v-for="item in buildAccountMenuItems(account, group)"
                               :key="item.role"
                               type="button"
                               class="island-popover-option"
@@ -278,10 +289,15 @@
                   </div>
                 </div>
                 <div v-else-if="!group.hasAccountsRaw" class="workspace-empty-prompt">
-                  <p>Create your first account in this workspace to start tracking balances and transactions.</p>
-                  <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
-                    Create your first account
-                  </button>
+                  <template v-if="islandScopeAllowsAddAccount(effectiveIslandPermissionScope(group.island))">
+                    <p>Create your first account in this workspace to start tracking balances and transactions.</p>
+                    <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
+                      Create your first account
+                    </button>
+                  </template>
+                  <template v-else>
+                    <p>No accounts in this workspace yet.</p>
+                  </template>
                 </div>
                 <p v-else class="workspace-search-empty">No accounts match your search.</p>
               </div>
@@ -293,7 +309,13 @@
             class="empty-state"
           >
             <p>No accounts found</p>
-            <button class="add-first-btn" @click="showAddMenu = true">Add your first account</button>
+            <button
+              v-if="anyIslandAllowsAddAccount"
+              class="add-first-btn"
+              @click="showAddMenu = true"
+            >
+              Add your first account
+            </button>
           </div>
         </div>
 
@@ -341,7 +363,7 @@
       @success="onReconcileSuccess"
     />
 
-    <FloatingAddButton @select="onFabSelect" />
+    <FloatingAddButton v-if="showAccountsFab" @select="onFabSelect" />
 
   </ion-page>
 </template>
@@ -363,7 +385,7 @@ import {
 } from '@/api/workspace'
 import { useSyncStore } from '@/store/sync'
 import { refreshBootstrapCache } from '@/utils/bootstrapCache'
-import { invalidateAccountingCache } from '@/db/readCache'
+import { invalidateAccountingCache, setCached, CACHE_KEYS } from '@/db/readCache'
 import AccountForm from './components/AccountForm.vue'
 import IslandForm from './components/IslandForm.vue'
 import ShareAccess from './components/ShareAccess.vue'
@@ -418,6 +440,44 @@ function filterAndSortAccounts(accounts) {
   return list
 }
 
+function effectiveIslandPermissionScope(island) {
+  if (island?.permission_scope) return island.permission_scope
+  if (!island?.is_shared) {
+    return {
+      view: true,
+      add_transaction: true,
+      edit_transaction: true,
+      reconcile: true,
+      full_access: true,
+      implicit_full: true
+    }
+  }
+  return {
+    view: false,
+    add_transaction: false,
+    edit_transaction: false,
+    reconcile: false,
+    full_access: false,
+    implicit_full: false
+  }
+}
+
+function islandScopeAllowsView(scope) {
+  return scope && !!scope.view
+}
+
+function islandScopeAllowsAddTransaction(scope) {
+  return scope && !!(scope.add_transaction || scope.full_access || scope.implicit_full)
+}
+
+function islandScopeAllowsAddAccount(scope) {
+  return scope && !!(scope.implicit_full || scope.full_access || scope.edit_transaction)
+}
+
+function islandScopeAllowsManageCategories(scope) {
+  return scope && !!(scope.implicit_full || scope.full_access || scope.edit_transaction)
+}
+
 const islandGroupsFiltered = computed(() =>
   islandGroups.value.map(g => ({
     ...g,
@@ -433,6 +493,20 @@ const myAccountsGroups = computed(() =>
 const sharedWithMeGroups = computed(() =>
   islandGroupsFiltered.value.filter(g => g.island.is_shared)
 )
+
+const showAccountsFab = computed(() =>
+  islandGroupsFiltered.value.some((g) =>
+    islandScopeAllowsAddTransaction(effectiveIslandPermissionScope(g.island))
+  )
+)
+
+const anyIslandAllowsAddAccount = computed(() =>
+  islandGroupsFiltered.value.some((g) =>
+    islandScopeAllowsAddAccount(effectiveIslandPermissionScope(g.island))
+  )
+)
+
+const headerShowsAddAccount = computed(() => anyIslandAllowsAddAccount.value)
 
 /** Inviter label: prefer email (matches “user2@gami.com …”), then name, then fallback. */
 function inviterDisplayLabel(inv) {
@@ -495,13 +569,85 @@ async function onDeclineInvitation(inv) {
   }
 }
 
-const accountMenuItems = [
+const accountMenuTemplate = [
   { role: 'flow-log', label: 'View Flow Log', destructive: false },
   { role: 'add-transaction', label: 'Add a Transaction', destructive: false },
   { role: 'reconcile', label: 'Reconcile', destructive: false },
   { role: 'edit', label: 'Edit', destructive: false },
   { role: 'destructive', label: 'Delete', destructive: true }
 ]
+
+function buildAccountMenuItems(account, group) {
+  const island = group?.island || {}
+  const isShared = !!island.is_shared
+  const p = account?.permissions
+  const scope = effectiveIslandPermissionScope(island)
+
+  if (isShared && p) {
+    const canView = p.view !== false && islandScopeAllowsView(scope)
+    const canAdd =
+      islandScopeAllowsAddTransaction(scope) && !!(p.add_transaction || p.full_access)
+    const canRec = !!(p.reconcile || p.full_access)
+    const canEdit = !!(p.edit_transaction || p.full_access)
+    return accountMenuTemplate.filter((item) => {
+      switch (item.role) {
+        case 'flow-log':
+          return canView
+        case 'add-transaction':
+          return canAdd
+        case 'reconcile':
+          return canRec
+        case 'edit':
+        case 'destructive':
+          return canEdit
+        default:
+          return true
+      }
+    })
+  }
+
+  if (!isShared && p && typeof p === 'object' && Object.prototype.hasOwnProperty.call(p, 'view')) {
+    const canView = p.view !== false
+    const canAdd = !!(p.add_transaction || p.full_access)
+    const canRec = !!(p.reconcile || p.full_access)
+    const canEdit = !!(p.edit_transaction || p.full_access)
+    return accountMenuTemplate.filter((item) => {
+      switch (item.role) {
+        case 'flow-log':
+          return canView
+        case 'add-transaction':
+          return canAdd
+        case 'reconcile':
+          return canRec
+        case 'edit':
+        case 'destructive':
+          return canEdit
+        default:
+          return true
+      }
+    })
+  }
+
+  const canViewIsland = islandScopeAllowsView(scope)
+  const canAddIsland = islandScopeAllowsAddTransaction(scope)
+  const canRecIsland = scope && !!(scope.reconcile || scope.full_access || scope.implicit_full)
+  const canEditIsland = scope && !!(scope.edit_transaction || scope.full_access || scope.implicit_full)
+  return accountMenuTemplate.filter((item) => {
+    switch (item.role) {
+      case 'flow-log':
+        return canViewIsland
+      case 'add-transaction':
+        return canAddIsland
+      case 'reconcile':
+        return canRecIsland
+      case 'edit':
+      case 'destructive':
+        return canEditIsland
+      default:
+        return true
+    }
+  })
+}
 
 const sortButtons = [
   { text: 'Sort by Name', role: 'name' },
@@ -520,18 +666,33 @@ function buildIslandMenuItems(group) {
   const island = group?.island || {}
   const isDefault = island.id == null
   const isShared = !!island.is_shared
-  const hideDelete = isDefault || isShared
-  const hideRename = isDefault || isShared
-  const hideShare = isShared
-  const items = [
-    { role: 'add-entry', label: 'Add a Transaction', destructive: false },
-    { role: 'add-account', label: 'Add Account', destructive: false },
-    { role: 'transaction-log', label: 'Transaction Log', destructive: false },
-    { role: 'manage-categories', label: 'Manage Categories', destructive: false }
-  ]
-  if (!hideRename) items.push({ role: 'rename', label: 'Rename Workspace', destructive: false })
+  const scope = effectiveIslandPermissionScope(island)
+  const canShare = island.can_share_workspace === true
+  const hideDelete = isDefault || !canShare
+  const hideRename = isDefault || !canShare
+  const hideShare = isShared || !canShare
+
+  const showAddEntry = islandScopeAllowsAddTransaction(scope)
+  const showTxLog = islandScopeAllowsView(scope)
+  const showCategories = islandScopeAllowsManageCategories(scope)
+  const showAddAccount = !isShared && islandScopeAllowsAddAccount(scope)
+
+  const items = []
+  if (showAddEntry) {
+    items.push({ role: 'add-entry', label: 'Add a Transaction', destructive: false })
+  }
+  if (showAddAccount) {
+    items.push({ role: 'add-account', label: 'Add Account', destructive: false })
+  }
+  if (showTxLog) {
+    items.push({ role: 'transaction-log', label: 'Transaction Log', destructive: false })
+  }
+  if (showCategories) {
+    items.push({ role: 'manage-categories', label: 'Manage Categories', destructive: false })
+  }
+  if (!hideRename) items.push({ role: 'rename', label: 'Rename Island', destructive: false })
   if (!hideShare) items.push({ role: 'share-access', label: 'Share Access', destructive: false })
-  if (!hideDelete) items.push({ role: 'destructive', label: 'Delete Workspace', destructive: true })
+  if (!hideDelete) items.push({ role: 'destructive', label: 'Delete Island', destructive: true })
   return items
 }
 
@@ -675,7 +836,7 @@ function groupHasOpenAccountPopover(group) {
   return group.accounts.some(a => a.id === cur.id)
 }
 
-function toggleAccountPopover(account, event) {
+function toggleAccountPopover(account, group, event) {
   showAddMenu.value = false
   closeIslandPopover()
   if (isAccountPopoverOpenFor(account)) {
@@ -684,7 +845,8 @@ function toggleAccountPopover(account, event) {
     const trigger = event?.currentTarget
     optionsAccount.value = { ...account }
     showOptions.value = true
-    nextTick(() => setPopoverOpenUpFromTrigger(trigger, accountMenuItems.length))
+    const n = buildAccountMenuItems(account, group).length
+    nextTick(() => setPopoverOpenUpFromTrigger(trigger, n))
   }
 }
 
@@ -848,6 +1010,16 @@ async function load() {
 
     const res = await getAccounts()
     ownAccounts = Array.isArray(res?.data ?? res) ? (res?.data ?? res) : []
+    if (Array.isArray(res?.data)) {
+      try {
+        await setCached(CACHE_KEYS.ACCOUNTS_ACTIVE, {
+          ...res,
+          data: res.data.filter((a) => a.is_active !== false)
+        })
+      } catch {
+        /* non-fatal */
+      }
+    }
 
     const groups = []
 
@@ -855,12 +1027,32 @@ async function load() {
 
     for (const ws of ownWorkspaces) {
       const accounts = ownAccounts.filter(byWorkspace(ws.id))
-      groups.push({ island: { id: ws.id, name: ws.name || 'My Island', is_shared: false, tenant_name: null }, accounts })
+      groups.push({
+        island: {
+          id: ws.id,
+          name: ws.name || 'My Island',
+          is_shared: false,
+          tenant_name: null,
+          can_share_workspace: ws.can_share_workspace === true,
+          permission_scope: ws.permission_scope ?? null
+        },
+        accounts
+      })
     }
 
     const defaultAccounts = ownAccounts.filter(byWorkspace(null))
     if (defaultAccounts.length > 0) {
-      groups.push({ island: { id: null, name: 'Default Island', is_shared: false, tenant_name: null }, accounts: defaultAccounts })
+      groups.push({
+        island: {
+          id: null,
+          name: 'Default Island',
+          is_shared: false,
+          tenant_name: null,
+          can_share_workspace: true,
+          permission_scope: null
+        },
+        accounts: defaultAccounts
+      })
     }
 
     for (const ws of sharedWorkspaces) {
@@ -869,7 +1061,20 @@ async function load() {
         const sharedAccounts = Array.isArray(sharedRes?.data ?? sharedRes) ? (sharedRes?.data ?? sharedRes) : []
         if (sharedAccounts.length > 0) {
           groups.push({
-            island: { id: ws.id, name: ws.name || 'Shared Island', is_shared: true, tenant_name: ws.tenant_name },
+            island: {
+              id: ws.id,
+              name: ws.name || 'Shared Island',
+              is_shared: true,
+              tenant_name: ws.tenant_name,
+              permission_scope: ws.permission_scope || {
+                view: false,
+                add_transaction: false,
+                edit_transaction: false,
+                reconcile: false,
+                full_access: false,
+                implicit_full: false
+              }
+            },
             accounts: sharedAccounts
           })
         }
@@ -898,7 +1103,8 @@ onIonViewDidEnter(async () => {
     openAddAccount(pre != null && !Number.isNaN(pre) ? pre : null)
     router.replace({ path: '/accounts' }).catch(() => {})
   }
-  refreshBootstrapCache().catch(() => {})
+  // load() already invalidated cache and fetched GET /accounts; avoid duplicating those two bootstrap account requests.
+  refreshBootstrapCache({ skipAccounts: true }).catch(() => {})
 })
 </script>
 

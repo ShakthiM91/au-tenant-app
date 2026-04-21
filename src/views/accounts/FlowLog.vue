@@ -32,7 +32,7 @@
                   @click.stop
                 >
                   <button
-                    v-for="item in flowLogAccountMenuItems"
+                    v-for="item in buildFlowLogAccountMenuItems()"
                     :key="item.role"
                     type="button"
                     class="island-popover-option"
@@ -402,7 +402,7 @@
       @success="onReconcileSuccess"
     />
 
-    <FloatingAddButton @select="onFabSelect" />
+    <FloatingAddButton v-if="flowLogFabVisible" @select="onFabSelect" />
 
   </ion-page>
 </template>
@@ -422,7 +422,13 @@ import {
   IonButton
 } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
-import { getAccountFlowLog, getAccountFlowSummary, getAccountById, getCategoryTree } from '@/api/accounting'
+import {
+  getAccountFlowLog,
+  getAccountFlowSummary,
+  getAccountById,
+  getAccountsByWorkspace,
+  getCategoryTree
+} from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { invalidateAccountingCache } from '@/db/readCache'
 import { useSyncStore } from '@/store/sync'
@@ -477,6 +483,9 @@ const categoriesLoading = ref(false)
 const accountWorkspaceId = ref(null)
 /** Display name for workspace (island); used in transaction/category query strings. */
 const accountWorkspaceLabel = ref('')
+/** Merged island permission_scope (own or shared workspace) + per-account row permissions for menu gating. */
+const flowLogWorkspaceScope = ref(null)
+const flowLogAccountPermissions = ref(null)
 const accountFormOpen = ref(false)
 const accountFormAccount = ref(null)
 const accountFormWorkspaceId = ref(null)
@@ -519,14 +528,93 @@ const flowTypeButtonLabel = computed(() => {
   return `${sel.length} types`
 })
 
-const flowLogAccountMenuItems = [
+const flowLogAccountMenuTemplate = [
   { role: 'rename', label: 'Rename', destructive: false },
   { role: 'transaction-log', label: 'Island transaction log', destructive: false },
   { role: 'add-transaction', label: 'Add a Transaction', destructive: false },
   { role: 'reconcile', label: 'Reconcile', destructive: false },
-  { role: 'manage-categories', label: 'Manage categories', destructive: false },
-  // { role: 'all-transactions', label: 'All transactions', destructive: false }
+  { role: 'manage-categories', label: 'Manage categories', destructive: false }
 ]
+
+function flowLogScopeAllowsView(scope) {
+  return scope && !!scope.view
+}
+
+function flowLogScopeAllowsIslandAdd(scope) {
+  return scope && !!(scope.add_transaction || scope.full_access || scope.implicit_full)
+}
+
+function flowLogScopeAllowsManageCategories(scope) {
+  return scope && !!(scope.edit_transaction || scope.full_access || scope.implicit_full)
+}
+
+function flowLogScopeAllowsReconcile(scope) {
+  return scope && !!(scope.reconcile || scope.full_access || scope.implicit_full)
+}
+
+const flowLogFabVisible = computed(() => {
+  const items = buildFlowLogAccountMenuItems()
+  return items.some((i) => i.role === 'add-transaction')
+})
+
+function buildFlowLogAccountMenuItems() {
+  const wsId = accountWorkspaceId.value
+  if (wsId == null) {
+    return [...flowLogAccountMenuTemplate]
+  }
+
+  const wsScope = flowLogWorkspaceScope.value
+  if (!wsScope) {
+    return [...flowLogAccountMenuTemplate]
+  }
+
+  const rawPerms = flowLogAccountPermissions.value
+  const p =
+    rawPerms && typeof rawPerms === 'object' && Object.prototype.hasOwnProperty.call(rawPerms, 'view')
+      ? rawPerms
+      : null
+
+  if (p) {
+    const canView = p.view !== false && flowLogScopeAllowsView(wsScope)
+    const canAdd =
+      flowLogScopeAllowsIslandAdd(wsScope) && !!(p.add_transaction || p.full_access)
+    const canRec = !!(p.reconcile || p.full_access)
+    const canEdit = !!(p.edit_transaction || p.full_access)
+    return flowLogAccountMenuTemplate.filter((item) => {
+      switch (item.role) {
+        case 'rename':
+          return flowLogScopeAllowsManageCategories(wsScope) && canEdit
+        case 'transaction-log':
+          return canView
+        case 'add-transaction':
+          return canAdd
+        case 'reconcile':
+          return flowLogScopeAllowsReconcile(wsScope) && canRec
+        case 'manage-categories':
+          return flowLogScopeAllowsManageCategories(wsScope)
+        default:
+          return true
+      }
+    })
+  }
+
+  return flowLogAccountMenuTemplate.filter((item) => {
+    switch (item.role) {
+      case 'rename':
+        return flowLogScopeAllowsManageCategories(wsScope)
+      case 'transaction-log':
+        return flowLogScopeAllowsView(wsScope)
+      case 'add-transaction':
+        return flowLogScopeAllowsIslandAdd(wsScope)
+      case 'reconcile':
+        return flowLogScopeAllowsReconcile(wsScope)
+      case 'manage-categories':
+        return flowLogScopeAllowsManageCategories(wsScope)
+      default:
+        return true
+    }
+  })
+}
 
 const POPOVER_RESERVE_BOTTOM_PX = 108
 const POPOVER_ITEM_ROW_PX = 46
@@ -567,7 +655,9 @@ function toggleAccountOptionsMenu(event) {
   } else {
     const trigger = event?.currentTarget
     showAccountOptionsMenu.value = true
-    nextTick(() => setAccountMenuPopoverOpenUpFromTrigger(trigger, flowLogAccountMenuItems.length))
+    nextTick(() =>
+      setAccountMenuPopoverOpenUpFromTrigger(trigger, buildFlowLogAccountMenuItems().length)
+    )
   }
 }
 
@@ -900,6 +990,8 @@ function onCategoryCheckboxChange(id, ev) {
 async function fetchAccountWorkspace() {
   if (!isFlowLogRoute() || !accountId.value) return
   accountWorkspaceLabel.value = ''
+  flowLogWorkspaceScope.value = null
+  flowLogAccountPermissions.value = null
   try {
     const res = await getAccountById(accountId.value)
     const acc = res?.data ?? res
@@ -914,8 +1006,20 @@ async function fetchAccountWorkspace() {
         const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
         const own = ownRes?.data ?? []
         const shared = sharedRes?.data?.active ?? []
-        const found = [...own, ...shared].find(w => Number(w.id) === Number(wsId))
+        const foundOwn = own.find((w) => Number(w.id) === Number(wsId))
+        const foundShared = shared.find((w) => Number(w.id) === Number(wsId))
+        const found = foundOwn || foundShared
         if (found?.name) accountWorkspaceLabel.value = String(found.name)
+        flowLogWorkspaceScope.value =
+          foundOwn?.permission_scope ?? foundShared?.permission_scope ?? null
+        try {
+          const accRes = await getAccountsByWorkspace(wsId)
+          const list = Array.isArray(accRes?.data ?? accRes) ? (accRes?.data ?? accRes) : []
+          const row = list.find((a) => Number(a.id) === Number(accountId.value))
+          flowLogAccountPermissions.value = row?.permissions ?? null
+        } catch (_) {
+          flowLogAccountPermissions.value = null
+        }
       } catch (_) {
         /* optional label */
       }

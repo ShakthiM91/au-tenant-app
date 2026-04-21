@@ -188,7 +188,12 @@
               >
                 {{ c.text }}
               </button>
-              <button type="button" class="category-pill category-pill-add" @click="showCategoryForm = true">
+              <button
+                v-if="canManageCategoriesInForm"
+                type="button"
+                class="category-pill category-pill-add"
+                @click="showCategoryForm = true"
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Add New Category
               </button>
@@ -733,6 +738,18 @@ const effectiveWorkspaceId = computed(() => {
   return manualWorkspaceId.value
 })
 
+const canManageCategoriesInForm = computed(() => {
+  if (isEdit) return true
+  const wid = effectiveWorkspaceId.value
+  if (wid === undefined || wid === null) {
+    return true
+  }
+  const w = workspaceOptions.value.find((o) => Number(o.id) === Number(wid))
+  const s = w?.permission_scope
+  if (!s) return true
+  return !!(s.implicit_full || s.full_access || s.edit_transaction)
+})
+
 /** Minimal account rows for pickers without GET /api/accounting/accounts (matches mobile: no account list fetch). */
 function syntheticAccount({ id, name, currency, workspaceId = null }) {
   const nid = Number(id)
@@ -1001,14 +1018,36 @@ async function loadWorkspaceOptions() {
     const shared = Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []
     const opts = []
     for (const ws of own) {
-      opts.push({ id: Number(ws.id), name: ws.name || 'My island', is_shared: false })
+      const s = ws.permission_scope
+      if (
+        !isEdit &&
+        s &&
+        !(s.add_transaction || s.full_access || s.implicit_full)
+      ) {
+        continue
+      }
+      opts.push({
+        id: Number(ws.id),
+        name: ws.name || 'My island',
+        is_shared: false,
+        permission_scope: s || null
+      })
     }
     for (const ws of shared) {
+      const s = ws.permission_scope
+      if (
+        !isEdit &&
+        s &&
+        !(s.add_transaction || s.full_access || s.implicit_full)
+      ) {
+        continue
+      }
       opts.push({
         id: Number(ws.id),
         name: ws.name || 'Shared island',
         is_shared: true,
-        tenant_name: ws.tenant_name
+        tenant_name: ws.tenant_name,
+        permission_scope: s || null
       })
     }
     workspaceOptions.value = opts

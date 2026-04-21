@@ -13,7 +13,7 @@
             </ion-buttons>
             <ion-title>{{ isEdit ? 'Edit Account' : 'Add New Account' }}</ion-title>
             <ion-buttons slot="end">
-              <ion-button :disabled="saving" @click="submit">
+              <ion-button :disabled="saving || saveDisabled" @click="submit">
                 {{ saving ? 'Saving...' : (isEdit ? 'Save' : 'Add') }}
               </ion-button>
             </ion-buttons>
@@ -21,6 +21,12 @@
         </ion-header>
         <div class="drawer-body-scroll">
         <form @submit.prevent="submit" class="drawer-form">
+          <p v-if="isEdit && !canEditAccountMeta" class="form-permission-hint">
+            You can view this account but do not have permission to change it.
+          </p>
+          <p v-else-if="!isEdit && workspaceOptions.length === 0" class="form-permission-hint">
+            You do not have permission to add accounts in any workspace you can access.
+          </p>
           <div class="form-group">
             <label class="form-label">Account Name</label>
             <input
@@ -28,6 +34,7 @@
               type="text"
               class="form-input"
               placeholder="Enter account name"
+              :disabled="formDisabled"
             />
           </div>
 
@@ -38,6 +45,7 @@
               interface="action-sheet"
               placeholder="Select island"
               class="ion-select-inline"
+              :disabled="formDisabled"
             >
               <ion-select-option v-for="w in workspaceOptions" :key="w.value ?? 'default'" :value="w.value">
                 {{ w.text }}
@@ -53,6 +61,7 @@
                 :key="s"
                 type="button"
                 class="pill"
+                :disabled="formDisabled"
                 @click="selectSuggestedName(s)"
               >
                 {{ s }}
@@ -68,6 +77,7 @@
                 interface="action-sheet"
                 placeholder="Select currency"
                 class="ion-select-inline"
+                :disabled="formDisabled"
               >
                 <ion-select-option v-for="c in currencyOptions" :key="c.code" :value="c.code">
                   {{ c.name }} ({{ c.code }})
@@ -81,6 +91,7 @@
                 interface="action-sheet"
                 placeholder="Select type"
                 class="ion-select-inline"
+                :disabled="formDisabled"
               >
                 <ion-select-option v-for="t in typeOptions" :key="t.value" :value="t.value">
                   {{ t.text }}
@@ -96,6 +107,7 @@
               type="text"
               class="form-input"
               placeholder="Optional"
+              :disabled="formDisabled"
             />
           </div>
 
@@ -107,6 +119,7 @@
               step="0.01"
               class="form-input"
               placeholder="0"
+              :disabled="formDisabled"
             />
           </div>
 
@@ -118,6 +131,7 @@
               step="0.01"
               class="form-input"
               placeholder="Optional"
+              :disabled="formDisabled"
             />
           </div>
 
@@ -128,6 +142,7 @@
               type="text"
               class="form-input"
               placeholder="Optional"
+              :disabled="formDisabled"
             />
           </div>
 
@@ -138,6 +153,7 @@
               class="form-textarea"
               placeholder="Optional"
               rows="2"
+              :disabled="formDisabled"
             />
           </div>
 
@@ -148,6 +164,7 @@
               interface="action-sheet"
               placeholder="Select status"
               class="ion-select-inline"
+              :disabled="formDisabled"
             >
               <ion-select-option :value="true">Active</ion-select-option>
               <ion-select-option :value="false">Inactive</ion-select-option>
@@ -196,6 +213,8 @@ const saving = ref(false)
 const showSuggestedNames = ref(true)
 const currencyOptions = ref([])
 const workspaceOptions = ref([])
+/** Raw GET /workspaces rows (includes permission_scope for invitees). */
+const workspaceRows = ref([])
 
 const typeOptions = [
   { text: 'Bank', value: 'bank' },
@@ -206,6 +225,39 @@ const typeOptions = [
   { text: 'Investment', value: 'investment' },
   { text: 'Other', value: 'other' }
 ]
+
+/** Aligns with accounts index: add account / edit account meta for invitees. */
+function scopeAllowsAddAccount(scope) {
+  if (!scope) return true
+  return !!(scope.implicit_full || scope.full_access || scope.edit_transaction)
+}
+
+function scopeAllowsEditAccountMeta(scope) {
+  if (!scope) return true
+  return !!(scope.implicit_full || scope.full_access || scope.edit_transaction)
+}
+
+const canEditAccountMeta = computed(() => {
+  if (!isEdit.value) return true
+  const acc = props.account
+  if (!acc?.id) return true
+  const p = acc.permissions
+  if (p && typeof p === 'object' && Object.prototype.hasOwnProperty.call(p, 'view')) {
+    return !!(p.edit_transaction || p.full_access)
+  }
+  const wid = acc.workspace_id
+  if (wid == null || wid === '') return true
+  const row = workspaceRows.value.find((w) => Number(w.id) === Number(wid))
+  const s = row?.permission_scope
+  if (!s) return true
+  return scopeAllowsEditAccountMeta(s)
+})
+
+const formDisabled = computed(() => isEdit.value && !canEditAccountMeta.value)
+
+const saveDisabled = computed(
+  () => formDisabled.value || (!isEdit.value && workspaceOptions.value.length === 0)
+)
 
 const form = reactive({
   name: '',
@@ -227,17 +279,38 @@ function toBoolean(v) {
   return Boolean(v)
 }
 
+function rebuildWorkspaceOptions() {
+  const list = workspaceRows.value
+  const opts = []
+  const editing = isEdit.value
+  const currentWs =
+    props.account?.workspace_id != null && props.account?.workspace_id !== ''
+      ? Number(props.account.workspace_id)
+      : null
+  for (const w of Array.isArray(list) ? list : []) {
+    const id = Number(w.id)
+    const s = w.permission_scope
+    if (editing) {
+      if (!(scopeAllowsEditAccountMeta(s) || (currentWs != null && !Number.isNaN(currentWs) && id === currentWs))) {
+        continue
+      }
+    } else if (!scopeAllowsAddAccount(s)) {
+      continue
+    }
+    const name = w.name?.endsWith('Island') ? w.name : (w.name || 'My Island') + ' Island'
+    opts.push({ value: id, text: name })
+  }
+  workspaceOptions.value = opts
+}
+
 async function loadWorkspaces() {
   try {
     const res = await getWorkspaces()
     const list = res?.data ?? []
-    const opts = []
-    for (const w of Array.isArray(list) ? list : []) {
-      const name = w.name?.endsWith('Island') ? w.name : (w.name || 'My Island') + ' Island'
-      opts.push({ value: Number(w.id), text: name })
-    }
-    workspaceOptions.value = opts
+    workspaceRows.value = Array.isArray(list) ? list : []
+    rebuildWorkspaceOptions()
   } catch (_) {
+    workspaceRows.value = []
     workspaceOptions.value = []
   }
 }
@@ -322,7 +395,14 @@ watch(
     if (open) {
       await Promise.all([loadWorkspaces(), loadCurrencies()])
       resetForm()
+      rebuildWorkspaceOptions()
       if (!props.account?.id) {
+        if (
+          form.workspace_id != null &&
+          !workspaceOptions.value.some((o) => o.value === form.workspace_id)
+        ) {
+          form.workspace_id = workspaceOptions.value[0]?.value ?? null
+        }
         await applyDefaultCurrencyForNewAccountForm()
       }
     }
@@ -331,6 +411,23 @@ watch(
 )
 
 async function submit() {
+  if (isEdit.value && !canEditAccountMeta.value) {
+    showToast('You do not have permission to edit this account')
+    return
+  }
+  if (!isEdit.value) {
+    if (workspaceOptions.value.length === 0) {
+      showToast('You do not have permission to add accounts')
+      return
+    }
+    if (
+      form.workspace_id != null &&
+      !workspaceOptions.value.some((o) => o.value === form.workspace_id)
+    ) {
+      showToast('You do not have permission to add accounts in this workspace')
+      return
+    }
+  }
   const name = (form.name || '').trim()
   if (!name) {
     showToast('Enter account name')
@@ -415,6 +512,16 @@ async function submit() {
 
 .drawer-form {
   padding: 0 24px 24px;
+}
+
+.form-permission-hint {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #5c5c6e;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
 }
 
 .form-group {

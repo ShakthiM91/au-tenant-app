@@ -117,7 +117,11 @@
                       <span class="tx-amount" :class="amountClass(row.type)">
                         {{ formatAmountShort(row) }}
                       </span>
-                      <button class="more-btn" @click.stop="openRowOptions(row)">
+                      <button
+                        v-if="rowHasOverflowActions(row)"
+                        class="more-btn"
+                        @click.stop="openRowOptions(row)"
+                      >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="#6E6A7C">
                           <circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/>
                         </svg>
@@ -157,7 +161,7 @@
       <div class="tab-spacer" />
     </ion-content>
 
-    <FloatingAddButton @select="onFabSelect" />
+    <FloatingAddButton v-if="transactionsFabVisible" @select="onFabSelect" />
 
   </ion-page>
 </template>
@@ -169,6 +173,7 @@ import { IonPage, IonContent, IonSpinner, IonIcon, onIonViewDidEnter } from '@io
 import { cloudOfflineOutline } from 'ionicons/icons'
 import { showToast, showActionSheet, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getTransactions, deleteTransaction, getSummary } from '@/api/accounting'
+import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { getPendingWrites, deleteEntry } from '@/db/pendingWrites'
 import { useSyncStore } from '@/store/sync'
@@ -189,6 +194,52 @@ const workspaceName = computed(() => {
   const name = route.query.workspace_name
   return name ? decodeURIComponent(name) : null
 })
+
+/** Hide FAB when viewing another tenant’s workspace with view-only merged scope. */
+const transactionsFabVisible = ref(true)
+/** Merged permission_scope when `workspace_id` is in the route (island transaction log). */
+const listWorkspacePermissionScope = ref(null)
+
+function listScopeAllowsTransactionEdit(scope) {
+  if (!scope) return true
+  return !!(scope.edit_transaction || scope.full_access || scope.implicit_full)
+}
+
+/** Delete: full_access or workspace owner/admin/creator (implicit_full), not edit-only. */
+function listScopeAllowsTransactionDelete(scope) {
+  if (!scope) return true
+  return !!(scope.full_access || scope.implicit_full)
+}
+
+async function refreshWorkspaceListPermissions() {
+  const widRaw = workspaceId.value
+  listWorkspacePermissionScope.value = null
+  if (widRaw == null || widRaw === '') {
+    transactionsFabVisible.value = true
+    return
+  }
+  const wid = Number(widRaw)
+  if (Number.isNaN(wid)) {
+    transactionsFabVisible.value = true
+    return
+  }
+  try {
+    const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
+    const own = Array.isArray(ownRes?.data) ? ownRes.data : []
+    const shared = Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []
+    const row = own.find((w) => Number(w.id) === wid) || shared.find((w) => Number(w.id) === wid)
+    const s = row?.permission_scope ?? null
+    listWorkspacePermissionScope.value = s
+    if (!s) {
+      transactionsFabVisible.value = true
+      return
+    }
+    transactionsFabVisible.value = !!(s.add_transaction || s.full_access || s.implicit_full)
+  } catch {
+    listWorkspacePermissionScope.value = null
+    transactionsFabVisible.value = true
+  }
+}
 const list = ref([])
 const listQuery = ref({ type: '', limit: 30, offset: 0 })
 const summary = ref({ total_income: 0, total_expense: 0 })
@@ -470,14 +521,34 @@ function onRowClick(row) {
   router.push(`/transactions/${row.id}`)
 }
 
+function transactionRowActionFlags() {
+  const wid = workspaceId.value
+  const scoped = wid != null && wid !== ''
+  const scope = listWorkspacePermissionScope.value
+  const showEdit = !scoped || listScopeAllowsTransactionEdit(scope)
+  const showDelete = !scoped || listScopeAllowsTransactionDelete(scope)
+  return { showEdit, showDelete }
+}
+
+/** More menu: pending rows need “Remove from queue”; otherwise need at least one of Edit/Delete. */
+function rowHasOverflowActions(row) {
+  if (row._pending) return true
+  const { showEdit, showDelete } = transactionRowActionFlags()
+  return showEdit || showDelete
+}
+
 async function openRowOptions(row) {
+  const { showEdit, showDelete } = transactionRowActionFlags()
+
   const buttons = row._pending
     ? [{ text: 'Remove from queue', role: 'remove-queue' }, { text: 'Cancel', role: 'cancel' }]
-    : [
-        { text: 'Edit', role: 'edit' },
-        { text: 'Delete', role: 'delete' },
-        { text: 'Cancel', role: 'cancel' }
-      ]
+    : (() => {
+        const opts = []
+        if (showEdit) opts.push({ text: 'Edit', role: 'edit' })
+        if (showDelete) opts.push({ text: 'Delete', role: 'delete' })
+        opts.push({ text: 'Cancel', role: 'cancel' })
+        return opts
+      })()
   const role = await showActionSheet({ header: 'Transaction', buttons })
   if (role === 'remove-queue' && row._pendingId) {
     try {
@@ -510,6 +581,10 @@ async function onFabSelect(type) {
 }
 
 
+watch(workspaceId, () => {
+  refreshWorkspaceListPermissions()
+})
+
 watch([dateFrom, dateTo], () => {
   if (filterMode.value === 'calendar' && (dateFrom.value || dateTo.value)) {
     onFilter()
@@ -524,6 +599,7 @@ watch(
 )
 
 onIonViewDidEnter(() => {
+  refreshWorkspaceListPermissions()
   const queued = syncStore.consumeLastQueuedTransaction()
   if (queued) {
     const row = payloadToRow(queued.id, queued.payload)

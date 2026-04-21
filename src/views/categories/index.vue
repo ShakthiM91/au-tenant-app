@@ -13,7 +13,13 @@
             <span v-if="workspaceName" class="page-title-ws">{{ workspaceName }}</span>
           </div>
           <div class="header-actions">
-            <button type="button" class="icon-btn icon-btn--accent" aria-label="Add category" @click="openForm()">
+            <button
+              v-if="canManageWorkspaceCategories"
+              type="button"
+              class="icon-btn icon-btn--accent"
+              aria-label="Add category"
+              @click="openForm()"
+            >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -73,6 +79,7 @@
             v-for="cat in displayCategories"
             :key="cat.id"
             :category="cat"
+            :read-only="!canManageWorkspaceCategories"
             @edit="c => openForm(c)"
             @delete="c => onDelete(c)"
             @toggle-active="(c, isActive) => onToggleActive(c, isActive)"
@@ -83,8 +90,16 @@
         <div v-else class="empty-state">
           <p v-if="workspaceId">{{ workspaceName ? `No categories in ${workspaceName}` : 'No categories in this island' }}</p>
           <p v-else>No {{ activeTab }} categories</p>
-          <p v-if="workspaceId" class="empty-hint">Create your first category in this island.</p>
-          <button class="add-first-btn" @click="openForm()">{{ workspaceId ? 'Create your first category' : 'Add category' }}</button>
+          <p v-if="workspaceId && canManageWorkspaceCategories" class="empty-hint">
+            Create your first category in this island.
+          </p>
+          <button
+            v-if="canManageWorkspaceCategories"
+            class="add-first-btn"
+            @click="openForm()"
+          >
+            {{ workspaceId ? 'Create your first category' : 'Add category' }}
+          </button>
         </div>
       </div>
       <div class="tab-spacer" />
@@ -157,6 +172,7 @@ import {
 } from '@ionic/vue'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getCategoryTree, deleteCategory, toggleCategoryActive } from '@/api/accounting'
+import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import CategoryItem from './components/CategoryItem.vue'
 import CategoryForm from './components/CategoryForm.vue'
 const route = useRoute()
@@ -177,6 +193,35 @@ const currentCategory = ref(null)
 const sortAlphabetically = ref(false)
 const showHeaderMore = ref(false)
 const headerMoreEvent = ref(undefined)
+/** Merged workspace scope when browsing /accounting/categories?workspace_id=… */
+const workspacePermissionScope = ref(null)
+
+function scopeAllowsCategoryManage(s) {
+  if (!s) return true
+  return !!(s.implicit_full || s.full_access || s.edit_transaction)
+}
+
+const canManageWorkspaceCategories = computed(() => {
+  if (workspaceId.value == null) return true
+  return scopeAllowsCategoryManage(workspacePermissionScope.value)
+})
+
+async function loadWorkspaceScope() {
+  workspacePermissionScope.value = null
+  const wid = workspaceId.value
+  if (wid == null) return
+  try {
+    const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
+    const own = ownRes?.data ?? []
+    const shared = sharedRes?.data?.active ?? []
+    const row =
+      own.find((w) => Number(w.id) === Number(wid)) ||
+      shared.find((w) => Number(w.id) === Number(wid))
+    workspacePermissionScope.value = row?.permission_scope ?? null
+  } catch {
+    workspacePermissionScope.value = null
+  }
+}
 
 function sortCategoryTree(nodes) {
   if (!nodes?.length) return nodes
@@ -233,6 +278,10 @@ function normalizeData(res) {
 }
 
 function openForm(category = null, parentId = null) {
+  if (workspaceId.value != null && !canManageWorkspaceCategories.value) {
+    showToast('You do not have permission to manage categories')
+    return
+  }
   if (category) {
     if (category.is_default || category.tenant_id == null) {
       showToast('Default categories cannot be edited')
@@ -250,6 +299,10 @@ function openForm(category = null, parentId = null) {
 }
 
 async function onDelete(cat) {
+  if (workspaceId.value != null && !canManageWorkspaceCategories.value) {
+    showToast('You do not have permission to manage categories')
+    return
+  }
   if (cat.is_default || cat.tenant_id == null) {
     showToast('Default categories cannot be deleted')
     return
@@ -265,6 +318,10 @@ async function onDelete(cat) {
 }
 
 async function onToggleActive(cat, isActive) {
+  if (workspaceId.value != null && !canManageWorkspaceCategories.value) {
+    showToast('You do not have permission to manage categories')
+    return
+  }
   if (cat.is_default || cat.tenant_id == null) {
     showToast('Default categories cannot be toggled')
     return
@@ -284,8 +341,18 @@ function onFormSuccess() {
   load()
 }
 
-watch(() => [route.query.workspace_id], () => load(), { immediate: false })
-onMounted(() => load())
+watch(
+  () => [route.query.workspace_id],
+  () => {
+    loadWorkspaceScope()
+    load()
+  },
+  { immediate: false }
+)
+onMounted(() => {
+  loadWorkspaceScope()
+  load()
+})
 </script>
 
 <style scoped>
