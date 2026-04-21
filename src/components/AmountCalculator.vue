@@ -64,7 +64,13 @@
             <button class="key key-op" @click="input('*')">×</button>
             <button class="key key-op" @click="input('%')">%</button>
             <button class="key key-op" @click="input('/')">÷</button>
-            <button class="key key-eq" @click="onConfirm">=</button>
+            <button
+              class="key key-eq"
+              :class="{ 'key-eq-text': confirmButtonLabel === 'OK' }"
+              @click="onConfirm"
+            >
+              {{ confirmButtonLabel }}
+            </button>
           </div>
         </div>
       </div>
@@ -101,6 +107,11 @@ const hasBudget = computed(() =>
 )
 
 const displayExpr = computed(() => expr.value)
+
+/** "=" once the user has started an expression with an operator; "OK" for plain entry / confirm. */
+const confirmButtonLabel = computed(() =>
+  /[-+*/%]/.test(expr.value) ? '=' : 'OK'
+)
 
 function fmtBudget(val) {
   if (val == null) return '—'
@@ -324,6 +335,12 @@ function onCancel() {
   color: #ff8d28;
   font-size: 28px;
   font-weight: 300;
+}
+
+.key-eq-text {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* Slide up animation */

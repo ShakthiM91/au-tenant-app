@@ -178,16 +178,17 @@
               <svg class="field-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div class="category-pills">
-              <button
-                v-for="c in suggestedCategoryPills"
-                :key="c.value"
-                type="button"
-                class="category-pill"
-                :class="{ active: form.category_id === c.value }"
-                @click="selectCategory(c.value)"
-              >
-                {{ c.text }}
-              </button>
+              <template v-if="form.category_id == null">
+                <button
+                  v-for="c in suggestedCategoryPills"
+                  :key="c.value"
+                  type="button"
+                  class="category-pill"
+                  @click="selectCategory(c.value)"
+                >
+                  {{ c.text }}
+                </button>
+              </template>
               <button
                 v-if="canManageCategoriesInForm"
                 type="button"
@@ -198,7 +199,7 @@
                 Add New Category
               </button>
             </div>
-            <button
+            <!-- <button
               v-if="showBrowseAllCategories"
               type="button"
               class="category-browse-all"
@@ -207,7 +208,7 @@
               <span class="category-browse-all-label">Browse all categories</span>
               <span class="category-browse-all-count">{{ categoryOptions.length }}</span>
               <svg class="category-browse-all-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
+            </button> -->
           </div>
 
           <!-- Amount -->
