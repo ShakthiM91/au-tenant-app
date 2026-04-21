@@ -28,17 +28,6 @@
             You do not have permission to add accounts in any workspace you can access.
           </p>
           <div class="form-group">
-            <label class="form-label">Account Name</label>
-            <input
-              v-model="form.name"
-              type="text"
-              class="form-input"
-              placeholder="Enter account name"
-              :disabled="formDisabled"
-            />
-          </div>
-
-          <div class="form-group">
             <label class="form-label">Island</label>
             <ion-select
               v-model="form.workspace_id"
@@ -52,6 +41,18 @@
               </ion-select-option>
             </ion-select>
           </div>
+          <div class="form-group">
+            <label class="form-label">Account Name</label>
+            <input
+              v-model="form.name"
+              type="text"
+              class="form-input"
+              placeholder="Enter account name"
+              :disabled="formDisabled"
+            />
+          </div>
+
+          
 
           <div v-if="!isEdit && showSuggestedNames" class="form-group">
             <label class="form-label-suggested">Suggested Account Names</label>

@@ -383,6 +383,7 @@ function loginWithApple() {
   display: flex;
   gap: 15px;
   justify-content: center;
+  margin-top: 38px;
 }
 
 .icon-btn {

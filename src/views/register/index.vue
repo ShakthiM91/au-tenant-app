@@ -267,6 +267,7 @@ function loginWithEmail() {
   display: flex;
   justify-content: center;
   gap: 15px;
+  margin-top: 25px;
 }
 
 .icon-btn {

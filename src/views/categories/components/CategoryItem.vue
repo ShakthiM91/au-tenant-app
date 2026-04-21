@@ -116,7 +116,7 @@
             class="popover-item"
             @click="handleAction('add-child')"
           >
-            <ion-label>Sub-category</ion-label>
+            <ion-label>Sub-Category</ion-label>
           </ion-item>
           <ion-item
             button
