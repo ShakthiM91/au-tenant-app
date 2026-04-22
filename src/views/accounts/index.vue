@@ -1094,6 +1094,8 @@ async function load() {
 }
 
 onIonViewDidEnter(async () => {
+  closeIslandPopover()
+  closeAccountPopover()
   if (syncStore.invalidatedAccountIds?.size > 0) syncStore.clearAllInvalidated()
   await load()
   const add = route.query.add_account
