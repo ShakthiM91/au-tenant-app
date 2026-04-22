@@ -185,13 +185,13 @@
                 </div>
                 <div v-else-if="!group.hasAccountsRaw" class="workspace-empty-prompt">
                   <template v-if="islandScopeAllowsAddAccount(effectiveIslandPermissionScope(group.island))">
-                    <p>Create your first account in this workspace to start tracking balances and transactions.</p>
+                    <p>Create your first account in this island to start tracking balances and transactions.</p>
                     <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
                       Create your first account
                     </button>
                   </template>
                   <template v-else>
-                    <p>No accounts in this workspace yet.</p>
+                    <p>No accounts in this island yet.</p>
                   </template>
                 </div>
                 <p v-else class="workspace-search-empty">No accounts match your search.</p>
@@ -290,13 +290,13 @@
                 </div>
                 <div v-else-if="!group.hasAccountsRaw" class="workspace-empty-prompt">
                   <template v-if="islandScopeAllowsAddAccount(effectiveIslandPermissionScope(group.island))">
-                    <p>Create your first account in this workspace to start tracking balances and transactions.</p>
+                    <p>Create your first account in this island to start tracking balances and transactions.</p>
                     <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
                       Create your first account
                     </button>
                   </template>
                   <template v-else>
-                    <p>No accounts in this workspace yet.</p>
+                    <p>No accounts in this island yet.</p>
                   </template>
                 </div>
                 <p v-else class="workspace-search-empty">No accounts match your search.</p>

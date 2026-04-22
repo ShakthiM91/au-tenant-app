@@ -381,6 +381,16 @@ function isCurrentUser(m) {
   return userStore.id != null && Number(m.user_id) === Number(userStore.id)
 }
 
+function normalizeEmailForCompare(s) {
+  return String(s ?? '')
+    .trim()
+    .toLowerCase()
+}
+
+function isInviteeCurrentUserById(userId) {
+  return userStore.id != null && Number(userId) === Number(userStore.id)
+}
+
 function displayName(m) {
   const base = m.user_name || m.user_email || `User #${m.user_id}`
   return isCurrentUser(m) ? `${base} (Me)` : base
@@ -498,7 +508,7 @@ function toggleAccount(accountId, checked) {
 }
 
 function toggleSelectUser(u) {
-  if (isAlreadyMember(u.id)) return
+  if (isAlreadyMember(u.id) || isInviteeCurrentUserById(u.id)) return
   closeEditMember()
   if (selectedUser.value?.id === u.id) {
     resetInviteForm()
@@ -685,13 +695,24 @@ async function searchUsers() {
     return
   }
 
+  const selfEmail = normalizeEmailForCompare(userStore.email)
+  if (selfEmail && normalizeEmailForCompare(check.email) === selfEmail) {
+    searchEmailError.value = 'You cannot share access with yourself'
+    return
+  }
+
   searching.value = true
   try {
     const res = await searchWorkspaceUsers(workspaceId.value, check.email)
     const list = Array.isArray(res?.data) ? res.data : []
-    searchResults.value = list
-    if (list.length === 0) {
-      searchNotFound.value = true
+    const withoutSelf = list.filter((u) => !isInviteeCurrentUserById(u.id))
+    if (list.length > 0 && withoutSelf.length === 0) {
+      searchEmailError.value = 'You cannot share access with yourself'
+    } else {
+      searchResults.value = withoutSelf
+      if (withoutSelf.length === 0) {
+        searchNotFound.value = true
+      }
     }
   } catch {
     searchResults.value = []
@@ -703,6 +724,10 @@ async function searchUsers() {
 
 async function sendInvite(user) {
   if (!canSubmitInvite.value || !workspaceId.value) return
+  if (isInviteeCurrentUserById(user?.id)) {
+    showToast('You cannot share access with yourself')
+    return
+  }
   const permissions = buildPermissionsPayload()
   const account_grants = selectedAccountIds.value.map((aid) => ({
     account_id: Number(aid),
