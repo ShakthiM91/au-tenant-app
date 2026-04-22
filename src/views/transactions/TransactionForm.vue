@@ -257,7 +257,14 @@
     </ion-content>
 
     <!-- Workspace / island picker (create, no workspace in URL) -->
-    <ion-modal :is-open="showWorkspacePicker" @didDismiss="showWorkspacePicker = false">
+    <ion-modal
+      ref="pickWorkspaceModalRef"
+      :is-open="showWorkspacePicker"
+      @didDismiss="showWorkspacePicker = false"
+      :initial-breakpoint="pickWorkspaceInitialBp"
+      :breakpoints="pickWorkspaceBreakpoints"
+      :handle="true"
+    >
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
@@ -267,6 +274,7 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
+        <div class="picker-adaptive-body">
         <ion-searchbar v-model="workspaceSearchQuery" placeholder="Search..." debounce="150" />
         <ion-list>
           <ion-item
@@ -284,11 +292,19 @@
             <ion-label color="medium">No islands</ion-label>
           </ion-item>
         </ion-list>
+        </div>
       </ion-content>
     </ion-modal>
 
     <!-- Account picker modal -->
-    <ion-modal :is-open="showAccountPicker" @didDismiss="showAccountPicker = false">
+    <ion-modal
+      ref="pickAccountModalRef"
+      :is-open="showAccountPicker"
+      @didDismiss="showAccountPicker = false"
+      :initial-breakpoint="pickAccountInitialBp"
+      :breakpoints="pickAccountBreakpoints"
+      :handle="true"
+    >
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
@@ -298,6 +314,7 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
+        <div class="picker-adaptive-body">
         <ion-searchbar v-model="accountSearchQuery" placeholder="Search..." debounce="150" />
         <ion-list>
           <ion-item v-for="a in filteredAccountCols" :key="a.value" button @click="selectAccount(a.value)">
@@ -307,11 +324,19 @@
             <ion-label color="medium">No accounts</ion-label>
           </ion-item>
         </ion-list>
+        </div>
       </ion-content>
     </ion-modal>
 
     <!-- To account picker -->
-    <ion-modal :is-open="showToAccountPicker" @didDismiss="showToAccountPicker = false">
+    <ion-modal
+      ref="pickToAccountModalRef"
+      :is-open="showToAccountPicker"
+      @didDismiss="showToAccountPicker = false"
+      :initial-breakpoint="pickToAccountInitialBp"
+      :breakpoints="pickToAccountBreakpoints"
+      :handle="true"
+    >
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
@@ -321,6 +346,7 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
+        <div class="picker-adaptive-body">
         <ion-searchbar v-model="toAccountSearchQuery" placeholder="Search..." debounce="150" />
         <ion-list>
           <ion-item v-for="a in filteredToAccountCols" :key="a.value" button @click="selectToAccount(a.value)">
@@ -330,11 +356,19 @@
             <ion-label color="medium">No accounts</ion-label>
           </ion-item>
         </ion-list>
+        </div>
       </ion-content>
     </ion-modal>
 
     <!-- Category picker -->
-    <ion-modal :is-open="showCategoryPicker" @didDismiss="showCategoryPicker = false">
+    <ion-modal
+      ref="pickCategoryModalRef"
+      :is-open="showCategoryPicker"
+      @didDismiss="showCategoryPicker = false"
+      :initial-breakpoint="pickCategoryInitialBp"
+      :breakpoints="pickCategoryBreakpoints"
+      :handle="true"
+    >
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
@@ -344,6 +378,7 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
+        <div class="picker-adaptive-body">
         <ion-searchbar v-model="categorySearchQuery" placeholder="Search..." debounce="150" />
         <ion-list>
           <ion-item v-for="c in filteredCategoryCols" :key="c.value" button @click="selectCategory(c.value); showCategoryPicker = false">
@@ -353,11 +388,19 @@
             <ion-label color="medium">No categories</ion-label>
           </ion-item>
         </ion-list>
+        </div>
       </ion-content>
     </ion-modal>
 
     <!-- Currency picker -->
-    <ion-modal :is-open="showCurrencyPicker" @didDismiss="showCurrencyPicker = false">
+    <ion-modal
+      ref="pickCurrencyModalRef"
+      :is-open="showCurrencyPicker"
+      @didDismiss="showCurrencyPicker = false"
+      :initial-breakpoint="pickCurrencyInitialBp"
+      :breakpoints="pickCurrencyBreakpoints"
+      :handle="true"
+    >
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
@@ -367,6 +410,7 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
+        <div class="picker-adaptive-body">
         <ion-list>
           <ion-item
             v-for="c in currencyOptions"
@@ -377,6 +421,7 @@
             <ion-label>{{ c.text }}</ion-label>
           </ion-item>
         </ion-list>
+        </div>
       </ion-content>
     </ion-modal>
 
@@ -475,6 +520,7 @@ import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 import { useUserStore } from '@/store/user'
 import { useSyncStore } from '@/store/sync'
 import { invalidateAccountingCache } from '@/db/readCache'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const route = useRoute()
 const router = useRouter()
@@ -548,6 +594,40 @@ const showTimePicker = ref(false)
 const showCalculator = ref(false)
 const showWorkspacePicker = ref(false)
 const workspaceSearchQuery = ref('')
+
+const PICKER_LIST_SHEET_PCT = 72
+const PICKER_CURRENCY_SHEET_PCT = 55
+
+const {
+  modalRef: pickWorkspaceModalRef,
+  breakpoints: pickWorkspaceBreakpoints,
+  initialBreakpoint: pickWorkspaceInitialBp
+} = useIonSheetHeight(() => showWorkspacePicker.value, PICKER_LIST_SHEET_PCT)
+
+const {
+  modalRef: pickAccountModalRef,
+  breakpoints: pickAccountBreakpoints,
+  initialBreakpoint: pickAccountInitialBp
+} = useIonSheetHeight(() => showAccountPicker.value, PICKER_LIST_SHEET_PCT)
+
+const {
+  modalRef: pickToAccountModalRef,
+  breakpoints: pickToAccountBreakpoints,
+  initialBreakpoint: pickToAccountInitialBp
+} = useIonSheetHeight(() => showToAccountPicker.value, PICKER_LIST_SHEET_PCT)
+
+const {
+  modalRef: pickCategoryModalRef,
+  breakpoints: pickCategoryBreakpoints,
+  initialBreakpoint: pickCategoryInitialBp
+} = useIonSheetHeight(() => showCategoryPicker.value, PICKER_LIST_SHEET_PCT)
+
+const {
+  modalRef: pickCurrencyModalRef,
+  breakpoints: pickCurrencyBreakpoints,
+  initialBreakpoint: pickCurrencyInitialBp
+} = useIonSheetHeight(() => showCurrencyPicker.value, PICKER_CURRENCY_SHEET_PCT)
+
 const workspaceOptions = ref([])
 const manualWorkspaceId = ref(null)
 const workspacePicked = ref(false)
@@ -1971,6 +2051,10 @@ onMounted(async () => {
 .no-acct-slide-enter-from,
 .no-acct-slide-leave-to {
   transform: translateY(100%);
+}
+
+.picker-adaptive-body {
+  min-height: 0;
 }
 
 </style>

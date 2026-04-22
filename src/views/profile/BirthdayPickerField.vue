@@ -16,7 +16,14 @@
       Clear date
     </button>
 
-    <ion-modal :is-open="modalOpen" @didDismiss="onModalDismiss">
+    <ion-modal
+      ref="modalRef"
+      :is-open="modalOpen"
+      @didDismiss="onModalDismiss"
+      :initial-breakpoint="initialBreakpoint"
+      :breakpoints="breakpoints"
+      :handle="true"
+    >
       <ion-header>
         <ion-toolbar class="bday-toolbar">
           <ion-buttons slot="start">
@@ -29,6 +36,7 @@
         </ion-toolbar>
       </ion-header>
       <ion-content class="bday-modal-content">
+        <div class="adaptive-sheet-body">
         <div class="bday-datetime-wrap">
           <ion-datetime
             v-model="draftIso"
@@ -37,6 +45,7 @@
             :min="minIso"
             size="cover"
           />
+        </div>
         </div>
       </ion-content>
     </ion-modal>
@@ -57,6 +66,7 @@ import {
   IonIcon
 } from '@ionic/vue'
 import { calendarOutline } from 'ionicons/icons'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const props = defineProps({
   modelValue: { type: String, default: '' }
@@ -65,6 +75,13 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const modalOpen = ref(false)
+
+const SHEET_HEIGHT_PCT = 48
+
+const { modalRef, breakpoints, initialBreakpoint } = useIonSheetHeight(
+  () => modalOpen.value,
+  SHEET_HEIGHT_PCT
+)
 const draftIso = ref('')
 
 const minIso = '1900-01-01'
@@ -217,6 +234,10 @@ function clear() {
 .bday-done {
   --color: #ff8d28;
   font-weight: 600;
+}
+
+.adaptive-sheet-body {
+  min-height: 0;
 }
 
 .bday-modal-content {

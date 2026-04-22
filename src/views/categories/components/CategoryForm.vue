@@ -1,12 +1,14 @@
 <template>
-  <Teleport to="ion-app">
-    <Transition name="cat-sheet-fade">
-      <div v-if="isOpen" class="cat-sheet-backdrop" @click="$emit('close')" />
-    </Transition>
-    <Transition name="cat-sheet-slide">
-      <div v-if="isOpen" class="cat-sheet">
-        <div class="cat-sheet-handle" />
-        <ion-header class="cat-sheet-ion-header">
+  <ion-modal
+    ref="mainModalRef"
+    :is-open="isOpen"
+    @didDismiss="onDidDismiss"
+    :initial-breakpoint="mainInitialBreakpoint"
+    :breakpoints="mainBreakpoints"
+    :handle="true"
+  >
+    <div class="category-sheet-top">
+    <ion-header class="cat-sheet-ion-header">
           <ion-toolbar class="cat-sheet-toolbar">
             <ion-buttons slot="start">
               <ion-button class="cat-sheet-btn-cancel" fill="clear" @click="$emit('close')">Cancel</ion-button>
@@ -24,8 +26,10 @@
             </ion-buttons>
           </ion-toolbar>
         </ion-header>
-        <div class="cat-sheet-header-rule" />
-        <div class="cat-sheet-body">
+    <div class="cat-sheet-header-rule" />
+    </div>
+    <ion-content class="cat-sheet-modal-content">
+          <div class="adaptive-sheet-body">
           <form @submit.prevent="submit" class="cat-sheet-form">
             <div
               v-if="showTypeSegment"
@@ -128,11 +132,18 @@
               </button>
             </div>
           </form>
-        </div>
-      </div>
-    </Transition>
+          </div>
+    </ion-content>
+  </ion-modal>
 
-    <ion-modal :is-open="showParentPicker" @didDismiss="showParentPicker = false">
+  <ion-modal
+    ref="parentModalRef"
+    :is-open="showParentPicker"
+    @didDismiss="showParentPicker = false"
+    :initial-breakpoint="parentInitialBreakpoint"
+    :breakpoints="parentBreakpoints"
+    :handle="true"
+  >
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
@@ -145,6 +156,7 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
+        <div class="adaptive-sheet-body">
         <ion-list>
           <ion-item
             v-for="p in rootParentOptions"
@@ -155,10 +167,18 @@
             <ion-label>{{ p.name }}</ion-label>
           </ion-item>
         </ion-list>
+        </div>
       </ion-content>
     </ion-modal>
 
-    <ion-modal :is-open="showActivePicker" @didDismiss="showActivePicker = false">
+  <ion-modal
+    ref="activeModalRef"
+    :is-open="showActivePicker"
+    @didDismiss="showActivePicker = false"
+    :initial-breakpoint="activeInitialBreakpoint"
+    :breakpoints="activeBreakpoints"
+    :handle="true"
+  >
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
@@ -168,13 +188,14 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
+        <div class="adaptive-sheet-body">
         <ion-list>
           <ion-item button @click="form.is_active = true; showActivePicker = false"><ion-label>Active</ion-label></ion-item>
           <ion-item button @click="form.is_active = false; showActivePicker = false"><ion-label>Inactive</ion-label></ion-item>
         </ion-list>
+        </div>
       </ion-content>
-    </ion-modal>
-  </Teleport>
+  </ion-modal>
 </template>
 
 <script setup>
@@ -185,6 +206,7 @@ import {
 } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { createCategory, updateCategory, getCategoryTree } from '@/api/accounting'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const SUGGESTED_INCOME = [
   'Salary', 'Freelance', 'Interest', 'Dividends', 'Gifts', 'Rental', 'Refunds', 'Other Income'
@@ -203,12 +225,29 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'success'])
 
+function onDidDismiss() {
+  emit('close')
+}
+
 const saving = ref(false)
 const showParentPicker = ref(false)
 const showActivePicker = ref(false)
 const parentCategories = ref([])
 /** Hide chip list after the user picks a suggestion (reset when sheet opens or type changes). */
 const suggestionsHidden = ref(false)
+
+const MAIN_SHEET_PCT = 88
+const PARENT_PICKER_SHEET_PCT = 52
+const ACTIVE_PICKER_SHEET_PCT = 48
+
+const { modalRef: mainModalRef, breakpoints: mainBreakpoints, initialBreakpoint: mainInitialBreakpoint } =
+  useIonSheetHeight(() => props.isOpen, MAIN_SHEET_PCT)
+
+const { modalRef: parentModalRef, breakpoints: parentBreakpoints, initialBreakpoint: parentInitialBreakpoint } =
+  useIonSheetHeight(() => showParentPicker.value, PARENT_PICKER_SHEET_PCT)
+
+const { modalRef: activeModalRef, breakpoints: activeBreakpoints, initialBreakpoint: activeInitialBreakpoint } =
+  useIonSheetHeight(() => showActivePicker.value, ACTIVE_PICKER_SHEET_PCT)
 
 const form = reactive({
   type: 'income',
@@ -361,38 +400,16 @@ async function submit() {
 </script>
 
 <style scoped>
-.cat-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 1000;
+.cat-sheet-modal-content {
+  --background: #ffffff;
 }
 
-.cat-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: 92vh;
-  overflow: hidden;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  z-index: 1001;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-
-.cat-sheet-handle {
-  width: 36px;
-  height: 4px;
-  background: #d6d9dd;
-  border-radius: 2px;
-  margin: 12px auto 4px;
+.category-sheet-top {
   flex-shrink: 0;
+}
+
+.adaptive-sheet-body {
+  min-height: 0;
 }
 
 .cat-sheet-ion-header {
@@ -417,13 +434,6 @@ async function submit() {
   background: #ebebeb;
   flex-shrink: 0;
   margin: 0 0 4px;
-}
-
-.cat-sheet-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .cat-sheet-form {
@@ -575,23 +585,4 @@ async function submit() {
   font-weight: 600;
 }
 
-.cat-sheet-fade-enter-active,
-.cat-sheet-fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-
-.cat-sheet-fade-enter-from,
-.cat-sheet-fade-leave-to {
-  opacity: 0;
-}
-
-.cat-sheet-slide-enter-active,
-.cat-sheet-slide-leave-active {
-  transition: transform 0.3s ease-out;
-}
-
-.cat-sheet-slide-enter-from,
-.cat-sheet-slide-leave-to {
-  transform: translateY(100%);
-}
 </style>

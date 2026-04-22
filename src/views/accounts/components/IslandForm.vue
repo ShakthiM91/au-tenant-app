@@ -1,12 +1,13 @@
 <template>
-  <Teleport to="ion-app">
-    <Transition name="drawer-fade">
-      <div v-if="isOpen" class="drawer-backdrop" @click="$emit('close')" />
-    </Transition>
-    <Transition name="drawer-slide">
-      <div v-if="isOpen" class="drawer-sheet">
-        <div class="drawer-handle" />
-        <ion-header class="drawer-ion-header">
+  <ion-modal
+    ref="modalRef"
+    :is-open="isOpen"
+    @didDismiss="onDidDismiss"
+    :initial-breakpoint="initialBreakpoint"
+    :breakpoints="breakpoints"
+    :handle="true"
+  >
+    <ion-header class="drawer-ion-header">
           <ion-toolbar>
             <ion-buttons slot="start">
               <ion-button @click="$emit('close')">Cancel</ion-button>
@@ -18,8 +19,9 @@
               </ion-button>
             </ion-buttons>
           </ion-toolbar>
-        </ion-header>
-        <div class="drawer-body-scroll">
+    </ion-header>
+    <ion-content class="island-form-modal-content">
+        <div class="adaptive-sheet-body">
         <form @submit.prevent="submit" class="drawer-form">
           <div class="form-group">
             <label class="form-label">Island Name</label>
@@ -33,16 +35,16 @@
           </div>
         </form>
         </div>
-      </div>
-    </Transition>
-  </Teleport>
+    </ion-content>
+  </ion-modal>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
-import { IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
+import { IonModal, IonContent, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { createWorkspace, updateWorkspace } from '@/api/workspace'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -50,6 +52,17 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'success'])
+
+function onDidDismiss() {
+  emit('close')
+}
+
+const SHEET_HEIGHT_PCT = 42
+
+const { modalRef, breakpoints, initialBreakpoint } = useIonSheetHeight(
+  () => props.isOpen,
+  SHEET_HEIGHT_PCT
+)
 
 const isEdit = computed(() => !!props.workspace?.id)
 const saving = ref(false)
@@ -94,47 +107,16 @@ async function submit() {
 </script>
 
 <style scoped>
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 1000;
-}
-
-.drawer-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-  overflow: hidden;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  z-index: 1001;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+.island-form-modal-content {
+  --background: #ffffff;
 }
 
 .drawer-ion-header {
   flex-shrink: 0;
 }
 
-.drawer-body-scroll {
-  flex: 1;
+.adaptive-sheet-body {
   min-height: 0;
-  overflow-y: auto;
-}
-
-.drawer-handle {
-  width: 36px;
-  height: 4px;
-  background: #D6D9DD;
-  border-radius: 2px;
-  margin: 12px auto 8px;
 }
 
 .drawer-form {
@@ -173,23 +155,4 @@ async function submit() {
   color: #A7A7A7;
 }
 
-.drawer-fade-enter-active,
-.drawer-fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.drawer-fade-enter-from,
-.drawer-fade-leave-to {
-  opacity: 0;
-}
-
-.drawer-slide-enter-active,
-.drawer-slide-leave-active {
-  transition: transform 0.25s ease-out;
-}
-
-.drawer-slide-enter-from,
-.drawer-slide-leave-to {
-  transform: translateY(100%);
-}
 </style>

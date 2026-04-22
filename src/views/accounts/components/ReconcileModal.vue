@@ -1,12 +1,13 @@
 <template>
-  <Teleport to="ion-app">
-    <Transition name="drawer-fade">
-      <div v-if="visible && account" class="drawer-backdrop" @click="handleClose" />
-    </Transition>
-    <Transition name="drawer-slide">
-      <div v-if="visible && account" class="drawer-sheet" @click.stop>
-        <div class="drawer-handle" />
-        <ion-header class="drawer-ion-header">
+  <ion-modal
+    ref="mainModalRef"
+    :is-open="visible && !!account"
+    @didDismiss="onMainDismiss"
+    :initial-breakpoint="mainInitialBreakpoint"
+    :breakpoints="mainBreakpoints"
+    :handle="true"
+  >
+    <ion-header class="drawer-ion-header">
           <ion-toolbar>
             <ion-buttons slot="start">
               <ion-button @click="handleClose">Cancel</ion-button>
@@ -21,8 +22,9 @@
               </ion-button>
             </ion-buttons>
           </ion-toolbar>
-        </ion-header>
-        <div class="drawer-body-scroll">
+    </ion-header>
+    <ion-content class="reconcile-modal-content">
+        <div class="adaptive-sheet-body">
         <div class="drawer-form">
           <div class="form-group">
             <label class="form-label subtle-label">Account</label>
@@ -101,13 +103,17 @@
           </template>
         </div>
         </div>
-      </div>
-    </Transition>
+    </ion-content>
+  </ion-modal>
 
-    <ion-modal
-      :is-open="showCategoryPicker && !!account"
-      @didDismiss="showCategoryPicker = false"
-    >
+  <ion-modal
+    ref="catModalRef"
+    :is-open="showCategoryPicker && !!account"
+    @didDismiss="showCategoryPicker = false"
+    :initial-breakpoint="catInitialBreakpoint"
+    :breakpoints="catBreakpoints"
+    :handle="true"
+  >
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
@@ -117,6 +123,7 @@
         </ion-toolbar>
       </ion-header>
       <ion-content>
+        <div class="adaptive-sheet-body">
         <ion-list>
           <ion-item
             v-for="c in categoryCols"
@@ -127,13 +134,14 @@
             <ion-label>{{ c.text }}</ion-label>
           </ion-item>
         </ion-list>
+        </div>
       </ion-content>
-    </ion-modal>
-  </Teleport>
+  </ion-modal>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 import {
   IonModal,
   IonHeader,
@@ -162,6 +170,15 @@ const transactionTitle = ref('')
 const submitLoading = ref(false)
 const showCategoryPicker = ref(false)
 const categoryOptions = ref([])
+
+const MAIN_SHEET_PCT = 78
+const CATEGORY_PICKER_SHEET_PCT = 62
+
+const { modalRef: mainModalRef, breakpoints: mainBreakpoints, initialBreakpoint: mainInitialBreakpoint } =
+  useIonSheetHeight(() => props.visible && !!props.account, MAIN_SHEET_PCT)
+
+const { modalRef: catModalRef, breakpoints: catBreakpoints, initialBreakpoint: catInitialBreakpoint } =
+  useIonSheetHeight(() => showCategoryPicker.value && !!props.account, CATEGORY_PICKER_SHEET_PCT)
 
 const currentBalance = computed(() => {
   if (!props.account) return 0
@@ -293,6 +310,10 @@ watch(() => props.visible, (visible) => {
   }
 })
 
+function onMainDismiss() {
+  handleClose()
+}
+
 function handleClose() {
   showCategoryPicker.value = false
   emit('close')
@@ -347,48 +368,16 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-/* Drawer shell — match AccountForm.vue */
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 1000;
+.reconcile-modal-content {
+  --background: #ffffff;
 }
 
-.drawer-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-  overflow: hidden;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  z-index: 1001;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+.adaptive-sheet-body {
+  min-height: 0;
 }
 
 .drawer-ion-header {
   flex-shrink: 0;
-}
-
-.drawer-body-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.drawer-handle {
-  width: 36px;
-  height: 4px;
-  background: #d6d9dd;
-  border-radius: 2px;
-  margin: 12px auto 8px;
 }
 
 .drawer-form {
@@ -582,23 +571,4 @@ async function handleSubmit() {
   color: #2e7d32;
 }
 
-.drawer-fade-enter-active,
-.drawer-fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-
-.drawer-fade-enter-from,
-.drawer-fade-leave-to {
-  opacity: 0;
-}
-
-.drawer-slide-enter-active,
-.drawer-slide-leave-active {
-  transition: transform 0.3s ease-out;
-}
-
-.drawer-slide-enter-from,
-.drawer-slide-leave-to {
-  transform: translateY(100%);
-}
 </style>

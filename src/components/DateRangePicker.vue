@@ -1,12 +1,13 @@
 <template>
-  <Teleport to="ion-app">
-    <Transition name="drawer-fade">
-      <div v-if="visible" class="drawer-backdrop" @click="onCancel" />
-    </Transition>
-    <Transition name="drawer-slide">
-      <div v-if="visible" class="drawer-sheet" @click.stop>
-        <div class="drawer-handle" />
-        <ion-header class="drawer-ion-header">
+  <ion-modal
+    ref="modalRef"
+    :is-open="visible"
+    @didDismiss="onCancel"
+    :initial-breakpoint="initialBreakpoint"
+    :breakpoints="breakpoints"
+    :handle="true"
+  >
+    <ion-header class="drawer-ion-header">
           <ion-toolbar>
             <ion-buttons slot="start">
               <ion-button @click="onCancel">Cancel</ion-button>
@@ -17,9 +18,10 @@
               <ion-button @click="onConfirm">OK</ion-button>
             </ion-buttons>
           </ion-toolbar>
-        </ion-header>
+    </ion-header>
 
-        <div class="drawer-body-scroll">
+    <ion-content class="date-range-picker-modal-content">
+          <div class="adaptive-sheet-body">
           <div class="picker-sheet-content">
             <div class="picker-header">
               <span class="header-year">{{ displayYear }}</span>
@@ -58,15 +60,15 @@
               <button type="button" class="quick-btn" @click="setYesterday">Yesterday</button>
             </div>
           </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+          </div>
+    </ion-content>
+  </ion-modal>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
+import { IonModal, IonContent, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -74,6 +76,13 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'close', 'select', 'clear'])
+
+const SHEET_HEIGHT_PCT = 80
+
+const { modalRef, breakpoints, initialBreakpoint } = useIonSheetHeight(
+  () => props.visible,
+  SHEET_HEIGHT_PCT
+)
 
 const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -283,49 +292,16 @@ function onClear() {
 </script>
 
 <style scoped>
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 10000;
+.date-range-picker-modal-content {
+  --background: #ffffff;
 }
 
-.drawer-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-  overflow: hidden;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  z-index: 10001;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-
-.drawer-handle {
-  width: 36px;
-  height: 4px;
-  background: #d6d9dd;
-  border-radius: 2px;
-  margin: 12px auto 8px;
-  flex-shrink: 0;
+.adaptive-sheet-body {
+  min-height: 0;
 }
 
 .drawer-ion-header {
   flex-shrink: 0;
-}
-
-.drawer-body-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .picker-sheet-content {
@@ -467,23 +443,4 @@ function onClear() {
   background: rgba(255, 141, 40, 0.08);
 }
 
-.drawer-fade-enter-active,
-.drawer-fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-
-.drawer-fade-enter-from,
-.drawer-fade-leave-to {
-  opacity: 0;
-}
-
-.drawer-slide-enter-active,
-.drawer-slide-leave-active {
-  transition: transform 0.3s ease-out;
-}
-
-.drawer-slide-enter-from,
-.drawer-slide-leave-to {
-  transform: translateY(100%);
-}
 </style>

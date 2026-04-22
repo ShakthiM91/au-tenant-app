@@ -327,12 +327,35 @@
       <div class="tab-spacer" />
     </ion-content>
 
-    <ion-action-sheet
+    <ion-modal
+      ref="sortModalRef"
       :is-open="showSortMenu"
-      header="Sort accounts"
-      :buttons="sortButtons"
-      @didDismiss="onSortDismiss"
-    />
+      @didDismiss="showSortMenu = false"
+      :initial-breakpoint="sortInitialBreakpoint"
+      :breakpoints="sortBreakpoints"
+      :handle="true"
+    >
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Sort accounts</ion-title>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="sort-sheet-content">
+        <div class="adaptive-sheet-body">
+        <ion-list lines="full">
+          <ion-item button detail="false" @click="applyAccountSort('name')">
+            <ion-label>Sort by Name</ion-label>
+          </ion-item>
+          <ion-item button detail="false" @click="applyAccountSort('balance')">
+            <ion-label>Sort by Balance</ion-label>
+          </ion-item>
+          <ion-item button detail="false" lines="none" @click="showSortMenu = false">
+            <ion-label color="medium">Cancel</ion-label>
+          </ion-item>
+        </ion-list>
+        </div>
+      </ion-content>
+    </ion-modal>
 
     <AccountForm
       :is-open="formOpen"
@@ -372,7 +395,19 @@
 import { ref, computed, nextTick } from 'vue'
 import { onIonViewDidEnter } from '@ionic/vue'
 import { useRoute, useRouter } from 'vue-router'
-import { IonPage, IonContent, IonSpinner, IonActionSheet, IonIcon } from '@ionic/vue'
+import {
+  IonPage,
+  IonContent,
+  IonSpinner,
+  IonModal,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonList,
+  IonItem,
+  IonLabel,
+  IonIcon
+} from '@ionic/vue'
 import { peopleOutline } from 'ionicons/icons'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getAccounts, getAccountsByWorkspace, deleteAccount } from '@/api/accounting'
@@ -391,6 +426,7 @@ import IslandForm from './components/IslandForm.vue'
 import ShareAccess from './components/ShareAccess.vue'
 import ReconcileModal from './components/ReconcileModal.vue'
 import FloatingAddButton from '@/components/FloatingAddButton.vue'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 
 const route = useRoute()
@@ -424,6 +460,14 @@ const accountFormWorkspaceId = ref(null)
 const reconcileVisible = ref(false)
 const accountForReconcile = ref(null)
 const sortField = ref('name')
+
+const SORT_SHEET_PCT = 38
+
+const {
+  modalRef: sortModalRef,
+  breakpoints: sortBreakpoints,
+  initialBreakpoint: sortInitialBreakpoint
+} = useIonSheetHeight(() => showSortMenu.value, SORT_SHEET_PCT)
 
 function filterAndSortAccounts(accounts) {
   let list = [...(accounts || [])]
@@ -648,12 +692,6 @@ function buildAccountMenuItems(account, group) {
     }
   })
 }
-
-const sortButtons = [
-  { text: 'Sort by Name', role: 'name' },
-  { text: 'Sort by Balance', role: 'balance' },
-  { text: 'Cancel', role: 'cancel' }
-]
 
 function sameIslandGroup(a, b) {
   if (!a || !b) return false
@@ -881,10 +919,9 @@ function handleAccountMenuAction(role, account) {
   else if (role === 'destructive') onDelete(account)
 }
 
-function onSortDismiss(ev) {
-  const role = ev.detail?.role
-  showSortMenu.value = false
+function applyAccountSort(role) {
   if (role === 'name' || role === 'balance') sortField.value = role
+  showSortMenu.value = false
 }
 
 function openAddAccount(preselectedWsId = null) {
@@ -1512,8 +1549,12 @@ onIonViewDidEnter(async () => {
   height: 80px;
 }
 
-.action-sheet-danger {
-  color: rgba(195, 0, 16, 0.74) !important;
+.sort-sheet-content {
+  --background: #ffffff;
+}
+
+.adaptive-sheet-body {
+  min-height: 0;
 }
 
 .workspace-mode-badge {

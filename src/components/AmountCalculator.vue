@@ -1,18 +1,23 @@
 <template>
-  <Teleport to="ion-app">
-    <Transition name="sheet-up">
-      <div v-if="visible" class="calc-backdrop" @click="onCancel">
-        <div class="calc-sheet" @click.stop>
-          <div class="drag-handle" />
-          <ion-header class="calc-ion-header">
-            <ion-toolbar>
-              <ion-buttons slot="start">
-                <ion-button @click="onCancel">Cancel</ion-button>
-              </ion-buttons>
-              <ion-title>Add Amount</ion-title>
-            </ion-toolbar>
-          </ion-header>
+  <ion-modal
+    ref="modalRef"
+    :is-open="visible"
+    @didDismiss="onCancel"
+    :initial-breakpoint="initialBreakpoint"
+    :breakpoints="breakpoints"
+    :handle="true"
+  >
+    <ion-header class="calc-ion-header">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button @click="onCancel">Cancel</ion-button>
+        </ion-buttons>
+        <ion-title>Add Amount</ion-title>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="calc-modal-content">
+          <div class="adaptive-sheet-body">
           <!-- Budget context (only if data is available) -->
           <div v-if="hasBudget" class="budget-row">
             <div class="budget-cell">
@@ -72,15 +77,15 @@
               {{ confirmButtonLabel }}
             </button>
           </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+          </div>
+    </ion-content>
+  </ion-modal>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
+import { IonModal, IonContent, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -91,6 +96,13 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'close', 'select'])
+
+const SHEET_HEIGHT_PCT = 72
+
+const { modalRef, breakpoints, initialBreakpoint } = useIonSheetHeight(
+  () => props.visible,
+  SHEET_HEIGHT_PCT
+)
 
 const expr = ref('')
 
@@ -199,40 +211,23 @@ function onCancel() {
 </script>
 
 <style scoped>
-.calc-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 10000;
-  display: flex;
-  align-items: flex-end;
+.calc-modal-content {
+  --background: #ffffff;
 }
 
-.calc-sheet {
-  width: 100%;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  padding: 12px 0 24px;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+.adaptive-sheet-body {
+  min-height: 0;
 }
 
 .calc-ion-header {
   margin: 0 0 4px;
 }
 
-.calc-sheet .budget-row,
-.calc-sheet .amount-display,
-.calc-sheet .keypad {
+.calc-modal-content .budget-row,
+.calc-modal-content .amount-display,
+.calc-modal-content .keypad {
   padding-left: 16px;
   padding-right: 16px;
-}
-
-.drag-handle {
-  width: 40px;
-  height: 4px;
-  border-radius: 2px;
-  background: #d0d0d0;
-  margin: 0 auto 8px;
 }
 
 /* Budget row */
@@ -343,15 +338,4 @@ function onCancel() {
   letter-spacing: 0.02em;
 }
 
-/* Slide up animation */
-.sheet-up-enter-active,
-.sheet-up-leave-active {
-  transition: transform 0.28s ease, opacity 0.2s ease;
-}
-
-.sheet-up-enter-from,
-.sheet-up-leave-to {
-  transform: translateY(100%);
-  opacity: 0;
-}
 </style>

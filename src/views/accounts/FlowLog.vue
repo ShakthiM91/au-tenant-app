@@ -280,6 +280,7 @@
       @didDismiss="detailVisible = false"
       :initial-breakpoint="1"
       :breakpoints="[0, 0.55, 0.85, 1]"
+      :handle="true"
     >
       <ion-header v-if="selectedTransaction">
         <ion-toolbar>
@@ -299,8 +300,6 @@
       </ion-header>
       <ion-content class="detail-modal-content" v-if="selectedTransaction">
         <div class="detail-sheet">
-          <div class="detail-handle" />
-
           <div class="detail-grid">
             <div class="detail-cell">
               <div class="detail-cell-label">
@@ -1960,13 +1959,6 @@ onUnmounted(() => {
   border-radius: 20px 20px 0 0;
   padding: 12px 20px 0;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
-}
-
-.detail-handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  margin: 0 auto 16px;
 }
 
 .detail-grid {

@@ -1,12 +1,13 @@
 <template>
-  <Teleport to="ion-app">
-    <Transition name="drawer-fade">
-      <div v-if="isOpen" class="drawer-backdrop" @click="$emit('close')" />
-    </Transition>
-    <Transition name="drawer-slide">
-      <div v-if="isOpen" class="drawer-sheet">
-        <div class="drawer-handle" />
-        <ion-header class="drawer-ion-header">
+  <ion-modal
+    ref="modalRef"
+    :is-open="isOpen"
+    @didDismiss="onDidDismiss"
+    :initial-breakpoint="initialBreakpoint"
+    :breakpoints="breakpoints"
+    :handle="true"
+  >
+    <ion-header class="drawer-ion-header">
           <ion-toolbar>
             <ion-buttons slot="start">
               <ion-button @click="$emit('close')">Cancel</ion-button>
@@ -18,8 +19,9 @@
               </ion-button>
             </ion-buttons>
           </ion-toolbar>
-        </ion-header>
-        <div class="drawer-body-scroll">
+    </ion-header>
+    <ion-content class="account-form-modal-content">
+        <div class="adaptive-sheet-body">
         <form @submit.prevent="submit" class="drawer-form">
           <p v-if="isEdit && !canEditAccountMeta" class="form-permission-hint">
             You can view this account but do not have permission to change it.
@@ -193,10 +195,8 @@
           </div>
         </form>
         </div>
-      </div>
-    </Transition>
-
-  </Teleport>
+    </ion-content>
+  </ion-modal>
 </template>
 
 <script setup>
@@ -204,6 +204,8 @@ import { ref, reactive, computed, watch } from 'vue'
 import {
   IonSelect,
   IonSelectOption,
+  IonModal,
+  IonContent,
   IonHeader,
   IonToolbar,
   IonTitle,
@@ -215,6 +217,7 @@ import { createAccount, updateAccount } from '@/api/accounting'
 import { getWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 import { useUserStore } from '@/store/user'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -223,6 +226,18 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'success'])
+
+function onDidDismiss() {
+  emit('close')
+}
+
+/** Sheet height: % of viewport */
+const SHEET_HEIGHT_PCT = 88
+
+const { modalRef, breakpoints, initialBreakpoint } = useIonSheetHeight(
+  () => props.isOpen,
+  SHEET_HEIGHT_PCT
+)
 
 const userStore = useUserStore()
 
@@ -488,47 +503,16 @@ async function submit() {
 </script>
 
 <style scoped>
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 1000;
+.account-form-modal-content {
+  --background: #ffffff;
 }
 
-.drawer-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-  overflow: hidden;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  z-index: 1001;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+.adaptive-sheet-body {
+  min-height: 0;
 }
 
 .drawer-ion-header {
   flex-shrink: 0;
-}
-
-.drawer-body-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.drawer-handle {
-  width: 36px;
-  height: 4px;
-  background: #D6D9DD;
-  border-radius: 2px;
-  margin: 12px auto 8px;
 }
 
 .drawer-form {
@@ -649,24 +633,4 @@ async function submit() {
   cursor: not-allowed;
 }
 
-/* Transitions */
-.drawer-fade-enter-active,
-.drawer-fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-
-.drawer-fade-enter-from,
-.drawer-fade-leave-to {
-  opacity: 0;
-}
-
-.drawer-slide-enter-active,
-.drawer-slide-leave-active {
-  transition: transform 0.3s ease-out;
-}
-
-.drawer-slide-enter-from,
-.drawer-slide-leave-to {
-  transform: translateY(100%);
-}
 </style>

@@ -1,20 +1,24 @@
 <template>
-  <Teleport to="ion-app">
-    <Transition name="drawer-fade">
-      <div v-if="isOpen" class="drawer-backdrop" @click="$emit('close')" />
-    </Transition>
-    <Transition name="drawer-slide">
-      <div v-if="isOpen" class="drawer-sheet">
-        <div class="drawer-handle" />
-        <header class="sheet-header">
+  <ion-modal
+    ref="modalRef"
+    :is-open="isOpen"
+    @didDismiss="onModalDismiss"
+    :initial-breakpoint="initialBreakpoint"
+    :breakpoints="breakpoints"
+    :handle="true"
+  >
+    <div class="share-access-sheet-top">
+    <header class="sheet-header">
           <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
           <h1 class="sheet-title">Share Access</h1>
           <button type="button" class="btn-done" @click="$emit('close')">Done</button>
         </header>
 
-        <p class="island-title">{{ islandName }}</p>
+    <p class="island-title">{{ islandName }}</p>
+    </div>
 
-        <div class="drawer-body-scroll">
+    <ion-content class="share-access-modal-content">
+          <div class="adaptive-sheet-body">
           <section class="people-section">
             <h2 class="section-heading">People with Access</h2>
             <div v-if="loading" class="loading-row">
@@ -302,15 +306,15 @@
               </div>
             </div>
           </section>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+          </div>
+    </ion-content>
+  </ion-modal>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { IonSpinner, IonIcon } from '@ionic/vue'
+import { IonModal, IonContent, IonSpinner, IonIcon } from '@ionic/vue'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 import { createOutline, trashOutline, addOutline } from 'ionicons/icons'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { useUserStore } from '@/store/user'
@@ -330,6 +334,17 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'success'])
+
+function onModalDismiss() {
+  emit('close')
+}
+
+const SHEET_HEIGHT_PCT = 88
+
+const { modalRef, breakpoints, initialBreakpoint } = useIonSheetHeight(
+  () => props.isOpen,
+  SHEET_HEIGHT_PCT
+)
 
 const userStore = useUserStore()
 
@@ -770,45 +785,11 @@ async function removeMember(row) {
 </script>
 
 <style scoped>
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 1000;
-}
-
-.drawer-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
-  overflow: hidden;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  z-index: 1001;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-
-.drawer-body-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0 20px 24px;
-}
-
-.drawer-handle {
-  width: 36px;
-  height: 4px;
-  background: #d6d9dd;
-  border-radius: 2px;
-  margin: 10px auto 12px;
-  flex-shrink: 0;
+.share-access-modal-content {
+  --background: #ffffff;
+  --padding-start: 20px;
+  --padding-end: 20px;
+  --padding-bottom: 24px;
 }
 
 .sheet-header {
@@ -849,6 +830,14 @@ async function removeMember(row) {
   font-weight: 600;
   color: #ff8d28;
   cursor: pointer;
+}
+
+.share-access-sheet-top {
+  flex-shrink: 0;
+}
+
+.adaptive-sheet-body {
+  min-height: 0;
 }
 
 .island-title {
@@ -1246,23 +1235,4 @@ async function removeMember(row) {
   text-overflow: ellipsis;
 }
 
-.drawer-fade-enter-active,
-.drawer-fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.drawer-fade-enter-from,
-.drawer-fade-leave-to {
-  opacity: 0;
-}
-
-.drawer-slide-enter-active,
-.drawer-slide-leave-active {
-  transition: transform 0.25s ease-out;
-}
-
-.drawer-slide-enter-from,
-.drawer-slide-leave-to {
-  transform: translateY(100%);
-}
 </style>
