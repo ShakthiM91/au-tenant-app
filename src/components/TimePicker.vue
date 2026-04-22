@@ -309,9 +309,22 @@ function onCancel() { emit('close') }
   overflow: hidden;
 }
 
+/* ion-header/ion-toolbar do not auto-stretch in a plain div; size the host to the card edges. */
 .picker-ion-header {
+  display: block;
   flex-shrink: 0;
+  align-self: stretch;
+  width: calc(100% + 40px);
+  max-width: none;
   margin: 0 -20px;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.picker-ion-header :deep(ion-toolbar) {
+  --min-height: 48px;
+  width: 100%;
 }
 
 .time-display {

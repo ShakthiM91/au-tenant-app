@@ -72,15 +72,18 @@ const viewYear = ref(new Date().getFullYear())
 const viewMonth = ref(new Date().getMonth())
 const tempDate = ref('')
 
+function setViewToDate(d) {
+  if (Number.isNaN(d.getTime())) return
+  viewYear.value = d.getFullYear()
+  viewMonth.value = d.getMonth()
+}
+
 watch(() => props.visible, (v) => {
   if (v) {
     const val = props.modelValue || ''
     tempDate.value = val
     const d = val ? new Date(val) : new Date()
-    if (!Number.isNaN(d.getTime())) {
-      viewYear.value = d.getFullYear()
-      viewMonth.value = d.getMonth()
-    }
+    setViewToDate(d)
   }
 })
 
@@ -167,11 +170,17 @@ function onDayClick(cell) {
   tempDate.value = cell.date
 }
 
-function setToday() { tempDate.value = toDateStr(new Date()) }
+function setToday() {
+  const d = new Date()
+  tempDate.value = toDateStr(d)
+  setViewToDate(d)
+}
+
 function setYesterday() {
   const d = new Date()
   d.setDate(d.getDate() - 1)
   tempDate.value = toDateStr(d)
+  setViewToDate(d)
 }
 
 function onConfirm() {
@@ -208,9 +217,22 @@ function onCancel() { emit('close') }
   overflow: hidden;
 }
 
+/* ion-header/ion-toolbar do not auto-stretch in a plain div; size the host to the card edges. */
 .picker-ion-header {
+  display: block;
   flex-shrink: 0;
+  align-self: stretch;
+  width: calc(100% + 40px);
+  max-width: none;
   margin: 0 -20px;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.picker-ion-header :deep(ion-toolbar) {
+  --min-height: 48px;
+  width: 100%;
 }
 
 .picker-header {
