@@ -1,45 +1,50 @@
 <template>
   <Teleport to="ion-app">
-    <Transition name="fade">
-      <div v-if="visible" class="picker-backdrop" @click="onCancel">
-        <div class="picker-popup" @click.stop>
-          <ion-header class="picker-ion-header">
-            <ion-toolbar>
-              <ion-buttons slot="start">
-                <ion-button @click="onCancel">Cancel</ion-button>
-              </ion-buttons>
-              <ion-title>Select time</ion-title>
-              <ion-buttons slot="end">
-                <ion-button @click="onConfirm">OK</ion-button>
-              </ion-buttons>
-            </ion-toolbar>
-          </ion-header>
+    <Transition name="drawer-fade">
+      <div v-if="visible" class="drawer-backdrop" @click="onCancel" />
+    </Transition>
+    <Transition name="drawer-slide">
+      <div v-if="visible" class="drawer-sheet" @click.stop>
+        <div class="drawer-handle" />
+        <ion-header class="drawer-ion-header">
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button @click="onCancel">Cancel</ion-button>
+            </ion-buttons>
+            <ion-title>Select time</ion-title>
+            <ion-buttons slot="end">
+              <ion-button @click="onConfirm">OK</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
 
-          <!-- Time display -->
-          <div class="time-display">
-            <span
-              class="time-part"
-              :class="{ active: mode === 'hour' }"
-              @click="mode = 'hour'"
-            >{{ pad(tempHour) }}</span>
-            <span class="time-sep">:</span>
-            <span
-              class="time-part"
-              :class="{ active: mode === 'minute' }"
-              @click="mode = 'minute'"
-            >{{ pad(tempMinute) }}</span>
-          </div>
+        <div class="drawer-body-scroll">
+          <div class="picker-sheet-content">
+            <!-- Time display -->
+            <div class="time-display">
+              <span
+                class="time-part"
+                :class="{ active: mode === 'hour' }"
+                @click="mode = 'hour'"
+              >{{ pad(tempHour) }}</span>
+              <span class="time-sep">:</span>
+              <span
+                class="time-part"
+                :class="{ active: mode === 'minute' }"
+                @click="mode = 'minute'"
+              >{{ pad(tempMinute) }}</span>
+            </div>
 
-          <!-- Analog clock face -->
-          <div class="clock-wrap">
-            <svg
-              class="clock-svg"
-              viewBox="0 0 260 260"
-              @pointerdown="onClockPointerDown"
-              @pointermove="onClockPointerMove"
-              @pointerup="onClockPointerUp"
-              @pointercancel="onClockPointerUp"
-            >
+            <!-- Analog clock face -->
+            <div class="clock-wrap">
+              <svg
+                class="clock-svg"
+                viewBox="0 0 260 260"
+                @pointerdown="onClockPointerDown"
+                @pointermove="onClockPointerMove"
+                @pointerup="onClockPointerUp"
+                @pointercancel="onClockPointerUp"
+              >
               <!-- Clock face -->
               <circle cx="130" cy="130" r="120" fill="#f5f5f7" />
 
@@ -105,13 +110,14 @@
                 </template>
               </template>
             </svg>
-          </div>
+            </div>
 
-          <!-- Quick shortcuts -->
-          <div class="picker-quick">
-            <button type="button" class="quick-btn" @click="setNow">Now</button>
-            <button type="button" class="quick-btn" @click="setMinutesAgo(5)">5 mins ago</button>
-            <button type="button" class="quick-btn" @click="setMinutesAgo(60)">An Hour ago</button>
+            <!-- Quick shortcuts -->
+            <div class="picker-quick">
+              <button type="button" class="quick-btn" @click="setNow">Now</button>
+              <button type="button" class="quick-btn" @click="setMinutesAgo(5)">5 mins ago</button>
+              <button type="button" class="quick-btn" @click="setMinutesAgo(60)">An Hour ago</button>
+            </div>
           </div>
         </div>
       </div>
@@ -285,46 +291,53 @@ function onCancel() { emit('close') }
 </script>
 
 <style scoped>
-.picker-backdrop {
+.drawer-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
 }
 
-.picker-popup {
+.drawer-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  padding: 0 20px 20px;
-  max-width: 320px;
-  width: 100%;
-  max-height: min(90vh, 640px);
-  overflow: hidden;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  z-index: 10001;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-/* ion-header/ion-toolbar do not auto-stretch in a plain div; size the host to the card edges. */
-.picker-ion-header {
-  display: block;
+.drawer-handle {
+  width: 36px;
+  height: 4px;
+  background: #d6d9dd;
+  border-radius: 2px;
+  margin: 12px auto 8px;
   flex-shrink: 0;
-  align-self: stretch;
-  width: calc(100% + 40px);
-  max-width: none;
-  margin: 0 -20px;
-  border-radius: 16px 16px 0 0;
-  overflow: hidden;
-  box-sizing: border-box;
 }
 
-.picker-ion-header :deep(ion-toolbar) {
-  --min-height: 48px;
-  width: 100%;
+.drawer-ion-header {
+  flex-shrink: 0;
+}
+
+.drawer-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.picker-sheet-content {
+  padding: 0 20px 20px;
 }
 
 .time-display {
@@ -332,7 +345,7 @@ function onCancel() { emit('close') }
   align-items: center;
   justify-content: center;
   gap: 4px;
-  margin-top: 16px;
+  margin-top: 4px;
   margin-bottom: 20px;
 }
 
@@ -393,6 +406,23 @@ function onCancel() { emit('close') }
   white-space: nowrap;
 }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.drawer-fade-enter-active,
+.drawer-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.drawer-fade-enter-from,
+.drawer-fade-leave-to {
+  opacity: 0;
+}
+
+.drawer-slide-enter-active,
+.drawer-slide-leave-active {
+  transition: transform 0.3s ease-out;
+}
+
+.drawer-slide-enter-from,
+.drawer-slide-leave-to {
+  transform: translateY(100%);
+}
 </style>

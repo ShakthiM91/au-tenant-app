@@ -1,55 +1,62 @@
 <template>
   <Teleport to="ion-app">
-    <Transition name="fade">
-      <div v-if="visible" class="picker-backdrop" @click="onCancel">
-        <div class="picker-popup" @click.stop>
-          <ion-header class="picker-ion-header">
-            <ion-toolbar>
-              <ion-buttons slot="start">
-                <ion-button @click="onCancel">Cancel</ion-button>
-              </ion-buttons>
-              <ion-title>Date range</ion-title>
-              <ion-buttons slot="end">
-                <ion-button @click="onClear">Clear</ion-button>
-                <ion-button @click="onConfirm">OK</ion-button>
-              </ion-buttons>
-            </ion-toolbar>
-          </ion-header>
-          <div class="picker-header">
-            <span class="header-year">{{ displayYear }}</span>
-            <span class="header-date">{{ headerDateLabel }}</span>
-          </div>
+    <Transition name="drawer-fade">
+      <div v-if="visible" class="drawer-backdrop" @click="onCancel" />
+    </Transition>
+    <Transition name="drawer-slide">
+      <div v-if="visible" class="drawer-sheet" @click.stop>
+        <div class="drawer-handle" />
+        <ion-header class="drawer-ion-header">
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button @click="onCancel">Cancel</ion-button>
+            </ion-buttons>
+            <ion-title>Date range</ion-title>
+            <ion-buttons slot="end">
+              <ion-button @click="onClear">Clear</ion-button>
+              <ion-button @click="onConfirm">OK</ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
 
-          <div class="picker-nav">
-            <button type="button" class="nav-btn" @click="navYear(-1)">«</button>
-            <button type="button" class="nav-btn" @click="navMonth(-1)">‹</button>
-            <span class="nav-label">{{ monthLabel }}</span>
-            <button type="button" class="nav-btn" @click="navMonth(1)">›</button>
-            <button type="button" class="nav-btn" @click="navYear(1)">»</button>
-          </div>
-
-          <div class="picker-calendar">
-            <div class="weekdays">
-              <span v-for="d in weekdays" :key="d" class="weekday">{{ d }}</span>
+        <div class="drawer-body-scroll">
+          <div class="picker-sheet-content">
+            <div class="picker-header">
+              <span class="header-year">{{ displayYear }}</span>
+              <span class="header-date">{{ headerDateLabel }}</span>
             </div>
-            <div class="days-grid">
-              <button
-                v-for="cell in calendarCells"
-                :key="cell.key"
-                type="button"
-                class="day-cell"
-                :class="cell.classes"
-                :disabled="!cell.date"
-                @click="cell.date && onDayClick(cell)"
-              >
-                {{ cell.label }}
-              </button>
-            </div>
-          </div>
 
-          <div class="picker-quick">
-            <button type="button" class="quick-btn" @click="setToday">Today</button>
-            <button type="button" class="quick-btn" @click="setYesterday">Yesterday</button>
+            <div class="picker-nav">
+              <button type="button" class="nav-btn" @click="navYear(-1)">«</button>
+              <button type="button" class="nav-btn" @click="navMonth(-1)">‹</button>
+              <span class="nav-label">{{ monthLabel }}</span>
+              <button type="button" class="nav-btn" @click="navMonth(1)">›</button>
+              <button type="button" class="nav-btn" @click="navYear(1)">»</button>
+            </div>
+
+            <div class="picker-calendar">
+              <div class="weekdays">
+                <span v-for="d in weekdays" :key="d" class="weekday">{{ d }}</span>
+              </div>
+              <div class="days-grid">
+                <button
+                  v-for="cell in calendarCells"
+                  :key="cell.key"
+                  type="button"
+                  class="day-cell"
+                  :class="cell.classes"
+                  :disabled="!cell.date"
+                  @click="cell.date && onDayClick(cell)"
+                >
+                  {{ cell.label }}
+                </button>
+              </div>
+            </div>
+
+            <div class="picker-quick">
+              <button type="button" class="quick-btn" @click="setToday">Today</button>
+              <button type="button" class="quick-btn" @click="setYesterday">Yesterday</button>
+            </div>
           </div>
         </div>
       </div>
@@ -75,6 +82,12 @@ const viewMonth = ref(new Date().getMonth())
 const tempFrom = ref('')
 const tempTo = ref('')
 
+function setViewToDate(d) {
+  if (Number.isNaN(d.getTime())) return
+  viewYear.value = d.getFullYear()
+  viewMonth.value = d.getMonth()
+}
+
 watch(
   () => props.visible,
   (v) => {
@@ -84,15 +97,9 @@ watch(
       tempFrom.value = from ? dateKey(from) : ''
       tempTo.value = to ? dateKey(to) : ''
       if (from) {
-        const d = new Date(from)
-        if (!Number.isNaN(d.getTime())) {
-          viewYear.value = d.getFullYear()
-          viewMonth.value = d.getMonth()
-        }
+        setViewToDate(new Date(from))
       } else {
-        const now = new Date()
-        viewYear.value = now.getFullYear()
-        viewMonth.value = now.getMonth()
+        setViewToDate(new Date())
       }
     }
   }
@@ -239,6 +246,7 @@ function setToday() {
   const s = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   tempFrom.value = s
   tempTo.value = s
+  setViewToDate(d)
 }
 
 function setYesterday() {
@@ -247,6 +255,7 @@ function setYesterday() {
   const s = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   tempFrom.value = s
   tempTo.value = s
+  setViewToDate(d)
 }
 
 function onConfirm() {
@@ -274,40 +283,60 @@ function onClear() {
 </script>
 
 <style scoped>
-.picker-backdrop {
+.drawer-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
 }
 
-.picker-popup {
+.drawer-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  padding: 0 20px 20px;
-  max-width: 340px;
-  width: 100%;
-  max-height: min(90vh, 640px);
+  max-height: 90vh;
   overflow: hidden;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  z-index: 10001;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-.picker-ion-header {
+.drawer-handle {
+  width: 36px;
+  height: 4px;
+  background: #d6d9dd;
+  border-radius: 2px;
+  margin: 12px auto 8px;
   flex-shrink: 0;
-  margin: 0 -20px;
+}
+
+.drawer-ion-header {
+  flex-shrink: 0;
+}
+
+.drawer-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.picker-sheet-content {
+  padding: 0 20px 20px;
 }
 
 .picker-header {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 16px;
+  margin-top: 4px;
   margin-bottom: 16px;
 }
 
@@ -438,13 +467,23 @@ function onClear() {
   background: rgba(255, 141, 40, 0.08);
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
+.drawer-fade-enter-active,
+.drawer-fade-leave-active {
+  transition: opacity 0.25s ease;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.drawer-fade-enter-from,
+.drawer-fade-leave-to {
   opacity: 0;
+}
+
+.drawer-slide-enter-active,
+.drawer-slide-leave-active {
+  transition: transform 0.3s ease-out;
+}
+
+.drawer-slide-enter-from,
+.drawer-slide-leave-to {
+  transform: translateY(100%);
 }
 </style>
