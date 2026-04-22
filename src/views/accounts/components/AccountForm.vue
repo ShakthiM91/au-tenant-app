@@ -60,13 +60,13 @@
           
 
           <div v-if="!isEdit && showSuggestedNames" class="form-group">
-            <label class="form-label-suggested">Suggested Account Names</label>
+            <span class="form-label-suggested">Suggested Account Names</span>
             <div class="suggested-pills">
               <button
                 v-for="s in suggestedNames"
                 :key="s"
                 type="button"
-                class="pill"
+                class="suggested-pill"
                 :disabled="formDisabled"
                 @click="selectSuggestedName(s)"
               >
@@ -230,7 +230,7 @@ const suggestedNames = ['Cash', 'Bank Account', 'Credit Card', 'PayPal','Binance
 
 const isEdit = computed(() => !!props.account?.id)
 const saving = ref(false)
-/** Shown only for new accounts; hidden after user picks a suggestion pill. */
+/** Shown only for new accounts; hidden after user picks a suggestion. */
 const showSuggestedNames = ref(true)
 const currencyOptions = ref([])
 const workspaceOptions = ref([])
@@ -570,7 +570,7 @@ async function submit() {
 .form-label-suggested {
   display: block;
   font-size: 12px;
-  color: #A7A7A7;
+  color: #a7a7a7;
   margin-bottom: 8px;
 }
 
@@ -627,21 +627,26 @@ async function submit() {
   gap: 8px;
 }
 
-.pill {
+.suggested-pill {
   padding: 8px 14px;
   border-radius: 20px;
-  border: none;
-  background: rgba(255, 141, 40, 0.15);
-  color: #E67A00;
+  border: 1px solid rgba(255, 141, 40, 0.45);
+  background: #fff;
+  color: #e67a00;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.pill:hover,
-.pill:active {
-  background: rgba(255, 141, 40, 0.25);
+.suggested-pill:hover,
+.suggested-pill:active {
+  background: rgba(255, 141, 40, 0.08);
+}
+
+.suggested-pill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Transitions */
