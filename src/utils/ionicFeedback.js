@@ -3,7 +3,7 @@ import { toastController, alertController, actionSheetController } from '@ionic/
 /** Default headings when `variant` is set and `title` is omitted. */
 const DEFAULT_TOAST_TITLES = {
   success: 'Success!',
-  error: 'Error'
+  error: 'Failed!'
 }
 
 export async function showActionSheet({ header, buttons }) {

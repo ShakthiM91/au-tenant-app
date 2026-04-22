@@ -1,67 +1,75 @@
 /**
- * Centered “card” toast — white panel, soft shadow, typographic hierarchy.
- * Applied via cssClass: 'app-toast' (toastController) or css-class="app-toast" (inline ion-toast).
+ * Centered card toast — matches app success/failed modal-style feedback:
+ * white panel, soft shadow, dimmed backdrop, dark title + grey body (no tinted fills).
+ * Applied via cssClass: 'app-toast' or css-class="app-toast".
  */
 
 ion-toast.app-toast {
   --background: #ffffff;
-  --border-radius: 44px;
+  --border-radius: 28px;
   --border-width: 0;
-  --box-shadow: 0 12px 48px rgba(0, 0, 0, 0.14);
-  --color: #666666;
+  --box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    0 2px 12px rgba(0, 0, 0, 0.06);
+  --color: #757575;
   --button-color: #ff8d28;
-  --max-width: min(88vw, 400px);
+  --max-width: min(86vw, 380px);
   --width: auto;
-  --start: 20px;
-  --end: 20px;
+  --start: 24px;
+  --end: 24px;
   --min-height: auto;
   font-size: 1rem;
 }
 
-/* Dimmed full-screen veil (host is full viewport; ::before sits behind shadow content). */
+/* Full-viewport dim behind the card */
 ion-toast.app-toast::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.38);
   pointer-events: none;
   z-index: 0;
 }
 
 ion-toast.app-toast::part(container) {
+  display: flex;
   justify-content: center;
+  align-items: center;
   text-align: center;
-  padding-block: 12px;
-  padding-inline: 8px;
+  flex-wrap: wrap;
+  padding-block: 22px;
+  padding-inline: 20px;
 }
 
+/* Title: strong hierarchy, near-black */
 ion-toast.app-toast::part(header) {
-  color: #4a4a4a;
+  color: #1f1f1f;
   font-weight: 700;
   font-size: 1.25rem;
-  line-height: 1.3;
+  line-height: 1.35;
   text-align: center;
   width: 100%;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
 }
 
+/* Body: medium grey, regular */
 ion-toast.app-toast::part(message) {
-  color: #666666;
+  color: #757575;
   font-weight: 400;
   font-size: 1rem;
-  line-height: 1.45;
+  line-height: 1.5;
   text-align: center;
   width: 100%;
 }
 
+/* With title + message: keep body at readable 1rem (design uses ~16px under ~20px title) */
 ion-toast.app-toast.app-toast-with-header::part(message) {
-  font-size: 0.9375rem;
+  font-size: 1rem;
 }
 
-ion-toast.app-toast.app-toast-variant-error::part(header) {
-  color: #9e2a2a;
-}
-
+/* Success and failed use the same chrome; status is read from copy, not background color */
+ion-toast.app-toast.app-toast-variant-error::part(header),
 ion-toast.app-toast.app-toast-variant-success::part(header) {
-  color: #4a4a4a;
+  color: #1f1f1f;
 }

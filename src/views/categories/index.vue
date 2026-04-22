@@ -278,6 +278,26 @@ function normalizeData(res) {
   return Array.isArray(data) ? data : []
 }
 
+/** Find a category node by id in a tree (root list with optional `children`). */
+function findCategoryInTree(id, nodes) {
+  const n = Number(id)
+  for (const node of nodes || []) {
+    if (Number(node.id) === n) return node
+    const inner = findCategoryInTree(id, node.children)
+    if (inner) return inner
+  }
+  return null
+}
+
+/** Income vs expense for a parent id (used so subcategories inherit the parent's type). */
+function typeForParentCategoryId(parentId) {
+  const pid = Number(parentId)
+  if (Number.isNaN(pid)) return null
+  if (findCategoryInTree(pid, incomeCategories.value)) return 'income'
+  if (findCategoryInTree(pid, expenseCategories.value)) return 'expense'
+  return null
+}
+
 function openForm(category = null, parentId = null) {
   if (workspaceId.value != null && !canManageWorkspaceCategories.value) {
     showToast('You do not have permission to manage categories')
@@ -290,9 +310,11 @@ function openForm(category = null, parentId = null) {
     }
     currentCategory.value = { ...category }
   } else {
+    const pid = parentId != null ? Number(parentId) : null
+    const fromParent = pid != null ? typeForParentCategoryId(pid) : null
     currentCategory.value = {
-      parent_id: parentId != null ? Number(parentId) : null,
-      type: activeTab.value,
+      parent_id: pid,
+      type: fromParent ?? activeTab.value,
       workspace_id: workspaceId.value
     }
   }
@@ -311,7 +333,7 @@ async function onDelete(cat) {
   try {
     await showConfirmDialog({ title: 'Delete', message: `Delete "${cat.name}"?` })
     const res = await deleteCategory(cat.id)
-    showToast(res?.queued ? 'Saved locally. Will sync when online.' : 'Deleted')
+    // showToast(res?.queued ? 'Saved locally. Will sync when online.' : 'Deleted')
     load()
   } catch (e) {
     if (e === 'cancel') return
