@@ -1,0 +1,67 @@
+/**
+ * Centered “card” toast — white panel, soft shadow, typographic hierarchy.
+ * Applied via cssClass: 'app-toast' (toastController) or css-class="app-toast" (inline ion-toast).
+ */
+
+ion-toast.app-toast {
+  --background: #ffffff;
+  --border-radius: 44px;
+  --border-width: 0;
+  --box-shadow: 0 12px 48px rgba(0, 0, 0, 0.14);
+  --color: #666666;
+  --button-color: #ff8d28;
+  --max-width: min(88vw, 400px);
+  --width: auto;
+  --start: 20px;
+  --end: 20px;
+  --min-height: auto;
+  font-size: 1rem;
+}
+
+/* Dimmed full-screen veil (host is full viewport; ::before sits behind shadow content). */
+ion-toast.app-toast::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 0;
+}
+
+ion-toast.app-toast::part(container) {
+  justify-content: center;
+  text-align: center;
+  padding-block: 12px;
+  padding-inline: 8px;
+}
+
+ion-toast.app-toast::part(header) {
+  color: #4a4a4a;
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+ion-toast.app-toast::part(message) {
+  color: #666666;
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.45;
+  text-align: center;
+  width: 100%;
+}
+
+ion-toast.app-toast.app-toast-with-header::part(message) {
+  font-size: 0.9375rem;
+}
+
+ion-toast.app-toast.app-toast-variant-error::part(header) {
+  color: #9e2a2a;
+}
+
+ion-toast.app-toast.app-toast-variant-success::part(header) {
+  color: #4a4a4a;
+}

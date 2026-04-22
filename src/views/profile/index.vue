@@ -70,7 +70,8 @@
         :is-open="toastOpen"
         :message="toastMessage"
         :duration="2000"
-        position="bottom"
+        position="middle"
+        css-class="app-toast"
         @didDismiss="toastOpen = false"
       />
     </ion-content>

@@ -161,6 +161,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import axios from 'axios'
 import {
   IonPage,
   IonContent,
@@ -313,7 +314,11 @@ async function onDelete(cat) {
     showToast(res?.queued ? 'Saved locally. Will sync when online.' : 'Deleted')
     load()
   } catch (e) {
-    if (e !== 'cancel') showToast(e?.message || 'Delete failed')
+    if (e === 'cancel') return
+    // HTTP errors: request.js interceptor already toasts with title "Error" and `response.data.error`
+    // (e.g. "Cannot delete category with existing transactions").
+    if (axios.isAxiosError(e)) return
+    showToast({ variant: 'error', message: e?.message || 'Delete failed' })
   }
 }
 
@@ -331,7 +336,8 @@ async function onToggleActive(cat, isActive) {
     showToast(isActive ? 'Activated' : 'Deactivated')
     load()
   } catch (e) {
-    showToast(e?.message || 'Failed')
+    if (axios.isAxiosError(e)) return
+    showToast({ variant: 'error', message: e?.message || 'Failed' })
   }
 }
 

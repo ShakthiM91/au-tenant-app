@@ -41,7 +41,10 @@ service.interceptors.response.use(
   (response) => {
     const res = response.data
     if (res.success === false) {
-      showToast(res.error || 'Request failed')
+      showToast({
+        variant: 'error',
+        message: res.error || 'Request failed'
+      })
       return Promise.reject(new Error(res.error || 'Request failed'))
     }
     return res
@@ -65,7 +68,11 @@ service.interceptors.response.use(
     if (status === 401) {
       if (currentPath !== '/login') {
         useUserStore().resetState()
-        showToast('Session expired. Please login again.')
+        showToast({
+          variant: 'error',
+          title: 'Session expired',
+          message: 'Please log in again.'
+        })
         redirectToLogin()
       }
     } else if (isInvalidOrExpiredToken403) {
@@ -74,13 +81,28 @@ service.interceptors.response.use(
         redirectToLogin()
       }
     } else if (status === 403) {
-      showToast(message || 'Access denied')
+      showToast({
+        variant: 'error',
+        title: 'Access denied',
+        message: message || 'You do not have permission for this action.'
+      })
     } else if (status === 404) {
-      showToast('Resource not found')
+      showToast({
+        variant: 'error',
+        title: 'Not found',
+        message: 'That resource could not be found.'
+      })
     } else if (status === 500) {
-      showToast('Server error. Please try again later.')
+      showToast({
+        variant: 'error',
+        title: 'Server error',
+        message: 'Please try again later.'
+      })
     } else {
-      showToast(message || 'Network error')
+      showToast({
+        variant: 'error',
+        message: message || 'Network error'
+      })
     }
     return Promise.reject(error)
   }

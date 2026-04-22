@@ -25,9 +25,10 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { getToken } from '@/utils/auth'
+import pkg from '../../../package.json'
 
 const router = useRouter()
-const appVersion = ref('1.0.0')
+const appVersion = pkg.version || '0.0.1'
 
 const ONBOARDING_KEY = 'au_onboarding_completed'
 
