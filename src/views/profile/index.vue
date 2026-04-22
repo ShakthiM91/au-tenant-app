@@ -60,6 +60,8 @@
             <ion-icon :icon="chevronForwardOutline" class="chevron" />
           </button>
         </nav>
+
+        <p class="app-version-footer" aria-label="App version">Version {{ appVersion }}</p>
       </div>
 
       <div class="tab-spacer" />
@@ -487,6 +489,17 @@ const menuRows = computed(() => [
   color: #8e8a96;
   font-weight: 400;
   max-width: 92%;
+}
+
+.app-version-footer {
+  margin: 28px 0 4px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 16px;
+  color: #aeaeb2;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  user-select: none;
 }
 
 .tab-spacer {
