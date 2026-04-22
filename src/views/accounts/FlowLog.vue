@@ -429,7 +429,7 @@ import { invalidateAccountingCache } from '@/db/readCache'
 import { useSyncStore } from '@/store/sync'
 import ReconcileModal from './components/ReconcileModal.vue'
 import AccountForm from './components/AccountForm.vue'
-import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
+import FloatingAddButton from '@/components/FloatingAddButton.vue'
 
 import DateRangePicker from '@/components/DateRangePicker.vue'
 

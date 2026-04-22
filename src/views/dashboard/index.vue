@@ -31,7 +31,7 @@ import ProjectOverview from '@/components/dashboard/ProjectOverview.vue'
 import ProjectProgress from '@/components/dashboard/ProjectProgress.vue'
 import TasksCard from '@/components/dashboard/TasksCard.vue'
 import KryptonitesCard from '@/components/dashboard/KryptonitesCard.vue'
-import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
+import FloatingAddButton from '@/components/FloatingAddButton.vue'
 
 
 const router = useRouter()

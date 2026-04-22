@@ -34,26 +34,31 @@
       </transition>
     </div>
 
-    <button class="fab-btn" @click="expanded = !expanded">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect
-          x="8.5" y="1" width="3" height="18" rx="1.5" fill="#fff"
-          :style="{ transform: expanded ? 'rotate(45deg)' : 'none', transformOrigin: '10px 10px', transition: 'transform 0.25s ease' }"
-        />
-        <rect
-          x="1" y="8.5" width="18" height="3" rx="1.5" fill="#fff"
-          :style="{ transform: expanded ? 'rotate(45deg)' : 'none', transformOrigin: '10px 10px', transition: 'transform 0.25s ease' }"
-        />
+    <button type="button" class="fab-btn" @click="expanded = !expanded" :aria-expanded="expanded">
+      <svg class="fab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <g class="fab-plus-g" :style="fabPlusRotateStyle">
+          <path
+            d="M12 7v10M7 12h10"
+            stroke="var(--fab-plus-color)"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          />
+        </g>
       </svg>
     </button>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const emit = defineEmits(['select'])
 const expanded = ref(false)
+
+const fabPlusRotateStyle = computed(() => ({
+  transform: expanded.value ? 'rotate(45deg)' : 'none',
+  transition: 'transform 0.25s ease',
+}))
 
 function onOption(type) {
   expanded.value = false
@@ -131,20 +136,32 @@ function onOption(type) {
 .fab-option-label.income   { color: #52bf90; }
 
 .fab-btn {
+  --fab-plus-color: #ff8d28;
   width: 56px;
   height: 56px;
   border-radius: 18px;
-  background: #ff8d28;
+  background: #fff;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(255, 141, 40, 0.45);
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.06),
+    0 10px 28px rgba(0, 0, 0, 0.12);
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
+}
+
+.fab-icon {
+  display: block;
+}
+
+.fab-plus-g {
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .fade-enter-active,

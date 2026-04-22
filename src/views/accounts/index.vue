@@ -390,7 +390,7 @@ import AccountForm from './components/AccountForm.vue'
 import IslandForm from './components/IslandForm.vue'
 import ShareAccess from './components/ShareAccess.vue'
 import ReconcileModal from './components/ReconcileModal.vue'
-import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
+import FloatingAddButton from '@/components/FloatingAddButton.vue'
 
 
 const route = useRoute()

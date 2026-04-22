@@ -406,7 +406,7 @@ import { getTenantDefaultCurrency } from '@/api/currency'
 import { getPendingWrites, deleteEntry } from '@/db/pendingWrites'
 import { useSyncStore } from '@/store/sync'
 import { refreshBootstrapCache } from '@/utils/bootstrapCache'
-import FloatingAddButton from '@/components/dashboard/FloatingAddButton.vue'
+import FloatingAddButton from '@/components/FloatingAddButton.vue'
 
 import DateRangePicker from '@/components/DateRangePicker.vue'
 
