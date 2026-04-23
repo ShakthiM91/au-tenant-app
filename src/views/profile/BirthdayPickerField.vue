@@ -67,6 +67,7 @@ import {
 } from '@ionic/vue'
 import { calendarOutline } from 'ionicons/icons'
 import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
+import { toYmdInLocalTime } from '@/utils/profileDisplay'
 
 const props = defineProps({
   modelValue: { type: String, default: '' }
@@ -103,21 +104,15 @@ function defaultDraftIso() {
   return `${y}-${m}-${day}`
 }
 
-function normalizeToDateInput(iso) {
-  if (!iso) return ''
-  const s = String(iso)
-  const m = s.match(/^(\d{4}-\d{2}-\d{2})/)
-  return m ? m[1] : ''
-}
-
 const displayLabel = computed(() => {
   const v = props.modelValue
   if (!v || !String(v).trim()) {
     return 'Tap to choose your birthday'
   }
-  const ymd = normalizeToDateInput(v)
+  const ymd = toYmdInLocalTime(v)
   if (!ymd) return v
-  const d = new Date(`${ymd}T12:00:00`)
+  const [yy, mo, day] = ymd.split('-').map(Number)
+  const d = new Date(yy, mo - 1, day, 12, 0, 0)
   if (Number.isNaN(d.getTime())) return v
   try {
     return new Intl.DateTimeFormat(undefined, {
@@ -132,7 +127,7 @@ const displayLabel = computed(() => {
 })
 
 function openModal() {
-  const cur = normalizeToDateInput(props.modelValue)
+  const cur = toYmdInLocalTime(props.modelValue)
   draftIso.value = cur || defaultDraftIso()
   modalOpen.value = true
 }
@@ -146,7 +141,7 @@ function onModalDismiss() {
 }
 
 function confirm() {
-  const ymd = normalizeToDateInput(draftIso.value)
+  const ymd = toYmdInLocalTime(draftIso.value)
   emit('update:modelValue', ymd || '')
   modalOpen.value = false
 }

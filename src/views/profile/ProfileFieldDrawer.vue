@@ -66,7 +66,7 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
 import { IonModal, IonContent, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
-import { showToast } from '@/utils/ionicFeedback'
+import { showToast, showToastIcon } from '@/utils/ionicFeedback'
 import { useUserStore } from '@/store/user'
 import BirthdayPickerField from '@/views/profile/BirthdayPickerField.vue'
 import GenderPickerField from '@/views/profile/GenderPickerField.vue'
@@ -174,7 +174,7 @@ async function submit() {
   saving.value = true
   try {
     await userStore.updateUserProfile(payload)
-    showToast('Saved')
+    await showToastIcon()
     emit('success')
   } catch (e) {
     showToast(e?.message || 'Failed to save')

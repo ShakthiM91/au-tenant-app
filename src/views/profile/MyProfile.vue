@@ -60,7 +60,7 @@
           </div>
         </button>
 
-        <button type="button" class="mp-row" @click="openProfileDrawer('birthday')">
+        <button type="button" class="mp-row" @click="openBirthdayPicker">
           <span class="mp-label">Birthday</span>
           <div class="mp-value-wrap">
             <span class="mp-value">{{ birthdayDisplay }}</span>
@@ -92,6 +92,55 @@
           We prioritize your privacy and security. We strive to protect your information and keep your data safe at every level.
         </p>
       </div>
+
+      <ion-modal
+        ref="birthdayModalRef"
+        :is-open="birthdayPickerOpen"
+        :initial-breakpoint="birthdayInitialBreakpoint"
+        :breakpoints="birthdayBreakpoints"
+        :handle="true"
+        @didDismiss="onBirthdayModalDismiss"
+      >
+        <ion-header>
+          <ion-toolbar class="bday-modal-toolbar">
+            <ion-buttons slot="start">
+              <ion-button @click="closeBirthdayPicker">Cancel</ion-button>
+            </ion-buttons>
+            <ion-title>Birthday</ion-title>
+            <ion-buttons slot="end">
+              <ion-button
+                class="bday-done-btn"
+                :disabled="birthdaySaving"
+                @click="confirmBirthday"
+              >
+                {{ birthdaySaving ? 'Saving…' : 'Done' }}
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+        <ion-content class="bday-modal-content">
+          <div class="adaptive-sheet-body">
+            <div class="bday-datetime-wrap">
+              <ion-datetime
+                v-model="birthdayDraftIso"
+                presentation="date"
+                :max="birthdayMaxIso"
+                :min="birthdayMinIso"
+                size="cover"
+                @ion-change="onBirthdayDatetimeChange"
+              />
+            </div>
+            <button
+              v-if="showBirthdayClear"
+              type="button"
+              class="bday-clear-link"
+              @click="markBirthdayClear"
+            >
+              Clear date
+            </button>
+          </div>
+        </ion-content>
+      </ion-modal>
 
       <div class="tab-spacer" />
 
@@ -126,22 +175,44 @@ import {
   IonBackButton,
   IonContent,
   IonIcon,
-  IonToast
+  IonToast,
+  IonModal,
+  IonDatetime
 } from '@ionic/vue'
 import { chevronForwardOutline, headsetOutline } from 'ionicons/icons'
 import { useUserStore } from '@/store/user'
 import ProfileFieldDrawer from '@/views/profile/ProfileFieldDrawer.vue'
+import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
+import { showToastIcon } from '@/utils/ionicFeedback'
 import {
   maskEmail,
   maskPhone,
   getAvatarInitials,
-  AVATAR_GRADIENT
+  AVATAR_GRADIENT,
+  toYmdInLocalTime
 } from '@/utils/profileDisplay'
 
 const userStore = useUserStore()
 
+const BIRTHDAY_SHEET_PCT = 48
+const BIRTHDAY_MIN_ISO = '1900-01-01'
+
 const profileDrawerOpen = ref(false)
 const profileDrawerField = ref('name')
+
+const birthdayPickerOpen = ref(false)
+const birthdayDraftIso = ref('')
+const birthdaySaving = ref(false)
+/** When set, pressing Done sends birthday: '' (same as ProfileFieldDrawer clear). */
+const birthdayClearedForSubmit = ref(false)
+
+const {
+  modalRef: birthdayModalRef,
+  breakpoints: birthdayBreakpoints,
+  initialBreakpoint: birthdayInitialBreakpoint
+} = useIonSheetHeight(() => birthdayPickerOpen.value, BIRTHDAY_SHEET_PCT)
+
+const birthdayMinIso = BIRTHDAY_MIN_ISO
 
 const toastOpen = ref(false)
 const toastMessage = ref('')
@@ -174,12 +245,31 @@ const emailMasked = computed(() => maskEmail(userStore.email) || '—')
 const birthdayDisplay = computed(() => {
   const b = userStore.birthday
   if (!b) return 'Not set'
-  const d = new Date(b)
-  if (!Number.isNaN(d.getTime())) {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(d)
+  const ymd = toYmdInLocalTime(b)
+  if (ymd) {
+    const [y, m, day] = ymd.split('-').map(Number)
+    const local = new Date(y, m - 1, day)
+    if (!Number.isNaN(local.getTime())) {
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(local)
+    }
   }
   return b
 })
+
+const birthdayMaxIso = computed(() => {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+})
+
+const showBirthdayClear = computed(
+  () =>
+    !birthdayClearedForSubmit.value &&
+    (Boolean(toYmdInLocalTime(userStore.birthday)) ||
+      Boolean(toYmdInLocalTime(birthdayDraftIso.value)))
+)
 
 const GENDER_LABELS = {
   male: 'Male',
@@ -212,6 +302,53 @@ function onPhotoClick() {
 function openProfileDrawer(field) {
   profileDrawerField.value = field
   profileDrawerOpen.value = true
+}
+
+function defaultBirthdayDraftIso() {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - 25)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function openBirthdayPicker() {
+  birthdayClearedForSubmit.value = false
+  const cur = toYmdInLocalTime(userStore.birthday)
+  birthdayDraftIso.value = cur || defaultBirthdayDraftIso()
+  birthdayPickerOpen.value = true
+}
+
+function closeBirthdayPicker() {
+  birthdayPickerOpen.value = false
+}
+
+function onBirthdayModalDismiss() {
+  birthdayPickerOpen.value = false
+}
+
+function onBirthdayDatetimeChange() {
+  birthdayClearedForSubmit.value = false
+}
+
+function markBirthdayClear() {
+  birthdayClearedForSubmit.value = true
+  birthdayDraftIso.value = defaultBirthdayDraftIso()
+}
+
+async function confirmBirthday() {
+  const ymd = birthdayClearedForSubmit.value ? '' : toYmdInLocalTime(birthdayDraftIso.value)
+  birthdaySaving.value = true
+  try {
+    await userStore.updateUserProfile({ birthday: ymd || '' })
+    await showToastIcon()
+    birthdayPickerOpen.value = false
+  } catch (e) {
+    showToast(e?.message || 'Failed to save')
+  } finally {
+    birthdaySaving.value = false
+  }
 }
 
 function onProfileDrawerSuccess() {
@@ -410,5 +547,59 @@ function onFieldClick(label) {
 
 .tab-spacer {
   height: 88px;
+}
+
+/* Birthday sheet (ion-datetime) */
+.bday-modal-toolbar {
+  --background: #ffffff;
+  --border-width: 0;
+}
+
+.bday-modal-toolbar ion-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.bday-done-btn {
+  --color: #ff8d28;
+  font-weight: 600;
+}
+
+.bday-modal-content {
+  --background: #ffffff;
+}
+
+.bday-modal-content .adaptive-sheet-body {
+  min-height: 0;
+}
+
+.bday-datetime-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 8px 12px 12px;
+  max-width: 100%;
+}
+
+.bday-datetime-wrap :deep(ion-datetime) {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  --background: #fff;
+}
+
+.bday-clear-link {
+  display: block;
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 0 24px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ff8d28;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 </style>

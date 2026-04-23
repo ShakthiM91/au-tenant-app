@@ -36,3 +36,33 @@ export function getAvatarInitials(displayName) {
 }
 
 export const AVATAR_GRADIENT = 'linear-gradient(145deg, #f7b189 0%, #ffc299 100%)'
+
+/**
+ * Local calendar YYYY-MM-DD for profile birthday / ion-datetime.
+ * Do not take the first 10 chars of an ISO string — UTC midnight can shift the
+ * date (e.g. pick 6th → "…-05T…Z" and regex saves 5th). Use local getters instead.
+ * Plain `YYYY-MM-DD` (API) is returned unchanged when valid.
+ * @param {string | null | undefined} value
+ * @returns {string}
+ */
+export function toYmdInLocalTime(value) {
+  if (value == null || value === '') return ''
+  const s = String(value).trim()
+  if (!s) return ''
+  const only = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+  if (only) {
+    const y = Number(only[1])
+    const mo = Number(only[2])
+    const d = Number(only[3])
+    if (y > 0 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+    return ''
+  }
+  const dt = new Date(s)
+  if (Number.isNaN(dt.getTime())) return ''
+  const y = dt.getFullYear()
+  const mo = String(dt.getMonth() + 1).padStart(2, '0')
+  const d = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${mo}-${d}`
+}
