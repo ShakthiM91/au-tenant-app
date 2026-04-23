@@ -9,10 +9,16 @@
         <section class="banner-section">
           <div class="banner-scroll" @scroll="onBannerScroll">
             <div
-              v-for="i in 3"
-              :key="i"
+              class="banner-slide banner-slide--photo"
+              :style="{ backgroundImage: `url(${bannerPhotoUrl})` }"
+              role="img"
+              aria-label="Lifestyle banner"
+            />
+            <div
+              v-for="(bg, idx) in bannerGradients"
+              :key="idx"
               class="banner-slide"
-              :style="{ background: bannerGradients[i - 1] }"
+              :style="{ background: bg }"
             />
           </div>
           <div class="banner-dots" aria-hidden="true">
@@ -440,8 +446,10 @@ onIonViewDidEnter(() => {
   loadHomeData()
 })
 
+/** First carousel slide uses `public/home-banner-1.png`; these are slides 2–3. */
+const bannerPhotoUrl = `${import.meta.env.BASE_URL}home-banner-1.png`
+
 const bannerGradients = [
-  'linear-gradient(135deg, #ffe8d6 0%, #ffcca8 50%, #ff8d28 100%)',
   'linear-gradient(135deg, #e7ecf7 0%, #b8cff7 45%, #6a8fce 100%)',
   'linear-gradient(135deg, #d4f5e8 0%, #9ee5c8 50%, #52bf90 100%)',
 ]
@@ -604,6 +612,12 @@ function onFabSelect(type) {
   min-height: 160px;
   scroll-snap-align: start;
   border-radius: 20px;
+}
+
+.banner-slide--photo {
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
 }
 
 .banner-dots {
