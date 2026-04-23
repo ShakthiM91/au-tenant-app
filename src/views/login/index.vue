@@ -123,7 +123,7 @@ async function onLogin() {
   try {
     await userStore.login(form)
     await userStore.getInfo()
-    const redirect = route.query.redirect || '/dashboard'
+    const redirect = route.query.redirect || '/home'
     router.push(redirect)
     // showToast('Login successful')
   } catch (error) {

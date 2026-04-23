@@ -211,7 +211,7 @@ async function onSignUp() {
     await userStore.register({ name, email: form.email.trim(), password: form.password })
     await userStore.getInfo()
     showToast('Account created successfully')
-    router.replace('/dashboard')
+    router.replace('/home')
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || 'Registration failed'
     showToast(message)

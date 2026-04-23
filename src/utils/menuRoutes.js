@@ -3,7 +3,7 @@
  * Only routes with mobile equivalents are included.
  */
 export const ROUTE_MAP = {
-  '/dashboard': '/dashboard',
+  '/dashboard': '/home',
   '/members/list': '/members',
   '/members/roles': '/members/roles',
   '/accounting/transactions': '/transactions',

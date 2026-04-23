@@ -52,9 +52,14 @@ const routes = [
     meta: { public: true }
   },
   {
+    path: '/home',
+    name: 'Home',
+    component: () => import('@/views/home/index.vue'),
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
-    component: () => import('@/views/dashboard/index.vue'),
+    redirect: { name: 'Home' },
   },
   {
     path: '/accounts',
@@ -118,7 +123,7 @@ router.beforeEach(async (to, from, next) => {
 
   if (hasToken) {
     if (to.path === '/login') {
-      next({ path: '/dashboard' })
+      next({ path: '/home' })
     } else {
       const userStore = useUserStore()
       const hasRoles = userStore.role

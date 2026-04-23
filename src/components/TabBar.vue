@@ -30,8 +30,8 @@ function isActive(tab) {
 const tabs = [
   {
     name: 'home',
-    route: '/dashboard',
-    action: () => router.push('/dashboard'),
+    route: '/home',
+    action: () => router.push('/home'),
     icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
       <path d="M3 12.5L12 3.5L21 12.5V20.5C21 21.0523 20.5523 21.5 20 21.5H15V15.5H9V21.5H4C3.44772 21.5 3 21.0523 3 20.5V12.5Z"/>
     </svg>`

@@ -40,7 +40,7 @@ onMounted(() => {
     if (!onboardingDone) {
       router.replace('/onboarding')
     } else if (hasToken) {
-      router.replace('/dashboard')
+      router.replace('/home')
     } else {
       router.replace('/register')
     }

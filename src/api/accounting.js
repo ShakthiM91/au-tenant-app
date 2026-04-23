@@ -10,6 +10,11 @@ export function getTransactions(params) {
   })
 }
 
+/** Latest transactions for the tenant across all workspaces (omit workspace_id). */
+export function getRecentTransactions(limit = 5) {
+  return getTransactions({ limit, offset: 0 })
+}
+
 export function getCategories(type = null) {
   const params = type ? { type } : {}
   return request({
@@ -234,6 +239,15 @@ export function getDueRepayments(date = null) {
     url: '/api/accounting/accounts/repayments/due',
     method: 'get',
     params
+  })
+}
+
+/** Next repayment schedules for the tenant (all accounts/workspaces), earliest due first. */
+export function getUpcomingRepayments(limit = 5) {
+  return request({
+    url: '/api/accounting/accounts/repayments/upcoming',
+    method: 'get',
+    params: { limit }
   })
 }
 
