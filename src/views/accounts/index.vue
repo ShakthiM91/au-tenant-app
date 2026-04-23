@@ -614,7 +614,7 @@ async function onDeclineInvitation(inv) {
 }
 
 const accountMenuTemplate = [
-  { role: 'flow-log', label: 'View Flow Log', destructive: false },
+  { role: 'flow-log', label: 'Account Flow Log', destructive: false },
   { role: 'add-transaction', label: 'Add a Transaction', destructive: false },
   { role: 'reconcile', label: 'Reconcile', destructive: false },
   { role: 'edit', label: 'Edit', destructive: false },
@@ -965,11 +965,11 @@ async function onDeleteWorkspace(group) {
   const name = island.name?.endsWith('Island') ? island.name : (island.name || '') + ' Island'
   try {
     await showConfirmDialog({
-      title: 'Delete Workspace',
-      message: `Are you sure you want to delete "${name}"? You will no longer have access to this workspace and all its accounts. This action cannot be undone.`
+      title: 'Delete Island',
+      message: `Are you sure you want to delete "${name}"? You will no longer have access to this island and all its accounts. This action cannot be undone.`
     })
     const res = await deleteWorkspace(island.id)
-    showToast(res?.queued ? 'Saved locally. Will sync when online.' : 'Workspace deleted')
+    showToast(res?.queued ? 'Saved locally. Will sync when online.' : 'island deleted')
     await load()
   } catch (e) {
     if (e !== 'cancel') showToast(e?.message || 'Delete failed')

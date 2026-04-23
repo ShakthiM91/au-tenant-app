@@ -29,23 +29,12 @@
           <div class="form-group">
             <label class="form-label subtle-label">Account</label>
             <div class="account-row">
-              <div class="account-selects">
-                <div class="fake-select">
-                  <span class="fake-select-text">{{ accountDisplayName }}</span>
-                  <svg class="fake-select-chev" width="12" height="8" viewBox="0 0 12 8" aria-hidden="true">
-                    <path fill="currentColor" d="M6 8L0 0h12z"/>
-                  </svg>
-                </div>
-                <div class="fake-select">
-                  <span class="fake-select-text">{{ accountTypeLabel }}</span>
-                  <svg class="fake-select-chev" width="12" height="8" viewBox="0 0 12 8" aria-hidden="true">
-                    <path fill="currentColor" d="M6 8L0 0h12z"/>
-                  </svg>
-                </div>
+              <div class="account-info">
+                <span v-if="workspaceLine" class="account-workspace-line">{{ workspaceLine }}</span>
+                <span class="account-name-line">{{ accountDisplayName }}</span>
               </div>
               <span class="account-bal">Bal: {{ formatCurrency(currentBalance, account.currency) }}</span>
             </div>
-            <p v-if="workspaceLine" class="account-workspace-sub">{{ workspaceLine }}</p>
           </div>
 
           <div class="form-group">
@@ -200,23 +189,6 @@ const accountDisplayName = computed(() => {
   const n = props.account?.name
   return n != null && String(n).trim() !== '' ? String(n).trim() : 'Account'
 })
-
-const accountTypeLabel = computed(() => formatAccountType(props.account?.type))
-
-function formatAccountType(t) {
-  const map = {
-    bank: 'Bank',
-    cash: 'Cash',
-    credit_card: 'Credit Card',
-    loan: 'Loan',
-    savings: 'Savings',
-    investment: 'Investment',
-    other: 'Other'
-  }
-  if (t == null || t === '') return 'Other'
-  const key = String(t).toLowerCase()
-  return map[key] || String(t).replace(/_/g, ' ')
-}
 
 const gapDisplayAmount = computed(() => {
   if (difference.value === null) return ''
@@ -446,13 +418,6 @@ async function handleSubmit() {
   font-weight: 400;
 }
 
-.account-workspace-sub {
-  margin: 8px 0 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: #9e9e9e;
-}
-
 /* Reconcile-specific */
 .account-row {
   display: flex;
@@ -462,39 +427,30 @@ async function handleSubmit() {
   gap: 12px;
 }
 
-.account-selects {
+.account-info {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
   flex: 1;
   min-width: 0;
 }
 
-.fake-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
-  background: #fafafa;
-  font-size: 14px;
+.account-workspace-line {
+  font-size: 13px;
   font-weight: 500;
-  color: #1a1a2e;
-}
-
-.fake-select-text {
+  color: #9e9e9e;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
-  max-width: 140px;
 }
 
-.fake-select-chev {
-  flex-shrink: 0;
-  color: #a8a8a8;
+.account-name-line {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .account-bal {

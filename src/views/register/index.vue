@@ -255,7 +255,7 @@ function loginWithEmail() {
   height: 1px;
   background: rgba(168, 168, 168, 0.8);
   filter: blur(0.5px);
-}
+} 
 
 .divider-text {
   font-size: 14px;
@@ -267,7 +267,7 @@ function loginWithEmail() {
   display: flex;
   justify-content: center;
   gap: 15px;
-  margin-top: 25px;
+  margin-top: -34px;
 }
 
 .icon-btn {

@@ -127,8 +127,8 @@
                 @click.stop="openTypeMenu"
               >
                 <span class="filter-pill-label filter-pill-label-truncate">{{ flowTypeButtonLabel }}</span>
-                <svg class="filter-caret-solid" width="10" height="6" viewBox="0 0 10 6" aria-hidden="true">
-                  <path fill="#A8A8A8" d="M0 0h10L5 6z"/>
+                <svg class="filter-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
                 </svg>
               </button>
               <div v-if="typeMenuOpen" class="filter-flyout filter-flyout-type" @click.stop>

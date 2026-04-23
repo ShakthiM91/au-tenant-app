@@ -116,7 +116,7 @@
             class="popover-item"
             @click="handleAction('add-child')"
           >
-            <ion-label>Sub-Category</ion-label>
+            <ion-label>Add a Sub-Category</ion-label>
           </ion-item>
           <ion-item
             button
@@ -445,6 +445,8 @@ ion-popover.category-actions-popover::part(content) {
   border-radius: 14px;
   box-shadow: 0 3px 4px rgba(0, 0, 0, 0.16);
   background: #ffffff;
+  /* Default popover width is tight; give room for longer action labels on one line */
+  min-width: min(218px, calc(100vw - 32px));
 }
 
 ion-popover.category-actions-popover .category-actions-popover-content {
@@ -478,6 +480,7 @@ ion-popover.category-actions-popover ion-item.popover-item {
 ion-popover.category-actions-popover ion-item.popover-item ion-label {
   margin: 10px 0;
   color: #000000;
+  white-space: normal;
 }
 
 ion-popover.category-actions-popover ion-item.popover-item--primary ion-label {

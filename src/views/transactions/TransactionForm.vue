@@ -500,7 +500,7 @@ import {
   IonItem,
   IonLabel
 } from '@ionic/vue'
-import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
+import { showToast, showToastIcon, showConfirmDialog } from '@/utils/ionicFeedback'
 import CategoryForm from '@/views/categories/components/CategoryForm.vue'
 import DatePicker from '@/components/DatePicker.vue'
 import TimePicker from '@/components/TimePicker.vue'
@@ -1377,11 +1377,10 @@ async function submit(stayAndAddNew = false) {
       form.title = ''
       form.description = ''
       form.amount = 0
-      form.transaction_date = getCurrentDateTimeString()
+      // Keep date/time, island (manualWorkspaceId / workspacePicked), account_id, and to_account_id
       form.category_id = null
-      form.to_account_id = null
       await loadCategories()
-      showToast('Saved. Add another.')
+      showToastIcon({ duration: 1000 })
     } else {
       router.back()
     }

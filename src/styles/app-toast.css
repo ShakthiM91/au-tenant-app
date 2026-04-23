@@ -73,3 +73,65 @@ ion-toast.app-toast.app-toast-variant-error::part(header),
 ion-toast.app-toast.app-toast-variant-success::part(header) {
   color: #1f1f1f;
 }
+
+/**
+ * Icon-only toasts (`showToastIcon`) — no viewport dim, no card behind the icon:
+ * only the ionicon (e.g. checkmark circle) is visible; wrapper is cleared in JS + CSS.
+ */
+ion-toast.app-toast-icon {
+  --background: transparent;
+  --border-width: 0;
+  --border-radius: 0;
+  --box-shadow: none;
+  --width: auto;
+  --max-width: none;
+  --min-height: auto;
+  --start: 0;
+  --end: 0;
+  background: transparent;
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+ion-toast.app-toast-icon.app-toast-icon--success {
+  --color: #22c55e;
+}
+
+/* Intentionally no full-screen overlay */
+ion-toast.app-toast-icon::before {
+  display: none;
+}
+
+ion-toast.app-toast-icon::part(container) {
+  /* Center in the viewport; ignore wrapper/middle `top` after compact layout. */
+  position: fixed;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  width: auto;
+  max-width: none;
+  line-height: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+ion-toast.app-toast-icon::part(message) {
+  display: none;
+}
+
+ion-toast.app-toast-icon::part(icon) {
+  display: block;
+  margin: 0;
+  font-size: 56px;
+  line-height: 0;
+  /* Glyph only: no extra glow/boxy halo (was green + dark drop-shadows) */
+  filter: none;
+}

@@ -1,4 +1,24 @@
 import { toastController, alertController, actionSheetController } from '@ionic/vue'
+import { checkmarkCircle } from 'ionicons/icons'
+
+/**
+ * ion-toast leaves an empty `.toast-content` with `flex: 1`, which misaligns a lone icon.
+ * Placement (viewport center) is handled in `app-toast.css` for `ion-toast.app-toast-icon::part(container)`.
+ * @param {HTMLElement} toastEl
+ */
+function applyCompactIconToastLayout(toastEl) {
+  const root = toastEl?.shadowRoot
+  if (!root) return
+  const content = root.querySelector('.toast-content')
+  if (content) content.style.display = 'none'
+  const wrap = root.querySelector('.toast-wrapper')
+  if (wrap) {
+    wrap.style.background = 'transparent'
+    wrap.style.boxShadow = 'none'
+    wrap.style.setProperty('backdrop-filter', 'none')
+    wrap.style.setProperty('-webkit-backdrop-filter', 'none')
+  }
+}
 
 /** Default headings when `variant` is set and `title` is omitted. */
 const DEFAULT_TOAST_TITLES = {
@@ -14,16 +34,15 @@ export async function showActionSheet({ header, buttons }) {
 }
 
 /**
+ * Standard message toasts: centered card + dimmed backdrop (see `app-toast.css`).
+ *
  * @param {string | {
  *   message: string,
  *   title?: string,
  *   duration?: number,
- *   variant?: 'success' | 'error'
+ *   variant?: 'success' | 'error',
+ *   cssClass?: string | string[]
  * }} messageOrOptions
- *
- * - Pass a string for message-only toasts (no header).
- * - Pass `title` for a custom heading. Use `title: ''` to force no heading even when `variant` is set.
- * - Pass `variant: 'success' | 'error'` to use the default heading for that outcome when `title` is omitted.
  */
 export async function showToast(messageOrOptions) {
   const opts =
@@ -50,16 +69,51 @@ export async function showToast(messageOrOptions) {
   if (title) cssClass.push('app-toast-with-header')
   if (variant === 'error') cssClass.push('app-toast-variant-error')
   if (variant === 'success') cssClass.push('app-toast-variant-success')
+  if (opts.cssClass) {
+    const extra = Array.isArray(opts.cssClass) ? opts.cssClass : [opts.cssClass]
+    cssClass.push(...extra.filter(Boolean))
+  }
 
   const toast = await toastController.create({
     header: title,
-    message,
+    message: message ?? '',
     duration,
     position: 'middle',
     layout: title ? 'stacked' : 'baseline',
     cssClass
   })
   await toast.present()
+}
+
+/**
+ * Lightweight icon-only feedback: small floating badge, no full-screen dim.
+ * Pass an icon from `ionicons/icons` or omit to use the default success checkmark.
+ *
+ * @param {{
+ *   icon?: string,
+ *   duration?: number,
+ *   variant?: 'success'
+ * }} [options]
+ */
+export async function showToastIcon(options = {}) {
+  const { icon = checkmarkCircle, duration = 1200, variant = 'success' } = options
+
+  const cssClass = ['app-toast-icon']
+  if (variant === 'success') cssClass.push('app-toast-icon--success')
+
+  const toast = await toastController.create({
+    message: '',
+    duration,
+    position: 'middle',
+    layout: 'stacked',
+    cssClass,
+    icon
+  })
+  await toast.present()
+
+  toast.addEventListener('ionToastDidPresent', () => applyCompactIconToastLayout(toast), {
+    once: true
+  })
 }
 
 export async function showConfirmDialog({ title, message, confirmText = 'OK', cancelText = 'Cancel' }) {

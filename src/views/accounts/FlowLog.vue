@@ -11,7 +11,7 @@
           </button>
           <div class="header-center">
             <span class="header-title">{{ accountName }}</span>
-            <span class="header-subtitle">Transaction Log</span>
+            <span class="header-subtitle">Flow Log</span>
           </div>
           <div class="header-actions">
             <div class="flow-log-menu-wrapper" @click.stop>
