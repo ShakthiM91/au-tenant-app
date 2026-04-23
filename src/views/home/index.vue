@@ -38,6 +38,7 @@
               :key="item.label"
               type="button"
               class="qa-item"
+              @click="onQuickAction(item)"
             >
               <div class="qa-icon-wrap">
                 <ion-icon :icon="item.icon" class="qa-icon" aria-hidden="true" />
@@ -51,6 +52,7 @@
               :key="item.label"
               type="button"
               class="qa-item"
+              @click="onQuickAction(item)"
             >
               <div class="qa-icon-wrap">
                 <ion-icon :icon="item.icon" class="qa-icon" aria-hidden="true" />
@@ -217,7 +219,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent, IonIcon, IonSpinner, onIonViewDidEnter } from '@ionic/vue'
 import {
-  cashOutline,
+  serverOutline,
   barChartOutline,
   createOutline,
   peopleOutline,
@@ -442,6 +444,10 @@ function openRecurring(row) {
   router.push({ name: 'AccountFlowLog', params: { id: String(row.accountId) } })
 }
 
+function onQuickAction(item) {
+  if (item?.route) router.push(item.route)
+}
+
 onIonViewDidEnter(() => {
   loadHomeData()
 })
@@ -455,7 +461,7 @@ const bannerGradients = [
 ]
 
 const quickActionsRow1 = [
-  { label: 'Account\nBudget', icon: cashOutline },
+  { label: 'Account\nBudget', icon: serverOutline },
   { label: 'Account\nAnalytics', icon: barChartOutline },
   { label: 'Daily Check\nin', icon: createOutline },
   { label: 'Invite a\nFriend', icon: peopleOutline },
@@ -466,8 +472,8 @@ const quickActionsRow2 = [
   { label: 'About\nus', icon: businessOutline },
   { label: 'Reach\nus', icon: headsetOutline },
   { label: 'Explore\nPlans', icon: searchOutline },
-  { label: 'My\nProfile', icon: scanOutline },
-  { label: 'Settings', icon: settingsOutline },
+  { label: 'My\nProfile', icon: scanOutline, route: { name: 'ProfileMyProfile' } },
+  { label: 'Settings', icon: settingsOutline, route: { name: 'ProfileSettings' } },
 ]
 
 /*
