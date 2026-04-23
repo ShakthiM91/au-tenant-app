@@ -10,9 +10,9 @@ export function getTransactions(params) {
   })
 }
 
-/** Latest transactions for the tenant across all workspaces (omit workspace_id). */
+/** Latest transactions the current user created, only in workspaces they can access (see API recent_for_current_user). */
 export function getRecentTransactions(limit = 5) {
-  return getTransactions({ limit, offset: 0 })
+  return getTransactions({ limit, offset: 0, recent_for_current_user: 1 })
 }
 
 export function getCategories(type = null) {

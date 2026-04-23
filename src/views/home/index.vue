@@ -256,7 +256,7 @@ const recentActivityRows = computed(() =>
   recentTransactions.value.map((row) => ({
     id: row.id,
     title: (row.title || row.transaction_number || 'Transaction').toString().trim() || 'Transaction',
-    meta: `${getUserLabel(row)} at ${formatTime(row.transaction_date)}`,
+    meta: `You at ${formatTime(row.transaction_date)}`,
     amount: formatAmountHome(row),
     sub: accountSubLabel(row),
     amountClass:
@@ -302,10 +302,6 @@ const recurringFooterText = computed(() => {
   }
   return 'Repayments due in multiple currencies this month'
 })
-
-function getUserLabel(row) {
-  return row.created_by_name || row.user_name || 'Me'
-}
 
 function formatTime(s) {
   if (!s) return '—'
