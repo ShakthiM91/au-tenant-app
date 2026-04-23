@@ -164,19 +164,41 @@
           </div>
 
           <!-- Category (income/expense only) -->
-          <div v-if="showCategorySection" class="field-category">
+          <div
+            v-if="showCategorySection"
+            class="field-category"
+            :class="{ 'field-category--suggestions': form.category_id == null }"
+          >
             <label class="field-label">Category</label>
-            <button
-              type="button"
-              class="category-field-line field-trigger"
-              @click="showCategoryPicker = true"
-            >
-              <span
-                class="category-field-value"
-                :class="{ 'category-field-placeholder': !categoryText }"
-              >{{ categoryText || 'Select category' }}</span>
-              <svg class="field-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
+            <div class="category-field-line">
+              <button
+                type="button"
+                class="category-field-open field-trigger"
+                @click="showCategoryPicker = true"
+              >
+                <span
+                  class="category-field-value"
+                  :class="{ 'category-field-placeholder': !categoryText }"
+                >{{ categoryText || 'Select category' }}</span>
+              </button>
+              <button
+                v-if="form.category_id != null"
+                type="button"
+                class="category-field-clear"
+                aria-label="Clear category"
+                @click.stop="clearCategory"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              <button
+                type="button"
+                class="category-field-chevron-btn field-trigger"
+                aria-label="Open category list"
+                @click="showCategoryPicker = true"
+              >
+                <svg class="field-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
             <div class="category-pills">
               <template v-if="form.category_id == null">
                 <button
@@ -189,15 +211,6 @@
                   {{ c.text }}
                 </button>
               </template>
-              <button
-                v-if="canManageCategoriesInForm"
-                type="button"
-                class="category-pill category-pill-add"
-                @click="showCategoryForm = true"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add New Category
-              </button>
             </div>
             <!-- <button
               v-if="showBrowseAllCategories"
@@ -375,6 +388,9 @@
             <ion-button @click="showCategoryPicker = false">Cancel</ion-button>
           </ion-buttons>
           <ion-title>Category</ion-title>
+          <ion-buttons v-if="canManageCategoriesInForm" slot="end">
+            <ion-button @click="showCategoryForm = true">New category</ion-button>
+          </ion-buttons>
         </ion-toolbar>
       </ion-header>
       <ion-content>
@@ -711,6 +727,10 @@ const showBrowseAllCategories = computed(
 
 function selectCategory(value) {
   form.category_id = value
+}
+
+function clearCategory() {
+  form.category_id = null
 }
 
 const selectedAccount = computed(() => {
@@ -1750,6 +1770,10 @@ onMounted(async () => {
 
 .field-category {
   padding: 18px 0;
+}
+
+/* Bottom rule only when the pill row is present; otherwise it stacked with .category-field-line. */
+.field-category--suggestions {
   border-bottom: 1px solid rgba(168, 168, 168, 0.55);
 }
 
@@ -1761,16 +1785,56 @@ onMounted(async () => {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 4px;
   padding: 4px 0 12px;
   margin-bottom: 4px;
-  border: none;
   border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+}
+
+.category-field-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  border: none;
   background: none;
+  padding: 0;
   font-size: 16px;
   font-weight: 500;
   color: #1a1a2e;
   text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.category-field-clear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: #a8a8a8;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 6px;
+}
+
+.category-field-clear:active {
+  color: #666;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.category-field-chevron-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 0 2px;
+  border: none;
+  background: none;
+  color: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1814,13 +1878,6 @@ onMounted(async () => {
   background: rgba(255, 141, 40, 0.12);
   color: #e56700;
   border-color: rgba(255, 141, 40, 0.75);
-}
-
-.category-pill-add {
-  background: transparent;
-  border: 1.5px solid rgba(255, 141, 40, 0.65);
-  color: #ff8d28;
-  font-weight: 600;
 }
 
 .category-browse-all {
