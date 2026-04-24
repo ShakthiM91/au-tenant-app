@@ -153,14 +153,35 @@
           />
 
           <!-- Title -->
-          <div class="field-underline">
+          <div class="field-underline field-title-with-suggestions">
             <label class="field-label">Title</label>
             <input
               v-model="form.title"
               type="text"
               class="field-input"
               placeholder="Optional"
+              autocomplete="on"
+              @input="onTitleInput"
+              @blur="onTitleBlur"
             />
+            <div
+              v-if="!isEdit && showTitleSuggestions && titleSuggestions.length"
+              class="title-suggestions"
+            >
+              <button
+                v-for="txn in titleSuggestions"
+                :key="txn.id"
+                type="button"
+                class="title-suggestion-item"
+                @mousedown.prevent="applyTitleSuggestion(txn)"
+              >
+                <span class="suggestion-title">{{ txn.title }}</span>
+                <span class="suggestion-meta">
+                  {{ txn.type }} ·
+                  {{ categoryOptions.find((c) => c.value === Number(txn.category_id))?.text || '—' }}
+                </span>
+              </button>
+            </div>
           </div>
 
           <!-- Category (income/expense only) -->
@@ -199,18 +220,20 @@
                 <svg class="field-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
             </div>
-            <div class="category-pills">
-              <template v-if="form.category_id == null">
+            <div v-if="suggestedCategoryPills.length" class="category-suggestions-block">
+              <span class="category-suggestions-label">Suggested</span>
+              <div class="category-pills">
                 <button
                   v-for="c in suggestedCategoryPills"
-                  :key="c.value"
+                  :key="c.id"
                   type="button"
                   class="category-pill"
-                  @click="selectCategory(c.value)"
+                  :class="{ active: form.category_id === c.id }"
+                  @click="selectCategory(c.id)"
                 >
                   {{ c.text }}
                 </button>
-              </template>
+              </div>
             </div>
             <!-- <button
               v-if="showBrowseAllCategories"
@@ -525,6 +548,7 @@ import {
   createTransaction,
   updateTransaction,
   getTransactionById,
+  getTransactions,
   deleteTransaction,
   getCategoryTree,
   getAccounts,
@@ -610,6 +634,11 @@ const showTimePicker = ref(false)
 const showCalculator = ref(false)
 const showWorkspacePicker = ref(false)
 const workspaceSearchQuery = ref('')
+
+const recentTransactions = ref([])
+const titleSuggestions = ref([])
+const showTitleSuggestions = ref(false)
+let titleDebounceTimer = null
 
 const PICKER_LIST_SHEET_PCT = 72
 const PICKER_CURRENCY_SHEET_PCT = 55
@@ -714,19 +743,148 @@ function onTimeSelect(timeStr) {
   }
 }
 
-/** How many category chips to show before offering “browse all”. */
-const CATEGORY_PILL_PREVIEW_COUNT = 6
+/** Recent-usage picks first, then up to 6 more from the category list (one combined row, no duplicates). */
+const MAX_RECENT_CATEGORY_SUGGESTIONS = 5
+const CATEGORY_PILL_TREE_FILL = 6
+const suggestedCategoryPills = computed(() => {
+  if (isEdit) return []
+  if (form.type === 'transfer' || !categoryOptions.value.length) return []
 
-const suggestedCategoryPills = computed(() =>
-  categoryOptions.value.slice(0, CATEGORY_PILL_PREVIEW_COUNT)
-)
+  const fromRecent = []
+  if (recentTransactions.value.length) {
+    const now = new Date()
+    const currentDay = now.getDay()
+    const currentHour = now.getHours()
+    const freq = {}
+    for (const t of recentTransactions.value) {
+      if (t.type !== form.type || !t.category_id) continue
+      const d = new Date(t.transaction_date)
+      if (Number.isNaN(d.getTime())) continue
+      const dayMatch = d.getDay() === currentDay
+      const hourDiff = Math.abs(d.getHours() - currentHour)
+      if (!dayMatch && hourDiff > 2) continue
+      const key = Number(t.category_id)
+      freq[key] = (freq[key] || 0) + (dayMatch ? 2 : 1)
+    }
+    fromRecent.push(
+      ...Object.entries(freq)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, MAX_RECENT_CATEGORY_SUGGESTIONS)
+        .map(([id]) => {
+          const cat = categoryOptions.value.find((c) => c.value === Number(id))
+          return cat ? { id: Number(id), text: cat.text } : null
+        })
+        .filter(Boolean)
+    )
+  }
 
-const showBrowseAllCategories = computed(
-  () => categoryOptions.value.length > CATEGORY_PILL_PREVIEW_COUNT
-)
+  const seen = new Set(fromRecent.map((c) => c.id))
+  const out = [...fromRecent]
+  for (const c of categoryOptions.value) {
+    const id = Number(c.value)
+    if (seen.has(id)) continue
+    seen.add(id)
+    out.push({ id, text: c.text })
+    if (out.length - fromRecent.length >= CATEGORY_PILL_TREE_FILL) break
+  }
+  return out
+})
 
 function selectCategory(value) {
   form.category_id = value
+}
+
+async function fetchRecentTransactions() {
+  if (isEdit) return
+  try {
+    const r = await getTransactions({ limit: 100, offset: 0 })
+    const data = r?.data?.data ?? r?.data ?? []
+    recentTransactions.value = Array.isArray(data) ? data : []
+  } catch {
+    recentTransactions.value = []
+  }
+}
+
+function onTitleInput() {
+  if (isEdit) return
+  if (titleDebounceTimer) clearTimeout(titleDebounceTimer)
+  titleDebounceTimer = setTimeout(() => {
+    const q = (form.title || '').trim().toLowerCase()
+    if (q.length < 2) {
+      titleSuggestions.value = []
+      showTitleSuggestions.value = false
+      return
+    }
+    const seen = new Set()
+    const matches = []
+    for (const t of recentTransactions.value) {
+      const titleLower = (t.title || '').toLowerCase()
+      if (!titleLower || !titleLower.includes(q)) continue
+      if (seen.has(titleLower)) continue
+      seen.add(titleLower)
+      matches.push(t)
+      if (matches.length >= 5) break
+    }
+    titleSuggestions.value = matches
+    showTitleSuggestions.value = matches.length > 0
+    titleDebounceTimer = null
+  }, 300)
+}
+
+function onTitleBlur() {
+  setTimeout(() => {
+    showTitleSuggestions.value = false
+  }, 200)
+}
+
+async function applyTitleSuggestion(txn) {
+  if (!txn) return
+  form.title = txn.title || ''
+  form.amount = parseFloat(txn.amount) || 0
+  form.currency = txn.currency || form.currency
+  form.description = txn.description || ''
+  const newType = txn.type || form.type
+  const accountId = txn.account_id != null ? Number(txn.account_id) : null
+  const categoryId = txn.category_id != null ? Number(txn.category_id) : null
+  const toAccountId = txn.to_account_id != null ? Number(txn.to_account_id) : null
+  const txnWs =
+    txn.account_workspace_id != null && txn.account_workspace_id !== ''
+      ? Number(txn.account_workspace_id)
+      : null
+
+  showTitleSuggestions.value = false
+  titleSuggestions.value = []
+
+  if (!isEdit && workspaceIdFromRoute.value == null) {
+    workspacePicked.value = true
+    manualWorkspaceId.value = txnWs
+  }
+
+  suppressTypeWatchReset.value = true
+  try {
+    form.type = newType
+    if (newType === 'transfer') {
+      form.category_id = null
+    }
+    await loadCategories()
+    await loadAccountsForSelectedWorkspace({
+      preferredAccountId: accountId,
+      defaultToFirst: accountId == null
+    })
+    if (newType === 'transfer' && toAccountId != null) {
+      if (accountOptions.value.some((a) => Number(a.id) === toAccountId)) {
+        form.to_account_id = toAccountId
+      }
+    }
+    if (newType !== 'transfer' && categoryId != null) {
+      if (categoryOptions.value.some((c) => Number(c.value) === categoryId)) {
+        form.category_id = categoryId
+      }
+    }
+    checkCreditLimit()
+  } finally {
+    suppressTypeWatchReset.value = false
+  }
 }
 
 function clearCategory() {
@@ -1166,6 +1324,7 @@ function selectWorkspace(wsId) {
     .then(() => {
       loadCategories()
       checkCreditLimit()
+      fetchRecentTransactions()
     })
 }
 
@@ -1400,6 +1559,7 @@ async function submit(stayAndAddNew = false) {
       // Keep date/time, island (manualWorkspaceId / workspacePicked), account_id, and to_account_id
       form.category_id = null
       await loadCategories()
+      await fetchRecentTransactions()
       showToastIcon({ duration: 1000 })
     } else {
       router.back()
@@ -1496,6 +1656,7 @@ onMounted(async () => {
       defaultToFirst: true
     })
     checkCreditLimit()
+    await fetchRecentTransactions()
   }
 })
 </script>
@@ -1933,6 +2094,71 @@ onMounted(async () => {
   flex-shrink: 0;
   color: #ff8d28;
   opacity: 0.9;
+}
+
+.field-title-with-suggestions {
+  position: relative;
+  z-index: 2;
+}
+
+.title-suggestions {
+  margin-top: 8px;
+  background: #fff;
+  border: 1px solid rgba(168, 168, 168, 0.55);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.title-suggestion-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.title-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.title-suggestion-item:active {
+  background: #f5f5f5;
+}
+
+.suggestion-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.suggestion-meta {
+  font-size: 12px;
+  color: #a8a8a8;
+  text-transform: capitalize;
+}
+
+.category-suggestions-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.category-suggestions-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a8a8a8;
 }
 
 .field-underline {
