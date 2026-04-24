@@ -1,6 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { IonicVue } from '@ionic/vue'
+import VChart from 'vue-echarts'
+import '@/echarts/registerEcharts.js'
 import '@ionic/vue/css/core.css'
 import '@/styles/ion-select-flow-chevron.css'
 import '@/styles/app-toast.css'
@@ -19,6 +21,7 @@ app.use(pinia)
 app.use(IonicVue)
 app.use(router)
 setRouter(router)
+app.component('VChart', VChart)
 
 app.mount('#app')
 

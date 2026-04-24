@@ -458,7 +458,7 @@ const bannerGradients = [
 
 const quickActionsRow1 = [
   { label: 'Account\nBudget', icon: serverOutline },
-  { label: 'Account\nAnalytics', icon: barChartOutline },
+  { label: 'Account\nAnalytics', icon: barChartOutline, route: { name: 'Analytics' } },
   { label: 'Daily Check\nin', icon: createOutline },
   { label: 'Invite a\nFriend', icon: peopleOutline },
   { label: 'Rupee\nGuide', icon: schoolOutline },

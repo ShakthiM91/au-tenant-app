@@ -57,6 +57,11 @@ const routes = [
     component: () => import('@/views/home/index.vue'),
   },
   {
+    path: '/analytics',
+    name: 'Analytics',
+    component: () => import('@/views/analytics/index.vue'),
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     redirect: { name: 'Home' },

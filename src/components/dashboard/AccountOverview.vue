@@ -35,7 +35,7 @@
           </span>
         </div>
         <div class="chart-container income-chart">
-          <Line :data="incomeChartData" :options="incomeChartOptions" />
+          <VChart class="income-echart" :option="incomeOption" autoresize />
         </div>
       </div>
 
@@ -63,7 +63,9 @@
           </span>
         </div>
         <div class="chart-container donut-chart">
-          <Doughnut :data="expenseChartData" :options="expenseChartOptions" />
+          <div class="donut-pie">
+            <VChart class="donut-echart" :option="expenseOption" autoresize />
+          </div>
           <div class="donut-labels">
             <div v-for="cat in expenseCategories" :key="cat.label" class="donut-label">
               <span class="cat-name">{{ cat.label }}</span>
@@ -86,131 +88,107 @@
         </button>
       </div>
       <div class="cashflow-chart">
-        <Bar :data="cashFlowData" :options="cashFlowOptions" />
+        <VChart class="cashflow-echart" :option="cashFlowOption" autoresize />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { Line, Doughnut, Bar } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Filler,
-  Tooltip
-} from 'chart.js'
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Filler,
-  Tooltip
-)
-
 const selectedAccount = 'Household Expenses'
 
-// Income line/area chart
-const incomeChartData = {
-  labels: Array.from({ length: 30 }, (_, i) => i + 1),
-  datasets: [{
-    data: [
-      380000, 410000, 395000, 420000, 450000, 440000, 470000, 490000,
-      480000, 510000, 500000, 520000, 540000, 540919, 530000, 550000,
-      560000, 570000, 580000, 590000, 600000, 605000, 610000, 615000,
-      618000, 610000, 615000, 618000, 620000, 618000
-    ],
-    borderColor: '#52BF90',
-    backgroundColor: 'rgba(82, 191, 144, 0.1)',
-    fill: true,
-    tension: 0.4,
-    pointRadius: 0,
-    borderWidth: 2
-  }]
+const incomeValues = [
+  380000, 410000, 395000, 420000, 450000, 440000, 470000, 490000,
+  480000, 510000, 500000, 520000, 540000, 540919, 530000, 550000,
+  560000, 570000, 580000, 590000, 600000, 605000, 610000, 615000,
+  618000, 610000, 615000, 618000, 620000, 618000,
+]
+const dayLabels = Array.from({ length: 30 }, (_, i) => String(i + 1))
+
+const incomeOption = {
+  grid: { left: 0, right: 0, top: 0, bottom: 0, containLabel: false },
+  tooltip: { show: false },
+  legend: { show: false },
+  xAxis: { type: 'category', data: dayLabels, show: false },
+  yAxis: { type: 'value', show: false },
+  series: [
+    {
+      type: 'line',
+      data: incomeValues,
+      smooth: 0.4,
+      showSymbol: false,
+      lineStyle: { color: '#52BF90', width: 2 },
+      areaStyle: { color: 'rgba(82, 191, 144, 0.1)' },
+    },
+  ],
 }
 
-const incomeChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { tooltip: { enabled: false }, legend: { display: false } },
-  scales: {
-    x: { display: false },
-    y: { display: false }
-  }
-}
-
-// Expense donut chart
 const expenseCategories = [
   { label: 'Rent', pct: 30, color: '#75000A' },
   { label: 'Family', pct: 25, color: '#9C000D' },
   { label: 'Groceries', pct: 20, color: '#CF3340' },
   { label: 'Utility', pct: 15, color: '#DB6670' },
-  { label: 'Other', pct: 10, color: 'rgba(168, 168, 168, 0.8)' }
+  { label: 'Other', pct: 10, color: 'rgba(168, 168, 168, 0.8)' },
 ]
 
-const expenseChartData = {
-  labels: expenseCategories.map(c => c.label),
-  datasets: [{
-    data: expenseCategories.map(c => c.pct),
-    backgroundColor: expenseCategories.map(c => c.color),
-    borderWidth: 0,
-    cutout: '70%'
-  }]
-}
-
-const expenseChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { tooltip: { enabled: false }, legend: { display: false } }
-}
-
-// Cash flow bar chart
-const cashFlowData = {
-  labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-  datasets: [{
-    data: [120000, -35000, 130000, 115000, 118000, 80000, 48000, 105000, 23000, 130000, 30000, 38000],
-    backgroundColor: (ctx) => {
-      const val = ctx.raw
-      return val >= 80000 ? '#52BF90' : 'rgba(195, 0, 16, 0.74)'
+const expenseOption = {
+  tooltip: { show: false },
+  legend: { show: false },
+  series: [
+    {
+      type: 'pie',
+      radius: ['50%', '70%'],
+      data: expenseCategories.map((c) => ({
+        name: c.label,
+        value: c.pct,
+        itemStyle: { color: c.color },
+      })),
+      label: { show: false },
+      labelLine: { show: false },
     },
-    borderRadius: 3,
-    barPercentage: 0.55
-  }]
+  ],
 }
 
-const cashFlowOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { tooltip: { enabled: false }, legend: { display: false } },
-  scales: {
-    x: {
-      grid: { display: false },
-      ticks: { font: { size: 8 }, color: '#6E6A7C' }
+const cashFlowValues = [120000, -35000, 130000, 115000, 118000, 80000, 48000, 105000, 23000, 130000, 30000, 38000]
+const monthShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+const cashFlowOption = {
+  grid: { left: 4, right: 8, top: 4, bottom: 0, containLabel: true },
+  tooltip: { show: false },
+  legend: { show: false },
+  xAxis: {
+    type: 'category',
+    data: monthShort,
+    axisLine: { show: false },
+    axisTick: { show: false },
+    splitLine: { show: false },
+    axisLabel: { fontSize: 8, color: '#6E6A7C' },
+  },
+  yAxis: {
+    type: 'value',
+    min: -120000,
+    max: 200000,
+    interval: 40000,
+    splitLine: { lineStyle: { color: '#F0F0F0' } },
+    axisLine: { show: false },
+    axisTick: { show: false },
+    axisLabel: {
+      fontSize: 8,
+      color: '#6E6A7C',
+      formatter: (v) => (v === 0 ? '0' : `${v / 1000}k`),
     },
-    y: {
-      min: -120000,
-      max: 200000,
-      grid: { color: '#F0F0F0' },
-      ticks: {
-        font: { size: 8 },
-        color: '#6E6A7C',
-        callback: (v) => {
-          if (v === 0) return '0'
-          return (v / 1000) + 'k'
-        },
-        stepSize: 40000
-      }
-    }
-  }
+  },
+  series: [
+    {
+      type: 'bar',
+      data: cashFlowValues,
+      barWidth: '55%',
+      itemStyle: {
+        borderRadius: 3,
+        color: (p) => (p.value >= 80000 ? '#52BF90' : 'rgba(195, 0, 16, 0.74)'),
+      },
+    },
+  ],
 }
 </script>
 
@@ -340,6 +318,11 @@ const cashFlowOptions = {
   height: 80px;
 }
 
+.income-echart {
+  width: 100%;
+  min-height: 80px;
+}
+
 .donut-chart {
   display: flex;
   align-items: center;
@@ -347,9 +330,17 @@ const cashFlowOptions = {
   height: 86px;
 }
 
-.donut-chart canvas {
-  max-width: 86px;
-  max-height: 86px;
+.donut-pie {
+  width: 86px;
+  height: 86px;
+  flex-shrink: 0;
+}
+
+.donut-echart {
+  width: 100%;
+  height: 100%;
+  min-width: 86px;
+  min-height: 86px;
 }
 
 .donut-labels {
@@ -394,5 +385,10 @@ const cashFlowOptions = {
 
 .cashflow-chart {
   height: 135px;
+}
+
+.cashflow-echart {
+  width: 100%;
+  min-height: 135px;
 }
 </style>

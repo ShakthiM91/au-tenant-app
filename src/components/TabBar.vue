@@ -57,14 +57,13 @@ const tabs = [
     </svg>`
   },
   {
-    name: 'tasks',
-    route: '/tasks',
-    action: () => router.push('/tasks'),
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-      <rect x="3" y="3" width="7" height="7" rx="1"/>
-      <rect x="3" y="14" width="7" height="7" rx="1"/>
-      <rect x="14" y="3" width="7" height="7" rx="1"/>
-      <path d="M14 17.5L16.5 20L21 14"/>
+    name: 'analytics',
+    route: '/analytics',
+    action: () => router.push('/analytics'),
+    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="14" width="3" height="6" rx="0.5"/>
+      <rect x="9" y="10" width="3" height="10" rx="0.5"/>
+      <rect x="15" y="6" width="3" height="14" rx="0.5"/>
     </svg>`
   },
   {
