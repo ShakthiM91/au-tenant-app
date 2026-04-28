@@ -8,13 +8,41 @@
             <span v-if="workspaceMode === 'private'" class="workspace-mode-badge">Private</span>
           </span>
           <div class="header-actions">
-            <button class="icon-btn" @click="showSearch = !showSearch">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button
+              type="button"
+              class="icon-btn accounts-header-icon"
+              :class="{ 'accounts-header-icon--active': showSearch }"
+              @click="showSearch = !showSearch"
+            >
+              <svg
+                class="accounts-header-icon-svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
             </button>
-            <button class="icon-btn" @click="showSortMenu = !showSortMenu">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button
+              type="button"
+              class="icon-btn accounts-header-icon"
+              :class="{ 'accounts-header-icon--active': sortSelectionActive }"
+              @click="showSortMenu = !showSortMenu"
+            >
+              <svg
+                class="accounts-header-icon-svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="8" y2="18"/>
               </svg>
             </button>
@@ -550,6 +578,9 @@ const anyIslandAllowsAddAccount = computed(() =>
 )
 
 const headerShowsAddAccount = computed(() => anyIslandAllowsAddAccount.value)
+
+/** Sort sheet: highlight when user chose non-default (e.g. by balance). */
+const sortSelectionActive = computed(() => sortField.value !== 'name')
 
 /** Inviter label: prefer email (matches “user2@gami.com …”), then name, then fallback. */
 function inviterDisplayLabel(inv) {
@@ -1261,6 +1292,19 @@ onIonViewDidEnter(async () => {
   -webkit-tap-highlight-color: transparent;
 }
 
+.accounts-header-icon {
+  color: #a8a8a8;
+}
+
+.accounts-header-icon.accounts-header-icon--active {
+  color: #ff8d28;
+}
+
+.accounts-header-icon-svg :deep(circle),
+.accounts-header-icon-svg :deep(line) {
+  stroke: currentColor;
+}
+
 .search-bar {
   margin-bottom: 12px;
   min-width: 0;
@@ -1326,8 +1370,8 @@ onIonViewDidEnter(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 5px 0;
-  margin-bottom: 4px;
+  padding: 0 0;
+  margin-bottom: 0px;
 }
 
 .island-more-wrapper {
@@ -1423,7 +1467,7 @@ onIonViewDidEnter(async () => {
   font-size: 16px;
   font-weight: 500;
   color: rgba(0, 0, 0, 0.72);
-  line-height: 24px;
+  line-height: 20px;
 }
 
 .account-updated {
