@@ -62,7 +62,7 @@
         </div>
 
         <div class="accounts-island" v-if="!loading">
-          <!-- Pending workspace invitations (cross-tenant) -->
+          <!-- 1. Invitations (only when there are pending invites) -->
           <section v-if="pendingWorkspaceInvitations.length" class="section-block">
             <h3 class="section-label">Invitations</h3>
             <div class="invitation-cards">
@@ -96,112 +96,123 @@
             </div>
           </section>
 
-          <!-- My Accounts -->
-          <section v-if="myAccountsGroups.length" class="section-block">
-            <h3 class="section-label">My Accounts</h3>
-            <div class="island-cards">
-              <div
-                v-for="group in myAccountsGroups"
-                :key="'my-' + (group.island.id ?? 'default')"
-                class="island-card"
-                :class="{
-                  'above-menu-backdrop':
-                    isIslandPopoverOpenFor(group) || groupHasOpenAccountPopover(group)
-                }"
-              >
-                <div class="island-header">
-                  <span class="island-name">{{ group.island.name.endsWith('Island') ? group.island.name : group.island.name + ' Island' }}</span>
-                  <div class="island-more-wrapper" @click.stop>
-                    <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
-                        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                      </svg>
-                    </button>
-                    <Transition name="popover-fade">
-                      <div
-                        v-if="isIslandPopoverOpenFor(group)"
-                        class="island-options-popover"
-                        :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
-                        @click.stop
-                      >
-                        <button
-                          v-for="item in buildIslandMenuItems(group)"
-                          :key="item.role"
-                          type="button"
-                          class="island-popover-option"
-                          :class="{ destructive: item.destructive }"
-                          @click="onIslandPopoverSelect(item.role, group)"
+          <!-- 2. My accounts — own workspaces only; always shown (empty state when user has none) -->
+          <section class="section-block">
+            <h3 class="section-label">My accounts</h3>
+            <template v-if="myOwnWorkspaceGroups.length">
+              <div class="island-cards">
+                <div
+                  v-for="group in myOwnWorkspaceGroups"
+                  :key="'my-' + (group.island.id ?? 'default')"
+                  class="island-card"
+                  :class="{
+                    'above-menu-backdrop':
+                      isIslandPopoverOpenFor(group) || groupHasOpenAccountPopover(group)
+                  }"
+                >
+                  <div class="island-header">
+                    <span class="island-name">{{ group.island.name.endsWith('Island') ? group.island.name : group.island.name + ' Island' }}</span>
+                    <div class="island-more-wrapper" @click.stop>
+                      <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
+                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                        </svg>
+                      </button>
+                      <Transition name="popover-fade">
+                        <div
+                          v-if="isIslandPopoverOpenFor(group)"
+                          class="island-options-popover"
+                          :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
+                          @click.stop
                         >
-                          {{ item.label }}
-                        </button>
-                      </div>
-                    </Transition>
-                  </div>
-                </div>
-                <div v-if="group.accounts.length" class="account-rows">
-                  <div
-                    v-for="account in group.accounts"
-                    :key="account.id"
-                    class="account-row"
-                    @click="goFlowLog(account)"
-                  >
-                    <div class="account-left">
-                      <span class="account-name">{{ account.name }}</span>
-                      <span class="account-updated">{{ formatUpdatedAgo(account) }}</span>
-                    </div>
-                    <div class="account-right">
-                      <span v-if="account.current_balance != null || account.balance != null" class="account-balance">
-                        {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
-                      </span>
-                      <ion-icon :icon="peopleOutline" class="group-icon" />
-                      <div class="account-more-wrapper" @click.stop>
-                        <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, group, $event)">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
-                            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                          </svg>
-                        </button>
-                        <Transition name="popover-fade">
-                          <div
-                            v-if="isAccountPopoverOpenFor(account)"
-                            class="island-options-popover"
-                            :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
-                            @click.stop
+                          <button
+                            v-for="item in buildIslandMenuItems(group)"
+                            :key="item.role"
+                            type="button"
+                            class="island-popover-option"
+                            :class="{ destructive: item.destructive }"
+                            @click="onIslandPopoverSelect(item.role, group)"
                           >
-                            <button
-                              v-for="item in buildAccountMenuItems(account, group)"
-                              :key="item.role"
-                              type="button"
-                              class="island-popover-option"
-                              :class="{ destructive: item.destructive }"
-                              @click="onAccountPopoverSelect(item.role, account)"
+                            {{ item.label }}
+                          </button>
+                        </div>
+                      </Transition>
+                    </div>
+                  </div>
+                  <div v-if="group.accounts.length" class="account-rows">
+                    <div
+                      v-for="account in group.accounts"
+                      :key="account.id"
+                      class="account-row"
+                      @click="goFlowLog(account)"
+                    >
+                      <div class="account-left">
+                        <span class="account-name">{{ account.name }}</span>
+                        <span class="account-updated">{{ formatUpdatedAgo(account) }}</span>
+                      </div>
+                      <div class="account-right">
+                        <span v-if="account.current_balance != null || account.balance != null" class="account-balance">
+                          {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
+                        </span>
+                        <ion-icon :icon="peopleOutline" class="group-icon" />
+                        <div class="account-more-wrapper" @click.stop>
+                          <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, group, $event)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
+                              <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                            </svg>
+                          </button>
+                          <Transition name="popover-fade">
+                            <div
+                              v-if="isAccountPopoverOpenFor(account)"
+                              class="island-options-popover"
+                              :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
+                              @click.stop
                             >
-                              {{ item.label }}
-                            </button>
-                          </div>
-                        </Transition>
+                              <button
+                                v-for="item in buildAccountMenuItems(account, group)"
+                                :key="item.role"
+                                type="button"
+                                class="island-popover-option"
+                                :class="{ destructive: item.destructive }"
+                                @click="onAccountPopoverSelect(item.role, account)"
+                              >
+                                {{ item.label }}
+                              </button>
+                            </div>
+                          </Transition>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  <div v-else-if="!group.hasAccountsRaw" class="workspace-empty-prompt">
+                    <template v-if="islandScopeAllowsAddAccount(effectiveIslandPermissionScope(group.island))">
+                      <p>Create your first account in this island to start tracking balances and transactions.</p>
+                      <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
+                        Create your first account
+                      </button>
+                    </template>
+                    <template v-else>
+                      <p>No accounts in this island yet.</p>
+                    </template>
+                  </div>
+                  <p v-else class="workspace-search-empty">No accounts match your search.</p>
                 </div>
-                <div v-else-if="!group.hasAccountsRaw" class="workspace-empty-prompt">
-                  <template v-if="islandScopeAllowsAddAccount(effectiveIslandPermissionScope(group.island))">
-                    <p>Create your first account in this island to start tracking balances and transactions.</p>
-                    <button type="button" class="add-first-btn" @click="openAddAccountForGroup(group)">
-                      Create your first account
-                    </button>
-                  </template>
-                  <template v-else>
-                    <p>No accounts in this island yet.</p>
-                  </template>
-                </div>
-                <p v-else class="workspace-search-empty">No accounts match your search.</p>
+              </div>
+            </template>
+            <div v-else class="island-card my-accounts-empty-card">
+              <div class="empty-state workspace-empty-prompt my-accounts-empty">
+                <p>In order to create your first account,</p>
+                <p>Let's create an island first.</p>
+                <button type="button" class="add-first-btn" @click="onAddIsland">
+                  Create workspace
+                </button>
               </div>
             </div>
           </section>
 
-          <!-- Shared with Me -->
+          <!-- 3. Shared with me — only when there are shared workspaces to show -->
           <section v-if="sharedWithMeGroups.length" class="section-block">
-            <h3 class="section-label">Shared with Me</h3>
+            <h3 class="section-label">Shared with me</h3>
             <div class="island-cards">
               <div
                 v-for="group in sharedWithMeGroups"
@@ -304,19 +315,6 @@
             </div>
           </section>
 
-          <div
-            v-if="!myAccountsGroups.length && !sharedWithMeGroups.length && !pendingWorkspaceInvitations.length"
-            class="empty-state"
-          >
-            <p>No accounts found</p>
-            <button
-              v-if="anyIslandAllowsAddAccount"
-              class="add-first-btn"
-              @click="showAddMenu = true"
-            >
-              Add your first account
-            </button>
-          </div>
         </div>
 
         <div v-else class="loading-state">
@@ -530,7 +528,8 @@ const islandGroupsFiltered = computed(() =>
   }))
 )
 
-const myAccountsGroups = computed(() =>
+/** Own islands only (from GET /workspaces + optional legacy default island); excludes shared-with-me. */
+const myOwnWorkspaceGroups = computed(() =>
   islandGroupsFiltered.value.filter(g => !g.island.is_shared)
 )
 
@@ -1064,12 +1063,13 @@ async function load() {
 
     for (const ws of ownWorkspaces) {
       const accounts = ownAccounts.filter(byWorkspace(ws.id))
+      const isSharedWithMe = ws.is_shared_with_me === true
       groups.push({
         island: {
           id: ws.id,
           name: ws.name || 'My Island',
-          is_shared: false,
-          tenant_name: null,
+          is_shared: isSharedWithMe,
+          tenant_name: isSharedWithMe ? (ws.tenant_name ?? null) : null,
           can_share_workspace: ws.can_share_workspace === true,
           permission_scope: ws.permission_scope ?? null
         },
@@ -1285,36 +1285,41 @@ onIonViewDidEnter(async () => {
 }
 
 .accounts-island {
-  padding: 0 4px 16px;
+  padding: 4px 0 8px;
 }
 
-.section-block {
-  margin-bottom: 10px;
+/* Visual bands between Invitations / My accounts / Shared — matches grouped mock layout */
+.section-block:not(:last-child) {
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .section-block:last-child {
+  padding-bottom: 8px;
   margin-bottom: 0;
 }
 
 .section-label {
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 14px;
+  font-weight: 500;
   color: #A8A8A8;
-  margin: 0 0 10px 0;
+  margin: 0 0 12px 0;
   padding: 0;
+  letter-spacing: 0.02em;
 }
 
 .island-cards {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 12px;
 }
 
 .island-card {
   background: #fff;
-  border-radius: 13px;
-  padding: 10px;
-  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.16);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
 }
 
 .island-header {
@@ -1579,7 +1584,7 @@ onIonViewDidEnter(async () => {
   background: #fff;
   border-radius: 14px;
   padding: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
 }
 
 .invitation-text {
@@ -1624,8 +1629,11 @@ onIonViewDidEnter(async () => {
   border: 1px solid #d1d1d6;
 }
 
-.invitation-btn--accept {
-  background: #ff8d28;
-  color: #fff;
+.my-accounts-empty-card .empty-state {
+  padding: 20px 8px 12px;
+}
+
+.my-accounts-empty-card .workspace-empty-prompt p:last-of-type {
+  margin-bottom: 16px;
 }
 </style>
