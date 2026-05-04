@@ -220,48 +220,59 @@
           @select="onDateRangeSelect"
         />
 
-        <!-- Entry count (total from server when paginated) -->
-        <div v-if="!loading" class="entry-count">
-          Showing {{ flowLogEntriesDisplay }}
+        <!-- Entry count (total from server when paginated); matches Transactions index -->
+        <div v-if="!loading && flowLog.length" class="entry-count-wrapper">
+          <span class="entry-count-line" />
+          <span class="entry-count">Showing {{ flowLogEntriesDisplay }}</span>
+          <span class="entry-count-line" />
         </div>
 
-        <!-- Transactions (row layout matches Transactions index) -->
-        <div class="flow-log-list-card" v-if="!loading && flowLog.length">
+        <!-- Grouped by transaction date (same layout as Transactions index) -->
+        <div v-if="!loading && groupedByDate.length" class="transactions-list">
           <div
-            v-for="(row, idx) in flowLog"
-            :key="row.id"
-            class="transaction-row"
-            :class="{ 'has-separator': idx < flowLog.length - 1 }"
-            @click="openTransactionDetail(row)"
+            v-for="group in groupedByDate"
+            :key="group.dateKey"
+            class="day-group"
           >
-            <div class="tx-main">
-              <div class="tx-row-top">
-                <span class="tx-description">{{ flowRowPrimaryLabel(row) }}</span>
-                <span class="tx-top-right">
-                  <span class="tx-amount" :class="flowListAmountClass(row)">
-                    {{ formatFlowListAmountShort(row) }}
-                  </span>
-                </span>
-              </div>
-              <div class="tx-row-bottom">
-                <span class="tx-user-line">
-                  <svg class="person-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>
-                  </svg>
-                  {{ getFlowLogUserLabel(row) }} <strong>at</strong> {{ formatFlowLogListTime(row.transaction_date) }}
-                </span>
-                <span v-if="flowCategoryLabel(row)" class="tx-category-pill">{{ flowCategoryLabel(row) }}</span>
-                <span v-if="formatFlowLogBalanceLine(row)" class="tx-balance">{{ formatFlowLogBalanceLine(row) }}</span>
+            <div class="day-header">{{ group.dateLabel }}</div>
+            <div class="day-card">
+              <div
+                v-for="(row, idx) in group.items"
+                :key="row.id"
+                class="transaction-row"
+                :class="{ 'has-separator': idx < group.items.length - 1 }"
+                @click="openTransactionDetail(row)"
+              >
+                <div class="tx-main">
+                  <div class="tx-row-top">
+                    <span class="tx-description">{{ flowRowPrimaryLabel(row) }}</span>
+                    <span class="tx-top-right">
+                      <span class="tx-amount" :class="flowListAmountClass(row)">
+                        {{ formatFlowListAmountShort(row) }}
+                      </span>
+                    </span>
+                  </div>
+                  <div class="tx-row-bottom">
+                    <span class="tx-user-line">
+                      <svg class="person-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>
+                      </svg>
+                      {{ getFlowLogUserLabel(row) }} <strong>at</strong> {{ formatFlowLogListTime(row.transaction_date) }}
+                    </span>
+                    <span class="tx-category-pill">{{ flowCategoryLabel(row) || '-' }}</span>
+                    <span v-if="formatFlowLogBalanceLine(row)" class="tx-balance">{{ formatFlowLogBalanceLine(row) }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-else-if="loading" class="loading-state">
+        <div v-else-if="loading && flowLog.length === 0" class="loading-state">
           <ion-spinner name="crescent" />
         </div>
 
-        <div v-else class="empty-state">
+        <div v-else-if="!loading && flowLog.length === 0" class="empty-state">
           <p>No flow log entries</p>
         </div>
 
@@ -671,6 +682,44 @@ const flowLogEntriesDisplay = computed(() => {
   const t = pagination.value?.total
   const n = t != null ? Number(t) : flowLog.value.length
   return `${n} ${n === 1 ? 'entry' : 'entries'}`
+})
+
+const displayList = computed(() => flowLog.value)
+
+/** Normalize any date string to YYYY-MM-DD for grouping by calendar day (matches Transactions index). */
+function toDateKey(dateStr) {
+  if (!dateStr) return 'unknown'
+  const parsed = new Date(typeof dateStr === 'string' ? dateStr.replace(' ', 'T') : dateStr)
+  if (Number.isNaN(parsed.getTime())) return 'unknown'
+  const y = parsed.getFullYear()
+  const m = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function formatDateHeader(s) {
+  if (!s) return '-'
+  const d = new Date(String(s).split(' ')[0] || String(s).split('T')[0])
+  if (Number.isNaN(d.getTime())) return s
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+/** Group flow rows by transaction_date (newest day first). */
+const groupedByDate = computed(() => {
+  const items = displayList.value
+  const groups = new Map()
+  for (const row of items) {
+    const dateKey = toDateKey(row.transaction_date)
+    if (!groups.has(dateKey)) {
+      groups.set(dateKey, {
+        dateKey,
+        dateLabel: formatDateHeader(dateKey === 'unknown' ? '' : dateKey),
+        items: []
+      })
+    }
+    groups.get(dateKey).items.push(row)
+  }
+  return Array.from(groups.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
 })
 
 const dateRangeLabel = computed(() => {
@@ -1790,14 +1839,45 @@ onUnmounted(() => {
   color: rgba(195, 0, 16, 0.74);
 }
 
+.entry-count-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.entry-count-line {
+  flex: 1;
+  height: 1px;
+  background: #e0e0e0;
+}
+
 .entry-count {
-  font-size: 11px;
-  color: #A7A7A7;
-  margin-bottom: 8px;
+  font-size: 12px;
+  color: #a7a7a7;
+  white-space: nowrap;
+}
+
+.transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.day-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.day-header {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6e6a7c;
   padding-left: 4px;
 }
 
-.flow-log-list-card {
+.day-card {
   background: #fff;
   border-radius: 16px;
   padding: 0 14px;
