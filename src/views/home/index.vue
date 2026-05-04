@@ -256,6 +256,8 @@ const recurringMonthTotals = ref([])
 const recentActivityRows = computed(() =>
   recentTransactions.value.map((row) => ({
     id: row.id,
+    account_workspace_id: row.account_workspace_id,
+    account_workspace_name: row.account_workspace_name,
     title: (row.title || row.transaction_number || 'Transaction').toString().trim() || 'Transaction',
     meta: `${formatTransactionAuthorLabel(row, userStore.id)} at ${formatTime(row.transaction_date)}`,
     amount: formatAmountHome(row),
@@ -433,7 +435,14 @@ async function loadHomeData() {
 
 function openTransaction(row) {
   if (row?.id == null) return
-  router.push(`/transactions/${row.id}`)
+  const q = { focus_transaction_id: String(row.id) }
+  const wsId = row.account_workspace_id
+  const wsName = row.account_workspace_name
+  if (wsId != null && wsId !== '') {
+    q.workspace_id = String(wsId)
+    if (wsName) q.workspace_name = encodeURIComponent(wsName)
+  }
+  router.push({ name: 'Transactions', query: q })
 }
 
 function openRecurring(row) {

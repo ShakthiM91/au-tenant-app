@@ -195,6 +195,7 @@
                 :key="row.id"
                 class="transaction-row"
                 :class="{ 'has-separator': idx < group.items.length - 1 }"
+                :id="row._pending ? undefined : 'tx-row-' + row.id"
                 @click="onRowClick(row)"
               >
                 <div class="tx-main">
@@ -428,6 +429,13 @@ const workspaceName = computed(() => {
   const name = route.query.workspace_name
   return name ? decodeURIComponent(name) : null
 })
+
+function focusTransactionIdFromRoute() {
+  const raw = route.query.focus_transaction_id
+  if (raw == null || raw === '') return null
+  const n = Number(raw)
+  return Number.isNaN(n) ? null : n
+}
 
 const resolvedWorkspaceId = computed(() => {
   const id = workspaceId.value
@@ -1017,6 +1025,7 @@ async function onFilter() {
   listQuery.value.offset = 0
   finished.value = false
   await Promise.all([load(), fetchSummary()])
+  await tryScrollToFocusTransaction()
 }
 
 async function loadMore() {
@@ -1027,6 +1036,30 @@ async function refreshData() {
   listQuery.value.offset = 0
   finished.value = false
   await Promise.all([load(), fetchSummary()])
+  await tryScrollToFocusTransaction()
+}
+
+/**
+ * Deep-link: home (etc.) opens log with ?focus_transaction_id= — scroll into view after load, paginate if needed.
+ */
+async function tryScrollToFocusTransaction() {
+  const focusId = focusTransactionIdFromRoute()
+  if (focusId == null) return
+  await nextTick()
+  const maxExtraLoads = 25
+  for (let i = 0; i < maxExtraLoads; i++) {
+    const el = typeof document !== 'undefined' ? document.getElementById(`tx-row-${focusId}`) : null
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      const q = { ...route.query }
+      delete q.focus_transaction_id
+      router.replace({ query: q })
+      return
+    }
+    if (finished.value) break
+    await load(true)
+    await nextTick()
+  }
 }
 
 function onRowClick(row) {

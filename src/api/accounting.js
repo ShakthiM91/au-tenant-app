@@ -10,7 +10,7 @@ export function getTransactions(params) {
   })
 }
 
-/** Latest transactions the current user created, only in workspaces they can access (see API recent_for_current_user). */
+/** Most recent transactions across workspaces the user can access (`recent_for_current_user`); any author, not only the caller. */
 export function getRecentTransactions(limit = 5) {
   return getTransactions({ limit, offset: 0, recent_for_current_user: 1 })
 }
