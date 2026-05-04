@@ -167,10 +167,17 @@
           </section>
 
           <section v-if="!readonly && !editingMember" class="add-section">
-            <div class="add-people-heading">
+            <button
+              type="button"
+              class="add-people-heading"
+              :class="{ 'add-people-heading--expanded': addPeopleExpanded }"
+              :aria-expanded="addPeopleExpanded"
+              @click="toggleAddPeople"
+            >
               <ion-icon :icon="addOutline" class="add-people-icon" aria-hidden="true" />
               <span class="add-people-label">Add People</span>
-            </div>
+            </button>
+            <div v-show="addPeopleExpanded" class="add-people-fields">
             <label class="search-label" for="share-access-email">Full email address</label>
             <div class="search-row">
               <div class="search-input-wrap">
@@ -304,6 +311,7 @@
                 </div>
               </div>
             </div>
+            </div>
           </section>
           </div>
     </ion-content>
@@ -355,6 +363,8 @@ const islandName = computed(() => {
 
 const workspaceId = computed(() => props.group?.island?.id ?? null)
 const readonly = computed(() => !!props.group?.island?.is_shared)
+
+const addPeopleExpanded = ref(false)
 
 const searchEmail = ref('')
 const searchEmailError = ref('')
@@ -529,6 +539,19 @@ function closeEditMember() {
 function resetInviteForm() {
   resetInviteFlow()
   closeEditMember()
+}
+
+function toggleAddPeople() {
+  if (addPeopleExpanded.value) {
+    addPeopleExpanded.value = false
+    searchEmail.value = ''
+    searchEmailError.value = ''
+    searchNotFound.value = false
+    searchResults.value = []
+    resetInviteForm()
+  } else {
+    addPeopleExpanded.value = true
+  }
 }
 
 function buildPermissionsPayload() {
@@ -735,6 +758,7 @@ watch(
   () => [props.isOpen, workspaceId.value],
   async ([open, wsId]) => {
     if (open && wsId) {
+      addPeopleExpanded.value = false
       searchEmail.value = ''
       searchEmailError.value = ''
       searchNotFound.value = false
@@ -742,6 +766,7 @@ watch(
       resetInviteForm()
       await Promise.all([loadMembers(), loadWorkspaceAccounts()])
     } else if (!open) {
+      addPeopleExpanded.value = false
       searchEmail.value = ''
       searchEmailError.value = ''
       searchNotFound.value = false
@@ -858,7 +883,9 @@ async function removeMember(row) {
   try {
     await showConfirmDialog({
       title: 'Remove Member',
-      message: 'Remove this member from the workspace?'
+      message: islandName.value
+        ? `Remove this member from ${islandName.value}?`
+        : 'Remove this member from this workspace?'
     })
     await removeWorkspaceMember(workspaceId.value, row.id)
     showToast('Member removed')
@@ -940,8 +967,8 @@ async function removeMember(row) {
 
 .island-title {
   margin: 0 0 4px;
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
   color: #1c1c1e;
   text-align: center;
 }
@@ -1111,9 +1138,25 @@ async function removeMember(row) {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  margin: 0;
+  padding: 8px 0;
+  width: 100%;
+  border: none;
+  background: none;
   font-size: 17px;
   font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.add-people-heading:active {
+  opacity: 0.85;
+}
+
+.add-people-fields {
+  margin-top: 4px;
 }
 
 .add-people-icon {
@@ -1125,6 +1168,10 @@ async function removeMember(row) {
 .add-people-label {
   color: #1c1c1e;
   font-weight: 600;
+}
+
+.add-people-heading--expanded .add-people-label {
+  color: #ff8d28;
 }
 
 .search-label {
