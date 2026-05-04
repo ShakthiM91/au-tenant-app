@@ -8,13 +8,15 @@
     :handle="true"
   >
     <div class="share-access-sheet-top">
-    <header class="sheet-header">
-          <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
-          <h1 class="sheet-title">Share Access</h1>
-          <button type="button" class="btn-done" @click="$emit('close')">Done</button>
-        </header>
-
-    <p class="island-title">{{ islandName }}</p>
+      <header class="sheet-header">
+        <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
+        <h1 class="sheet-title">Share Access</h1>
+        <button type="button" class="btn-done" @click="$emit('close')">Done</button>
+      </header>
+      <div class="sheet-header-divider" aria-hidden="true" />
+      <div class="workspace-info">
+        <p class="island-title">{{ islandName }}</p>
+      </div>
     </div>
 
     <ion-content class="share-access-modal-content">
@@ -29,14 +31,11 @@
             </div>
             <div v-else class="members-list">
               <div v-for="m in sortedMembers" :key="m.id" class="member-row">
-                <div class="member-name-block">
+                <div class="member-primary">
                   <span class="member-name">{{ displayName(m) }}</span>
+                  <span v-if="isOwnerMember(m)" class="badge-owner">Owner</span>
                 </div>
-
-                <template v-if="m.role === 'owner'">
-                  <span class="badge-owner">Owner</span>
-                </template>
-                <template v-else>
+                <div v-if="!isOwnerMember(m)" class="member-trailing">
                   <span
                     v-if="statusLabel(m)"
                     class="member-status-label"
@@ -61,7 +60,7 @@
                       <ion-icon :icon="trashOutline" />
                     </button>
                   </div>
-                </template>
+                </div>
               </div>
             </div>
           </section>
@@ -170,7 +169,7 @@
           <section v-if="!readonly && !editingMember" class="add-section">
             <div class="add-people-heading">
               <ion-icon :icon="addOutline" class="add-people-icon" aria-hidden="true" />
-              <span>Add People</span>
+              <span class="add-people-label">Add People</span>
             </div>
             <label class="search-label" for="share-access-email">Full email address</label>
             <div class="search-row">
@@ -383,12 +382,79 @@ const perm = ref({
 
 const roleOrder = { owner: 0, admin: 1, member: 2 }
 
+function memberRoleKey(m) {
+  return String(m?.role ?? '').toLowerCase()
+}
+
+/** Workspace owner row: explicit role or creator (covers legacy rows missing role). */
+function isOwnerMember(m) {
+  if (memberRoleKey(m) === 'owner') return true
+  const oid = inferredOwnerUserId.value
+  if (oid == null || Number.isNaN(oid)) return false
+  return Number(m.user_id) === oid
+}
+
+/** Creator id from workspace row; fallback when API omitted created_by (legacy / client gap). */
+const inferredOwnerUserId = computed(() => {
+  const island = props.group?.island
+  if (!island || workspaceId.value == null) return null
+  const raw = island.created_by
+  if (raw != null && raw !== '' && !Number.isNaN(Number(raw))) {
+    return Number(raw)
+  }
+  if (!island.is_shared && userStore.id != null) {
+    if (island.my_role === 'owner' || island.can_share_workspace === true) {
+      return Number(userStore.id)
+    }
+  }
+  return null
+})
+
+/**
+ * API does not always include a member row for the workspace creator (legacy creates).
+ * Merge a synthetic owner row so "People with Access" always lists the owner with badge.
+ */
+const effectiveMembers = computed(() => {
+  const list = Array.isArray(members.value) ? [...members.value] : []
+  const oid = inferredOwnerUserId.value
+  if (oid == null || Number.isNaN(oid)) return list
+  const hasCreatorRow = list.some(
+    (m) => memberRoleKey(m) === 'owner' || Number(m.user_id) === oid
+  )
+  if (hasCreatorRow) return list
+  const island = props.group?.island
+  const isSelf = oid === Number(userStore.id)
+  return [
+    {
+      id: `synthetic-owner-${oid}`,
+      synthetic: true,
+      workspace_id: Number(workspaceId.value),
+      user_id: oid,
+      role: 'owner',
+      status: 'active',
+      user_name: isSelf
+        ? userStore.name || null
+        : island?.inviter_name || null,
+      user_email: isSelf
+        ? userStore.email || null
+        : island?.inviter_email || null
+    },
+    ...list
+  ]
+})
+
+function memberSortId(m) {
+  const n = Number(m.id)
+  if (!Number.isNaN(n)) return n
+  return 1e15 + Number(m.user_id)
+}
+
 const sortedMembers = computed(() =>
-  [...members.value].sort((a, b) => {
-    const ra = roleOrder[a.role] ?? 2
-    const rb = roleOrder[b.role] ?? 2
+  [...effectiveMembers.value].sort((a, b) => {
+    const ra = isOwnerMember(a) ? 0 : roleOrder[memberRoleKey(a)] ?? 2
+    const rb = isOwnerMember(b) ? 0 : roleOrder[memberRoleKey(b)] ?? 2
     if (ra !== rb) return ra - rb
-    return Number(a.id) - Number(b.id)
+    return memberSortId(a) - memberSortId(b)
   })
 )
 
@@ -406,8 +472,27 @@ function isInviteeCurrentUserById(userId) {
   return userStore.id != null && Number(userId) === Number(userStore.id)
 }
 
+function baseMemberLabel(m) {
+  let base = String(m.user_name ?? m.user_email ?? '').trim()
+  if (!base && isCurrentUser(m)) {
+    base = String(userStore.name || userStore.email || '').trim()
+  }
+  const island = props.group?.island
+  const ownerId = inferredOwnerUserId.value
+  if (
+    !base &&
+    ownerId != null &&
+    Number(m.user_id) === Number(ownerId) &&
+    !isCurrentUser(m)
+  ) {
+    base = String(island?.inviter_name || island?.inviter_email || '').trim()
+  }
+  if (!base) return `User #${m.user_id}`
+  return base
+}
+
 function displayName(m) {
-  const base = m.user_name || m.user_email || `User #${m.user_id}`
+  const base = baseMemberLabel(m)
   return isCurrentUser(m) ? `${base} (Me)` : base
 }
 
@@ -418,7 +503,7 @@ function statusLabel(m) {
 }
 
 const isAlreadyMember = (userId) =>
-  members.value.some((m) => Number(m.user_id) === Number(userId))
+  effectiveMembers.value.some((m) => Number(m.user_id) === Number(userId))
 
 function defaultPermState() {
   return {
@@ -579,7 +664,7 @@ function applyPermissionsFromGrantsList(grants) {
 }
 
 async function openEditMember(m) {
-  if (!workspaceId.value) return
+  if (!workspaceId.value || m.synthetic) return
   resetInviteFlow()
   editingMember.value = m
   loadingMemberGrants.value = true
@@ -769,6 +854,7 @@ async function sendInvite(user) {
 }
 
 async function removeMember(row) {
+  if (row.synthetic) return
   try {
     await showConfirmDialog({
       title: 'Remove Member',
@@ -796,8 +882,14 @@ async function removeMember(row) {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 0 8px 8px;
+  padding: 4px 8px 10px;
   flex-shrink: 0;
+}
+
+.sheet-header-divider {
+  height: 1px;
+  margin: 0 0 12px;
+  background: #e5e5ea;
 }
 
 .btn-cancel {
@@ -807,7 +899,7 @@ async function removeMember(row) {
   background: none;
   font-size: 17px;
   font-weight: 400;
-  color: #5856d6;
+  color: #8e8e93;
   cursor: pointer;
 }
 
@@ -834,6 +926,12 @@ async function removeMember(row) {
 
 .share-access-sheet-top {
   flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.workspace-info {
+  padding: 0 12px 16px;
+  text-align: center;
 }
 
 .adaptive-sheet-body {
@@ -841,7 +939,7 @@ async function removeMember(row) {
 }
 
 .island-title {
-  margin: 0 20px 20px;
+  margin: 0 0 4px;
   font-size: 17px;
   font-weight: 600;
   color: #1c1c1e;
@@ -854,8 +952,8 @@ async function removeMember(row) {
 
 .section-heading {
   font-size: 15px;
-  font-weight: 500;
-  color: #8e8e93;
+  font-weight: 600;
+  color: #3a3a3c;
   margin: 0 0 12px;
 }
 
@@ -878,40 +976,51 @@ async function removeMember(row) {
 .member-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 10px 0;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 6px 0;
   border-bottom: 1px solid #f2f2f7;
 }
 
-.member-name-block {
+.member-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex: 1;
   min-width: 0;
+}
+
+.member-trailing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .member-name {
   font-size: 17px;
   font-weight: 400;
   color: #1c1c1e;
-  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .badge-owner {
   flex-shrink: 0;
-  padding: 4px 10px;
-  font-size: 13px;
+  padding: 3px 8px;
+  font-size: 12px;
   font-weight: 600;
-  color: #fff;
-  background: #ff8d28;
-  border-radius: 100px;
+  color: #ff8d28;
+  background: rgba(255, 141, 40, 0.18);
+  border-radius: 6px;
 }
 
 .member-status-label {
   flex-shrink: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 400;
 }
 
@@ -926,10 +1035,9 @@ async function removeMember(row) {
 .member-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
 }
-
 .icon-btn {
   display: flex;
   align-items: center;
@@ -972,7 +1080,7 @@ async function removeMember(row) {
   background: none;
   font-size: 16px;
   font-weight: 400;
-  color: #5856d6;
+  color: #8e8e93;
   cursor: pointer;
 }
 
@@ -1006,12 +1114,17 @@ async function removeMember(row) {
   margin-bottom: 16px;
   font-size: 17px;
   font-weight: 600;
-  color: #ff8d28;
 }
 
 .add-people-icon {
   font-size: 22px;
   color: #ff8d28;
+  flex-shrink: 0;
+}
+
+.add-people-label {
+  color: #1c1c1e;
+  font-weight: 600;
 }
 
 .search-label {

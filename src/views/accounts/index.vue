@@ -1101,6 +1101,10 @@ async function load() {
           name: ws.name || 'My Island',
           is_shared: isSharedWithMe,
           tenant_name: isSharedWithMe ? (ws.tenant_name ?? null) : null,
+          created_by: ws.created_by != null && ws.created_by !== '' ? Number(ws.created_by) : null,
+          my_role: ws.my_role ?? null,
+          inviter_name: ws.invited_by_name ?? null,
+          inviter_email: ws.invited_by_email ?? null,
           can_share_workspace: ws.can_share_workspace === true,
           permission_scope: ws.permission_scope ?? null
         },
@@ -1134,6 +1138,9 @@ async function load() {
               name: ws.name || 'Shared Island',
               is_shared: true,
               tenant_name: ws.tenant_name,
+              created_by: ws.created_by != null && ws.created_by !== '' ? Number(ws.created_by) : null,
+              inviter_name: ws.invited_by_name ?? null,
+              inviter_email: ws.invited_by_email ?? null,
               permission_scope: ws.permission_scope || {
                 view: false,
                 add_transaction: false,
