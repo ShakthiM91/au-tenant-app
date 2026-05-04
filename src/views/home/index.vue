@@ -235,6 +235,7 @@ import FloatingAddButton from '@/components/FloatingAddButton.vue'
 import { getRecentTransactions, getUpcomingRepayments } from '@/api/accounting'
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { useUserStore } from '@/store/user'
+import { formatTransactionAuthorLabel } from '@/utils/transactionAuthorDisplay'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -256,7 +257,7 @@ const recentActivityRows = computed(() =>
   recentTransactions.value.map((row) => ({
     id: row.id,
     title: (row.title || row.transaction_number || 'Transaction').toString().trim() || 'Transaction',
-    meta: `You at ${formatTime(row.transaction_date)}`,
+    meta: `${formatTransactionAuthorLabel(row, userStore.id)} at ${formatTime(row.transaction_date)}`,
     amount: formatAmountHome(row),
     sub: accountSubLabel(row),
     amountClass:

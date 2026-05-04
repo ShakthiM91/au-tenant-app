@@ -359,17 +359,17 @@
           </div>
 
           <div class="detail-audit" v-if="hasAuditInfo(selectedTransaction)">
-            <div class="detail-audit-row" v-if="selectedTransaction.created_by_name">
+            <div class="detail-audit-row" v-if="transactionHasCreatedAudit(selectedTransaction)">
               <span class="detail-audit-label">Created by</span>
               <div class="detail-audit-right">
-                <span class="detail-audit-who">{{ selectedTransaction.created_by_name }}</span>
+                <span class="detail-audit-who">{{ formatTransactionAuthorLabel(selectedTransaction, userStore.id) }}</span>
                 <span class="detail-audit-when" v-if="selectedTransaction.created_at">On {{ formatDateAtTime(selectedTransaction.created_at) }}</span>
               </div>
             </div>
             <div class="detail-audit-row" v-if="selectedTransaction.updated_by_name || selectedTransaction.updated_at">
               <span class="detail-audit-label">Last edited by</span>
               <div class="detail-audit-right">
-                <span class="detail-audit-who">{{ selectedTransaction.updated_by_name || '—' }}</span>
+                <span class="detail-audit-who">{{ formatTransactionEditorLabel(selectedTransaction, userStore.id) }}</span>
                 <span class="detail-audit-when" v-if="selectedTransaction.updated_at">On {{ formatDateAtTime(selectedTransaction.updated_at) }}</span>
               </div>
             </div>
@@ -404,7 +404,13 @@ import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { getPendingWrites, deleteEntry } from '@/db/pendingWrites'
 import { useSyncStore } from '@/store/sync'
+import { useUserStore } from '@/store/user'
 import { refreshBootstrapCache } from '@/utils/bootstrapCache'
+import {
+  formatTransactionAuthorLabel,
+  formatTransactionEditorLabel,
+  transactionHasCreatedAudit
+} from '@/utils/transactionAuthorDisplay'
 import FloatingAddButton from '@/components/FloatingAddButton.vue'
 
 import DateRangePicker from '@/components/DateRangePicker.vue'
@@ -412,6 +418,7 @@ import DateRangePicker from '@/components/DateRangePicker.vue'
 const router = useRouter()
 const route = useRoute()
 const syncStore = useSyncStore()
+const userStore = useUserStore()
 
 const workspaceId = computed(() => {
   const id = route.query.workspace_id
@@ -649,8 +656,7 @@ function formatTime(s) {
 }
 
 function getUserLabel(row) {
-  // TODO: resolve created_by to user name when API provides it
-  return row.created_by_name || row.user_name || 'Me'
+  return formatTransactionAuthorLabel(row, userStore.id)
 }
 
 function formatBalance(row) {
@@ -713,7 +719,11 @@ function detailReferenceLabel(row) {
 
 function hasAuditInfo(row) {
   if (!row) return false
-  return !!(row.created_by_name || row.updated_by_name || row.updated_at)
+  return !!(
+    transactionHasCreatedAudit(row) ||
+    row.updated_by_name ||
+    row.updated_at
+  )
 }
 
 function formatDetailPrimaryAmount(row) {

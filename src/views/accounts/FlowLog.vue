@@ -373,17 +373,17 @@
           </div>
 
           <div class="detail-audit" v-if="hasAuditInfo(selectedTransaction)">
-            <div class="detail-audit-row" v-if="selectedTransaction.created_by_name">
+            <div class="detail-audit-row" v-if="transactionHasCreatedAudit(selectedTransaction)">
               <span class="detail-audit-label">Created by</span>
               <div class="detail-audit-right">
-                <span class="detail-audit-who">{{ selectedTransaction.created_by_name }}</span>
+                <span class="detail-audit-who">{{ formatTransactionAuthorLabel(selectedTransaction, userStore.id) }}</span>
                 <span class="detail-audit-when" v-if="selectedTransaction.created_at">On {{ formatDateAtTime(selectedTransaction.created_at) }}</span>
               </div>
             </div>
             <div class="detail-audit-row" v-if="selectedTransaction.updated_by_name || selectedTransaction.updated_at">
               <span class="detail-audit-label">Last edited by</span>
               <div class="detail-audit-right">
-                <span class="detail-audit-who">{{ selectedTransaction.updated_by_name || '—' }}</span>
+                <span class="detail-audit-who">{{ formatTransactionEditorLabel(selectedTransaction, userStore.id) }}</span>
                 <span class="detail-audit-when" v-if="selectedTransaction.updated_at">On {{ formatDateAtTime(selectedTransaction.updated_at) }}</span>
               </div>
             </div>
@@ -437,6 +437,12 @@ import {
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { invalidateAccountingCache } from '@/db/readCache'
 import { useSyncStore } from '@/store/sync'
+import { useUserStore } from '@/store/user'
+import {
+  formatTransactionAuthorLabel,
+  formatTransactionEditorLabel,
+  transactionHasCreatedAudit
+} from '@/utils/transactionAuthorDisplay'
 import ReconcileModal from './components/ReconcileModal.vue'
 import AccountForm from './components/AccountForm.vue'
 import FloatingAddButton from '@/components/FloatingAddButton.vue'
@@ -446,6 +452,7 @@ import DateRangePicker from '@/components/DateRangePicker.vue'
 const route = useRoute()
 const router = useRouter()
 const syncStore = useSyncStore()
+const userStore = useUserStore()
 
 /** Flow log uses `/accounts/:id/flow-log`; `/transactions/:id` also uses `params.id` — scope by route name to avoid phantom loads when navigating to transaction edit. */
 const accountId = computed(() => {
@@ -834,7 +841,7 @@ function formatFlowLogListTime(s) {
 }
 
 function getFlowLogUserLabel(row) {
-  return row?.created_by_name || row?.user_name || 'Me'
+  return formatTransactionAuthorLabel(row, userStore.id)
 }
 
 function formatFlowLogBalanceLine(row) {
@@ -876,7 +883,12 @@ function detailReferenceLabel(row) {
 }
 
 function hasAuditInfo(row) {
-  return !!(row.created_by_name || row.updated_by_name || row.updated_at)
+  if (!row) return false
+  return !!(
+    transactionHasCreatedAudit(row) ||
+    row.updated_by_name ||
+    row.updated_at
+  )
 }
 
 function formatFlowType(type) {
