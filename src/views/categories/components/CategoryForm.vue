@@ -269,7 +269,7 @@ const hasParentCategory = computed(() => {
 const showTypeSegment = computed(() => !hasParentCategory.value)
 
 const formTitle = computed(() =>
-  isEdit.value ? 'Edit Category' : 'Add New Category'
+  isEdit.value ? 'Edit Category' : 'Add New'
 )
 
 const primaryActionLabel = computed(() => {

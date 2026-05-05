@@ -241,7 +241,14 @@ const { modalRef, breakpoints, initialBreakpoint } = useIonSheetHeight(
 
 const userStore = useUserStore()
 
-const suggestedNames = ['Cash', 'Bank Account', 'Credit Card', 'PayPal','Binance Account']
+const suggestedNames = ['Cash', 'Bank Account', 'Credit Card', 'PayPal', 'Binance Account']
+
+/** When a suggested name is chosen, align account type for obvious matches. */
+const suggestedNameToType = {
+  'Bank Account': 'bank',
+  Cash: 'cash',
+  'Credit Card': 'credit_card'
+}
 
 const isEdit = computed(() => !!props.account?.id)
 const saving = ref(false)
@@ -393,6 +400,8 @@ async function applyDefaultCurrencyForNewAccountForm() {
 
 function selectSuggestedName(s) {
   form.name = s
+  const mapped = suggestedNameToType[s]
+  if (mapped) form.type = mapped
   showSuggestedNames.value = false
 }
 
