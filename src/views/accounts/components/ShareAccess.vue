@@ -67,7 +67,6 @@
 
           <section v-if="!readonly && editingMember" class="edit-member-section">
             <div class="edit-member-header">
-              <button type="button" class="btn-edit-cancel" @click="closeEditMember">Cancel</button>
               <h2 class="section-heading edit-member-heading">Edit access</h2>
             </div>
             <p class="edit-member-name">{{ displayName(editingMember) }}</p>
@@ -153,10 +152,15 @@
                     <span class="account-chip-label">{{ acc.name }}</span>
                   </label>
                 </div>
+              </div>
 
+              <div class="edit-member-actions">
+                <button type="button" class="btn-edit-cancel-paired" @click="closeEditMember">
+                  Cancel
+                </button>
                 <button
                   type="button"
-                  class="btn-invite-primary"
+                  class="btn-invite-primary btn-edit-save"
                   :disabled="savingMemberGrants || !canSaveMemberGrants"
                   @click="saveMemberGrants"
                 >
@@ -178,35 +182,41 @@
               <span class="add-people-label">Add People</span>
             </button>
             <div v-show="addPeopleExpanded" class="add-people-fields">
-            <label class="search-label" for="share-access-email">Full email address</label>
-            <div class="search-row">
-              <div class="search-input-wrap">
+            <label class="search-label" for="share-access-email">Search user by email</label>
+            <div class="search-email-block">
+              <div class="search-input-line">
                 <input
                   id="share-access-email"
                   v-model="searchEmail"
                   type="email"
-                  class="input-underline"
+                  class="input-underline input-underline--in-line"
                   :class="{ 'input-underline--invalid': searchEmailError }"
                   placeholder="name@example.com"
                   autocomplete="email"
                   inputmode="email"
                   @keyup.enter="searchUsers"
                 />
-                <p v-if="searchEmailError" class="search-feedback search-feedback--error" role="alert">
-                  {{ searchEmailError }}
-                </p>
-                <p v-else-if="searchNotFound" class="search-feedback search-feedback--muted">
-                  No user registered with this email was found.
-                </p>
+                <button
+                  type="button"
+                  class="btn-search-icon"
+                  :disabled="searching || !searchEmail?.trim()"
+                  aria-label="Search by email"
+                  @click="searchUsers"
+                >
+                  <ion-spinner
+                    v-if="searching"
+                    name="crescent"
+                    class="search-action-spinner"
+                  />
+                  <ion-icon v-else :icon="searchOutline" aria-hidden="true" />
+                </button>
               </div>
-              <button
-                type="button"
-                class="btn-search-outlined"
-                :disabled="searching || !searchEmail?.trim()"
-                @click="searchUsers"
-              >
-                {{ searching ? '…' : 'Search' }}
-              </button>
+              <p v-if="searchEmailError" class="search-feedback search-feedback--error" role="alert">
+                {{ searchEmailError }}
+              </p>
+              <p v-else-if="searchNotFound" class="search-feedback search-feedback--muted">
+                No user registered with this email was found.
+              </p>
             </div>
             <div v-if="searchResults.length > 0" class="search-results">
               <div v-for="u in searchResults" :key="u.id" class="search-result-block">
@@ -322,7 +332,7 @@
 import { ref, computed, watch } from 'vue'
 import { IonModal, IonContent, IonSpinner, IonIcon } from '@ionic/vue'
 import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
-import { createOutline, trashOutline, addOutline } from 'ionicons/icons'
+import { createOutline, trashOutline, addOutline, searchOutline } from 'ionicons/icons'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { useUserStore } from '@/store/user'
 import {
@@ -1094,27 +1104,46 @@ async function removeMember(row) {
 }
 
 .edit-member-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
-.btn-edit-cancel {
-  flex-shrink: 0;
-  padding: 6px 10px;
-  border: none;
-  background: none;
-  font-size: 16px;
-  font-weight: 400;
-  color: #8e8e93;
-  cursor: pointer;
+  margin-bottom: 8px;
 }
 
 .edit-member-heading {
   margin: 0;
-  flex: 1;
   text-align: center;
+}
+
+.edit-member-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  margin-top: 20px;
+  align-items: stretch;
+}
+
+.edit-member-actions .btn-edit-cancel-paired {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 50px;
+  margin: 0;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  border: 1px solid #d1d1d6;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #3a3a3c;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-edit-cancel-paired:active {
+  background: #f2f2f7;
 }
 
 .edit-member-name {
@@ -1181,16 +1210,55 @@ async function removeMember(row) {
   margin-bottom: 8px;
 }
 
-.search-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+.search-email-block {
   margin-bottom: 12px;
 }
 
-.search-input-wrap {
+.search-input-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input-underline--in-line {
   flex: 1;
   min-width: 0;
+}
+
+.btn-search-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #8e8e93;
+  cursor: pointer;
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-search-icon:active:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.btn-search-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-search-icon ion-icon {
+  font-size: 26px;
+}
+
+.search-action-spinner {
+  width: 24px;
+  height: 24px;
+  color: #8e8e93;
 }
 
 .input-underline {
@@ -1230,24 +1298,6 @@ async function removeMember(row) {
 
 .search-feedback--muted {
   color: #8e8e93;
-}
-
-.btn-search-outlined {
-  flex-shrink: 0;
-  margin-top: 8px;
-  padding: 10px 18px;
-  border: 1px solid #d1d1d6;
-  background: #fff;
-  color: #3a3a3c;
-  font-size: 15px;
-  font-weight: 500;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.btn-search-outlined:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .search-results {
@@ -1384,6 +1434,22 @@ async function removeMember(row) {
 .btn-invite-primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Edit access row: same box model as Cancel (border + box-sizing) and override full-width primary */
+.edit-member-actions .btn-invite-primary.btn-edit-save {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 50px;
+  width: auto;
+  margin-top: 0;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  border: 1px solid #ff8d28;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
 }
 
 .search-item-label {
