@@ -119,6 +119,7 @@
       :event="headerMoreEvent"
       :dismiss-on-select="true"
       :arrow="false"
+      alignment="end"
       class="categories-header-more-popover"
       @didDismiss="onHeaderMorePopoverDismiss"
     >

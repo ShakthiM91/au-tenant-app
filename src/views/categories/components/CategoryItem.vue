@@ -103,6 +103,7 @@
       :event="popoverEvent"
       :dismiss-on-select="true"
       :arrow="false"
+      alignment="end"
       class="category-actions-popover"
       @didDismiss="onPopoverDismiss"
     >
@@ -210,8 +211,17 @@ const rowAmountLabel = computed(() => {
   return v != null ? formatMoney(v) : null
 })
 
+/** Positioning reads `target`/`detail.ionShadowTarget` only (`reference="trigger"`). Use the button when the hit target is SVG. */
+function anchorEventForPopover(ev) {
+  const refEl = ev.currentTarget
+  if (refEl instanceof Element && refEl !== ev.target) {
+    return { target: refEl, detail: ev.detail ?? {} }
+  }
+  return ev
+}
+
 function openActions(ev) {
-  popoverEvent.value = ev
+  popoverEvent.value = anchorEventForPopover(ev)
   showActions.value = true
 }
 
