@@ -11,9 +11,7 @@
         <div class="tab-icon" v-html="tab.icon" />
       </button>
     </div>
-    <div class="home-indicator">
-      <div class="indicator-bar" />
-    </div>
+    
   </div>
 </template>
 
@@ -24,6 +22,12 @@ const router = useRouter()
 const route = useRoute()
 
 function isActive(tab) {
+  if (tab.name === 'add') {
+    return (
+      route.path === '/transactions/create' ||
+      /^\/transactions\/\d+$/.test(route.path)
+    )
+  }
   return tab.route && route.path.startsWith(tab.route)
 }
 
@@ -117,13 +121,7 @@ const tabs = [
   justify-content: center;
 }
 
-.home-indicator {
-  display: flex;
-  justify-content: center;
-  padding: 8px 0;
-  height: 21px;
-  box-sizing: border-box;
-}
+
 
 .indicator-bar {
   width: 134px;

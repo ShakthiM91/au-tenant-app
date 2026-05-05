@@ -518,6 +518,8 @@
         </div>
       </Transition>
     </Teleport>
+
+    <TabBar />
   </ion-page>
 </template>
 
@@ -540,6 +542,7 @@ import {
   IonLabel
 } from '@ionic/vue'
 import { showToast, showToastIcon, showConfirmDialog } from '@/utils/ionicFeedback'
+import TabBar from '@/components/TabBar.vue'
 import CategoryForm from '@/views/categories/components/CategoryForm.vue'
 import DatePicker from '@/components/DatePicker.vue'
 import TimePicker from '@/components/TimePicker.vue'
@@ -1679,7 +1682,7 @@ onMounted(async () => {
 .page-container {
   padding: 0 22px;
   padding-top: env(safe-area-inset-top, 12px);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 32px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 44px + 16px);
   min-height: 100%;
 }
 
