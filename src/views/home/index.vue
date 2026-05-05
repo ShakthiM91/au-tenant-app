@@ -98,7 +98,7 @@
           <div v-if="recurringLoading" class="recent-loading">
             <ion-spinner name="crescent" />
           </div>
-          <div v-else-if="!recurringRows.length" class="recent-empty">No upcoming repayments</div>
+          <div v-else-if="!recurringRows.length" class="recent-empty">No recurring transactions.</div>
           <div v-else class="list-body">
             <button
               v-for="row in recurringRows"
@@ -469,7 +469,7 @@ const bannerGradients = [
 const quickActionsRow1 = [
   { label: 'Account\nBudget', icon: serverOutline },
   { label: 'Account\nAnalytics', icon: barChartOutline, route: { name: 'Analytics' } },
-  { label: 'Daily Check\nin', icon: createOutline },
+  { label: 'Daily\nCheck in', icon: createOutline },
   { label: 'Invite a\nFriend', icon: peopleOutline },
   { label: 'Rupee\nGuide', icon: schoolOutline },
 ]
