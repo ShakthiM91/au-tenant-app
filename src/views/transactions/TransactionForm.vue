@@ -600,7 +600,7 @@ function dateToDatetimeLocal(s) {
 const form = reactive({
   transaction_number: '',
   title: '',
-  type: 'income',
+  type: 'expense',
   account_id: null,
   to_account_id: null,
   category_id: null,
