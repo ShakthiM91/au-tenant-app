@@ -114,7 +114,7 @@
                   <span class="dual-col-name">{{ selectedAccount?.name || 'Select account' }}</span>
                   <svg class="field-chevron dual-col-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
-                <span v-if="selectedAccount" class="dual-col-meta">
+                <span v-if="selectedAccount && !isEdit" class="dual-col-meta">
                   {{ formatCurrency(selectedAccount.current_balance ?? selectedAccount.balance ?? 0, selectedAccount.currency) }}
                 </span>
               </button>
@@ -907,6 +907,7 @@ const selectedToAccount = computed(() => {
 const accountText = computed(() => {
   const acc = selectedAccount.value
   if (!acc) return ''
+  if (isEdit) return acc.name
   const bal = acc.current_balance ?? acc.balance ?? 0
   return `${acc.name} (${formatCurrency(bal, acc.currency)})`
 })
@@ -914,6 +915,7 @@ const accountText = computed(() => {
 const toAccountText = computed(() => {
   const acc = selectedToAccount.value
   if (!acc) return ''
+  if (isEdit) return acc.name
   const bal = acc.current_balance ?? acc.balance ?? 0
   return `${acc.name} (${formatCurrency(bal, acc.currency)})`
 })
@@ -1173,6 +1175,45 @@ async function loadAccountsForSelectedWorkspace(options = {}) {
     accountOptions.value = []
     form.account_id = null
     syncNoAccountsGate()
+  }
+}
+
+/**
+ * Edit flow: load all accounts for the transaction's island so pickers list every account (create-only fetch is skipped when isEdit).
+ */
+async function hydrateAccountOptionsForEdit() {
+  const wid = editWorkspaceId.value
+  try {
+    let list = []
+    if (wid != null && wid !== '') {
+      const res = await getAccountsByWorkspace(Number(wid), { is_active: true })
+      list = extractAccountsList(res)
+    } else {
+      const res = await getAccounts({ is_active: true })
+      list = extractAccountsList(res).filter(
+        (a) => a.workspace_id == null || a.workspace_id === ''
+      )
+    }
+    const rows = list.map(normalizeAccountRow).filter(Boolean)
+    accountOptions.value = mergeUniqueAccounts(rows)
+
+    const ensureIds = [form.account_id, form.to_account_id]
+      .map((x) => (x != null ? Number(x) : null))
+      .filter((x) => x != null && !Number.isNaN(x))
+    for (const pref of ensureIds) {
+      if (!accountOptions.value.some((a) => Number(a.id) === pref)) {
+        try {
+          const res = await getAccountById(pref)
+          const acc = res?.data ?? res
+          const row = normalizeAccountRow(acc)
+          if (row) accountOptions.value = mergeUniqueAccounts([...accountOptions.value, row])
+        } catch (_) {
+          /* keep list without orphan id */
+        }
+      }
+    }
+  } catch (_) {
+    accountOptions.value = []
   }
 }
 
@@ -1492,8 +1533,11 @@ async function loadEdit() {
     form.category_id = null
     form.type = t.type || 'income'
 
-    setAccountOptionsFromTransaction(t)
     await loadOptions()
+    await hydrateAccountOptionsForEdit()
+    if (!accountOptions.value.length) {
+      setAccountOptionsFromTransaction(t)
+    }
     await loadCategories()
     await nextTick()
     form.category_id = catId
