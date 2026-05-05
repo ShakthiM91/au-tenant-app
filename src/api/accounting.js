@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import { CACHE_KEYS } from '@/db/readCache'
+import { CACHE_KEYS, removeCached } from '@/db/readCache'
 import { getWithCache } from '@/utils/cacheFirst'
 
 export function getTransactions(params) {
@@ -276,12 +276,19 @@ export function getPrimaryAccount() {
   )
 }
 
-export function setPrimaryAccount(accountId) {
-  return request({
+/** @param {number|null} accountId - null clears. @param {number|null|undefined} workspaceId - must match account (null = no-island account). */
+export async function setPrimaryAccount(accountId, workspaceId) {
+  const data =
+    accountId == null || accountId === ''
+      ? { account_id: null }
+      : { account_id: accountId, workspace_id: workspaceId }
+  const r = await request({
     url: '/api/accounting/primary-account',
     method: 'put',
-    data: { account_id: accountId }
+    data
   })
+  await removeCached(CACHE_KEYS.PRIMARY_ACCOUNT)
+  return r
 }
 
 // Budgets API

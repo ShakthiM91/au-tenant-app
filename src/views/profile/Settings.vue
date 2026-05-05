@@ -57,6 +57,35 @@
         </section>
 
         <section class="st-section">
+          <h2 class="st-section-title">New transaction</h2>
+          <p class="st-hint">Used when you open Add from the tab bar or home. Choose an island first, then an account on that island.</p>
+          <div class="st-block">
+            <button type="button" class="st-row" @click="onDefaultIsland">
+              <span class="st-label">Default island</span>
+              <div class="st-right">
+                <span class="st-value st-value-long">{{ defaultIslandLabel }}</span>
+                <ion-icon :icon="chevronForwardOutline" class="chevron" />
+              </div>
+            </button>
+            <button
+              type="button"
+              class="st-row"
+              :class="{ 'st-row-disabled': selectedIslandKey === undefined }"
+              @click="onDefaultAccountRow"
+            >
+              <span class="st-label">Default account</span>
+              <div class="st-right">
+                <span class="st-value st-value-long">{{ defaultAccountLabel }}</span>
+                <ion-icon :icon="chevronForwardOutline" class="chevron" />
+              </div>
+            </button>
+            <button type="button" class="st-row st-row-muted" @click="onClearTransactionDefaults">
+              <span class="st-label">Clear quick-create defaults</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="st-section">
           <h2 class="st-section-title">Notifications</h2>
           <div class="st-block">
             <button type="button" class="st-row" @click="toggleCheckIn">
@@ -126,6 +155,9 @@ import { chevronForwardOutline, headsetOutline } from 'ionicons/icons'
 import { useUserStore } from '@/store/user'
 import { getTenantSettings } from '@/api/settings'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
+import { setPrimaryAccount, getAccounts, getAccountsByWorkspace } from '@/api/accounting'
+import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
+import request from '@/utils/request'
 import { showToast as showFeedbackToast } from '@/utils/ionicFeedback'
 
 const LS = {
@@ -153,6 +185,28 @@ const memberActivityOn = ref(true)
 const enabledCurrencies = ref([])
 const tenantDefaultCurrency = ref(null)
 const logoutConfirmOpen = ref(false)
+
+/** Island list for picker: `{ key: 'null' | string id, idNum: null | number, name }` */
+const islandOptions = ref([])
+/** `undefined` = not chosen yet (disable account row); 'null' = no-island; number = workspace id */
+const selectedIslandKey = ref(undefined)
+const selectedAccountId = ref(null)
+const accountOptionsForIsland = ref([])
+
+const defaultIslandLabel = computed(() => {
+  const k = selectedIslandKey.value
+  if (k === undefined) return '—'
+  if (k === 'null') return 'Default (no island)'
+  const id = Number(k)
+  const row = islandOptions.value.find((o) => o.idNum === id)
+  return row?.name || '—'
+})
+
+const defaultAccountLabel = computed(() => {
+  if (selectedAccountId.value == null) return '—'
+  const row = accountOptionsForIsland.value.find((a) => Number(a.id) === Number(selectedAccountId.value))
+  return row?.name || `Account ${selectedAccountId.value}`
+})
 
 const defaultCurrencyLabel = computed(() => {
   const userCode = userStore.defaultCurrencyCode
@@ -192,6 +246,166 @@ function normalizeCurrencyList(res) {
   return Array.isArray(raw) ? raw : []
 }
 
+function canCreateInIsland(scope) {
+  if (!scope) return true
+  return !!(scope.add_transaction || scope.full_access || scope.implicit_full)
+}
+
+function extractAccountsList(res) {
+  if (!res) return []
+  const d = res.data
+  if (Array.isArray(d)) return d
+  if (d && Array.isArray(d.data)) return d.data
+  return []
+}
+
+async function loadIslandOptions() {
+  try {
+    const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
+    const own = Array.isArray(ownRes?.data) ? ownRes.data : []
+    const shared = Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []
+    const opts = [{ key: 'null', idNum: null, name: 'Default (no island)' }]
+    for (const ws of own) {
+      const s = ws.permission_scope
+      if (s && !canCreateInIsland(s)) continue
+      opts.push({
+        key: String(ws.id),
+        idNum: Number(ws.id),
+        name: ws.name || 'My island'
+      })
+    }
+    for (const ws of shared) {
+      const s = ws.permission_scope
+      if (s && !canCreateInIsland(s)) continue
+      opts.push({
+        key: String(ws.id),
+        idNum: Number(ws.id),
+        name: ws.tenant_name ? `${ws.name || 'Shared'} (${ws.tenant_name})` : ws.name || 'Shared island'
+      })
+    }
+    islandOptions.value = opts
+  } catch {
+    islandOptions.value = [{ key: 'null', idNum: null, name: 'Default (no island)' }]
+  }
+}
+
+async function loadAccountsForSelectedIsland() {
+  accountOptionsForIsland.value = []
+  const k = selectedIslandKey.value
+  if (k === undefined) return
+  try {
+    let list = []
+    if (k === 'null') {
+      const res = await getAccounts({ is_active: true })
+      list = extractAccountsList(res).filter(
+        (a) => a.workspace_id == null || a.workspace_id === ''
+      )
+    } else {
+      const res = await getAccountsByWorkspace(Number(k), { is_active: true })
+      list = extractAccountsList(res)
+    }
+    accountOptionsForIsland.value = list.map((a) => ({
+      id: Number(a.id),
+      name: (a.name && String(a.name).trim()) || `Account ${a.id}`
+    }))
+  } catch {
+    accountOptionsForIsland.value = []
+  }
+}
+
+async function loadTransactionDefaultsFromServer() {
+  try {
+    const res = await request({ url: '/api/accounting/primary-account', method: 'get' })
+    const d = res?.data
+    const aid = d?.account_id
+    const wid = d?.workspace_id
+    if (aid == null) {
+      selectedIslandKey.value = undefined
+      selectedAccountId.value = null
+      accountOptionsForIsland.value = []
+      return
+    }
+    selectedIslandKey.value = wid != null && wid !== '' ? String(Number(wid)) : 'null'
+    selectedAccountId.value = Number(aid)
+    await loadAccountsForSelectedIsland()
+  } catch {
+    selectedIslandKey.value = undefined
+    selectedAccountId.value = null
+    accountOptionsForIsland.value = []
+  }
+}
+
+async function onDefaultIsland() {
+  await loadIslandOptions()
+  const buttons = islandOptions.value.map((o) => ({
+    text: o.name,
+    handler: () => {
+      void (async () => {
+        selectedIslandKey.value = o.key
+        selectedAccountId.value = null
+        await loadAccountsForSelectedIsland()
+      })()
+    }
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Default island',
+    buttons
+  })
+  await sheet.present()
+}
+
+async function showAccountSheetAfterIsland() {
+  if (selectedIslandKey.value === undefined) return
+  await loadAccountsForSelectedIsland()
+  if (!accountOptionsForIsland.value.length) {
+    showFeedbackToast('No accounts on this island yet.')
+    return
+  }
+  const buttons = accountOptionsForIsland.value.map((a) => ({
+    text: a.name,
+    handler: () => {
+      void (async () => {
+        try {
+          const wid =
+            selectedIslandKey.value === 'null' ? null : Number(selectedIslandKey.value)
+          await setPrimaryAccount(Number(a.id), wid)
+          selectedAccountId.value = Number(a.id)
+          showFeedbackToast('Saved')
+        } catch (e) {
+          showFeedbackToast(e?.response?.data?.error || e?.message || 'Failed to save')
+        }
+      })()
+    }
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Default account',
+    buttons
+  })
+  await sheet.present()
+}
+
+async function onDefaultAccountRow() {
+  if (selectedIslandKey.value === undefined) {
+    showFeedbackToast('Choose a default island first.')
+    return
+  }
+  await showAccountSheetAfterIsland()
+}
+
+async function onClearTransactionDefaults() {
+  try {
+    await setPrimaryAccount(null, undefined)
+    selectedIslandKey.value = undefined
+    selectedAccountId.value = null
+    accountOptionsForIsland.value = []
+    showFeedbackToast('Cleared')
+  } catch (e) {
+    showFeedbackToast(e?.message || 'Failed')
+  }
+}
+
 async function loadCurrencyContext() {
   try {
     const [curRes, defRes] = await Promise.all([
@@ -206,7 +420,7 @@ async function loadCurrencyContext() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   try {
     const lang = localStorage.getItem(LS.language)
     if (lang) languageLabel.value = lang
@@ -221,6 +435,8 @@ onMounted(() => {
   }
 
   void loadCurrencyContext()
+  await loadIslandOptions()
+  await loadTransactionDefaultsFromServer()
 
   getTenantSettings()
     .then((res) => {
@@ -397,6 +613,22 @@ const logoutAlertButtons = [
   line-height: 12px;
   color: #6e6a7c;
   letter-spacing: 0.02em;
+}
+
+.st-hint {
+  margin: 0;
+  padding-left: 2px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #a8a8a8;
+}
+
+.st-row-muted .st-label {
+  color: #a8a8a8;
+}
+
+.st-row-disabled {
+  opacity: 0.45;
 }
 
 .st-block {

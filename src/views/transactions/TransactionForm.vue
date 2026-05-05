@@ -556,7 +556,8 @@ import {
   getCategoryTree,
   getAccounts,
   getAccountsByWorkspace,
-  getAccountById
+  getAccountById,
+  getPrimaryAccount
 } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
@@ -1688,18 +1689,41 @@ onMounted(async () => {
     await loadOptions()
     const queryType = route.query.type
     const queryAccountId = route.query.account_id
+    const hasExplicitRouteContext =
+      (route.query.workspace_id != null && route.query.workspace_id !== '') ||
+      (queryAccountId != null && queryAccountId !== '') ||
+      route.query.default_island === '1'
+
+    let preferredAccountId =
+      queryAccountId != null && queryAccountId !== '' ? Number(queryAccountId) : null
+    if (preferredAccountId != null && Number.isNaN(preferredAccountId)) preferredAccountId = null
+
+    if (preferredAccountId != null) {
+      await resolveWorkspaceFromAccountIfNeeded(preferredAccountId)
+    } else if (!hasExplicitRouteContext) {
+      try {
+        const pres = await getPrimaryAccount()
+        const payload = pres?.data
+        const aid = payload?.account_id
+        const wid = payload?.workspace_id
+        if (aid != null && wid !== undefined && !Number.isNaN(Number(aid))) {
+          workspacePicked.value = true
+          manualWorkspaceId.value = wid != null && wid !== '' ? Number(wid) : null
+          preferredAccountId = Number(aid)
+        }
+      } catch (_) {
+        /* keep manual island picker */
+      }
+    }
+
     if (queryType && validTypes.includes(queryType)) form.type = queryType
     form.transaction_number = `TXN-${Date.now()}`
     form.transaction_date = getCurrentDateTimeString()
     form.amount = 0
-    const accountId =
-      queryAccountId != null && queryAccountId !== '' ? Number(queryAccountId) : null
-    if (accountId != null && !Number.isNaN(accountId)) {
-      await resolveWorkspaceFromAccountIfNeeded(accountId)
-    }
     await loadCategories()
     await loadAccountsForSelectedWorkspace({
-      preferredAccountId: accountId != null && !Number.isNaN(accountId) ? accountId : null,
+      preferredAccountId:
+        preferredAccountId != null && !Number.isNaN(preferredAccountId) ? preferredAccountId : null,
       defaultToFirst: true
     })
     checkCreditLimit()
