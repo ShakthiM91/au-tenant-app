@@ -78,7 +78,11 @@
         </div>
 
         <!-- Filter row: search expands on the left; date / category / type stay on the right -->
-        <div class="ledger-filter-row" :class="{ 'ledger-filter-row--search-open': filterMode === 'search' }">
+        <div
+          ref="ledgerFilterRowRef"
+          class="ledger-filter-row"
+          :class="{ 'ledger-filter-row--search-open': filterMode === 'search' }"
+        >
           <div
             class="ledger-filter-search-slot"
             :class="{ 'ledger-filter-search-slot--expanded': filterMode === 'search' }"
@@ -135,34 +139,76 @@
                   <polyline points="6 9 12 15 18 9"/>
                 </svg>
               </button>
-              <div v-if="categoryMenuOpen" class="filter-flyout filter-flyout-categories" @click.stop>
-                <div v-if="categoriesLoading && !categoryMenuOptions.length" class="filter-flyout-loading">
-                  Loading…
-                </div>
-                <template v-else>
-                  <label class="filter-flyout-row">
-                    <input
-                      type="checkbox"
-                      class="filter-flyout-cb"
-                      :checked="categoryFilterIds.length === 0"
-                      @change="onAllCategoriesCheckboxChange"
-                    />
-                    <span class="filter-flyout-row-text">All categories</span>
-                  </label>
-                  <label
-                    v-for="opt in categoryMenuOptions"
-                    :key="opt.id"
-                    class="filter-flyout-row"
+              <div
+                v-if="categoryMenuOpen"
+                class="filter-flyout filter-flyout-categories"
+                :style="categoryFlyoutTopStyle"
+                @click.stop
+              >
+                <div class="filter-flyout-categories-scroll">
+                  <div
+                    v-if="categoriesLoading && !incomeCategoryTree.length && !expenseCategoryTree.length"
+                    class="filter-flyout-loading filter-flyout-categories-loading-inner"
                   >
-                    <input
-                      type="checkbox"
-                      class="filter-flyout-cb"
-                      :checked="isCategoryFilterSelected(opt.id)"
-                      @change="onCategoryCheckboxChange(opt.id, $event)"
-                    />
-                    <span class="filter-flyout-row-text">{{ opt.label }}</span>
-                  </label>
-                </template>
+                    Loading…
+                  </div>
+                  <template v-else>
+                    <div class="filter-flyout-cat-header">
+                      <label class="filter-flyout-row filter-flyout-row-all-categories">
+                        <input
+                          type="checkbox"
+                          class="filter-flyout-cb"
+                          :checked="categoryFilterIds.length === 0"
+                          @change="onAllCategoriesCheckboxChange"
+                        />
+                        <span class="filter-flyout-row-text filter-flyout-row-text-strong">All categories</span>
+                      </label>
+                      <div
+                        v-if="incomeCategoryTree.length || expenseCategoryTree.length"
+                        class="filter-flyout-categories-search-wrap"
+                      >
+                        <input
+                          v-model="categoryFilterSearch"
+                          type="search"
+                          class="filter-flyout-categories-search"
+                          placeholder="Search categories…"
+                          enterkeyhint="search"
+                          autocapitalize="off"
+                          autocomplete="off"
+                          spellcheck="false"
+                          @click.stop
+                        />
+                      </div>
+                    </div>
+                    <template v-if="categoryFilterHasRenderableTree">
+                      <div v-if="filteredIncomeCategoryTree.length" class="filter-flyout-cat-section">
+                        <div class="filter-flyout-cat-section-title">Income</div>
+                        <FlowLogCategoryTreeRows
+                          :nodes="filteredIncomeCategoryTree"
+                          :selected-set="categorySelectionSet"
+                          @toggle="onCategoryTreeToggle"
+                        />
+                      </div>
+                      <div v-if="filteredExpenseCategoryTree.length" class="filter-flyout-cat-section">
+                        <div class="filter-flyout-cat-section-title">Expense</div>
+                        <FlowLogCategoryTreeRows
+                          :nodes="filteredExpenseCategoryTree"
+                          :selected-set="categorySelectionSet"
+                          @toggle="onCategoryTreeToggle"
+                        />
+                      </div>
+                    </template>
+                    <div
+                      v-else-if="incomeCategoryTree.length || expenseCategoryTree.length"
+                      class="filter-flyout-loading filter-flyout-cat-empty"
+                    >
+                      No matching categories
+                    </div>
+                    <div v-else class="filter-flyout-loading filter-flyout-cat-empty">
+                      No categories
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
             <div class="filter-pill-wrap filter-pill-wrap-type">
@@ -446,6 +492,7 @@ import {
 import ReconcileModal from './components/ReconcileModal.vue'
 import AccountForm from './components/AccountForm.vue'
 import FloatingAddButton from '@/components/FloatingAddButton.vue'
+import FlowLogCategoryTreeRows from './components/FlowLogCategoryTreeRows.vue'
 
 import DateRangePicker from '@/components/DateRangePicker.vue'
 
@@ -488,9 +535,14 @@ const showAccountOptionsMenu = ref(false)
 const accountOptionsPopoverOpenUp = ref(false)
 const reconcileVisible = ref(false)
 const reconcileAccount = ref(null)
-/** Selected category ids (empty = no filter, show all). */
+/** Selected category ids (empty = no filter, show all). Parents imply subtree filter when querying. */
 const categoryFilterIds = ref([])
+/** Flat options for validation, pill labels (`Parent > Child`), and legacy category_labels. */
 const categoryMenuOptions = ref([])
+/** Hierarchical menus (income / expense roots). */
+const incomeCategoryTree = ref([])
+const expenseCategoryTree = ref([])
+const categoryFilterSearch = ref('')
 const categoriesLoading = ref(false)
 const accountWorkspaceId = ref(null)
 /** Display name for workspace (island); used in transaction/category query strings. */
@@ -503,6 +555,9 @@ const accountFormAccount = ref(null)
 const accountFormWorkspaceId = ref(null)
 const categoryMenuOpen = ref(false)
 const typeMenuOpen = ref(false)
+/** Sync category flyout `top` (fixed) to filter row; horizontal center is CSS. */
+const ledgerFilterRowRef = ref(null)
+const categoryFlyoutTopStyle = ref({})
 
 const workspaceIdFromQuery = computed(() => {
   const id = route.query.workspace_id
@@ -518,13 +573,63 @@ const filterTypeOptions = [
   { label: 'Transfer Out', value: 'transfer_out' }
 ]
 
+const categoryNodeById = computed(() => {
+  const m = new Map()
+  function walk(nodes) {
+    for (const n of nodes || []) {
+      m.set(Number(n.id), n)
+      if (n.children?.length) walk(n.children)
+    }
+  }
+  walk(incomeCategoryTree.value)
+  walk(expenseCategoryTree.value)
+  return m
+})
+
+const categorySelectionSet = computed(() => new Set(categoryFilterIds.value.map(Number)))
+
+function filterCategoryNodesBySearch(nodes, q) {
+  const needle = String(q ?? '').trim().toLowerCase()
+  if (!needle) return nodes || []
+  const walk = arr => {
+    const out = []
+    for (const n of arr || []) {
+      const name = String(n?.name ?? '')
+      const nameMatch = name.toLowerCase().includes(needle)
+      const kids = n.children?.length ? walk(n.children) : []
+      if (nameMatch) {
+        out.push({ ...n, children: n.children || [] })
+      } else if (kids.length) {
+        out.push({ ...n, children: kids })
+      }
+    }
+    return out
+  }
+  return walk(nodes || [])
+}
+
+const filteredIncomeCategoryTree = computed(() =>
+  filterCategoryNodesBySearch(incomeCategoryTree.value, categoryFilterSearch.value)
+)
+const filteredExpenseCategoryTree = computed(() =>
+  filterCategoryNodesBySearch(expenseCategoryTree.value, categoryFilterSearch.value)
+)
+
+const categoryFilterHasRenderableTree = computed(
+  () => filteredIncomeCategoryTree.value.length > 0 || filteredExpenseCategoryTree.value.length > 0
+)
+
 const categoryButtonLabel = computed(() => {
   const ids = categoryFilterIds.value
   if (!ids.length) return 'Category'
   if (ids.length === 1) {
-    const label = categoryMenuOptions.value.find(o => o.id === ids[0])?.label ?? ''
-    if (!label) return 'Category'
-    return label.length > 16 ? `${label.slice(0, 14)}…` : label
+    const id = ids[0]
+    const node = categoryNodeById.value.get(Number(id))
+    const pathLabel = categoryMenuOptions.value.find(o => o.id === id)?.label ?? ''
+    const isParent = !!(node?.children?.length)
+    let text = String(pathLabel || node?.name || 'Category').trim()
+    if (text.length > 22) text = `${text.slice(0, 20)}…`
+    return isParent ? `${text} · incl. subs` : text
   }
   return `${ids.length} categories`
 })
@@ -915,8 +1020,23 @@ function flowTransactionTitle(row) {
 }
 
 
+function syncCategoryFlyoutTopToFilterRow() {
+  if (!categoryMenuOpen.value) return
+  const row = ledgerFilterRowRef.value
+  if (!row?.getBoundingClientRect) return
+  categoryFlyoutTopStyle.value = {
+    top: `${Math.round(row.getBoundingClientRect().bottom + 6)}px`
+  }
+}
+
+function onWindowResizeForCategoryFlyout() {
+  if (categoryMenuOpen.value) syncCategoryFlyoutTopToFilterRow()
+}
+
 function closeFilterMenus() {
   categoryMenuOpen.value = false
+  categoryFilterSearch.value = ''
+  categoryFlyoutTopStyle.value = {}
   typeMenuOpen.value = false
 }
 
@@ -1029,6 +1149,8 @@ async function loadCategoryMenu() {
     ])
     const incomeData = filterActiveCategoriesForMenu(normalizeCategoryTreeResponse(incomeRes))
     const expenseData = filterActiveCategoriesForMenu(normalizeCategoryTreeResponse(expenseRes))
+    incomeCategoryTree.value = incomeData
+    expenseCategoryTree.value = expenseData
     const flat = [...flattenCategoryLabels(incomeData), ...flattenCategoryLabels(expenseData)]
     const byId = new Map()
     for (const o of flat) {
@@ -1036,14 +1158,12 @@ async function loadCategoryMenu() {
     }
     categoryMenuOptions.value = [...byId.values()].sort((a, b) => a.label.localeCompare(b.label))
   } catch (_) {
+    incomeCategoryTree.value = []
+    expenseCategoryTree.value = []
     categoryMenuOptions.value = []
   } finally {
     categoriesLoading.value = false
   }
-}
-
-function isCategoryFilterSelected(id) {
-  return categoryFilterIds.value.includes(Number(id))
 }
 
 function reloadFlowLogAfterCategoryChange() {
@@ -1061,9 +1181,8 @@ function onAllCategoriesCheckboxChange(ev) {
   ev.target.checked = true
 }
 
-function onCategoryCheckboxChange(id, ev) {
+function onCategoryTreeToggle({ id, checked }) {
   const n = Number(id)
-  const checked = ev.target.checked
   const cur = categoryFilterIds.value
   if (checked && !cur.includes(n)) {
     categoryFilterIds.value = [...cur, n].sort((a, b) => a - b)
@@ -1071,6 +1190,27 @@ function onCategoryCheckboxChange(id, ev) {
     categoryFilterIds.value = cur.filter(x => x !== n)
   }
   reloadFlowLogAfterCategoryChange()
+}
+
+/** Expand each selected node to include all descendant category ids for `category_ids` API filter. */
+function expandedCategoryIdsForApi() {
+  const map = categoryNodeById.value
+  const out = new Set()
+  for (const sid of categoryFilterIds.value) {
+    const node = map.get(Number(sid))
+    if (node) {
+      const stack = [node]
+      while (stack.length) {
+        const n = stack.pop()
+        out.add(Number(n.id))
+        const kids = n.children || []
+        for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i])
+      }
+    } else {
+      out.add(Number(sid))
+    }
+  }
+  return [...out].sort((a, b) => a - b)
 }
 
 async function fetchAccountWorkspace() {
@@ -1273,7 +1413,8 @@ function onFabSelect(type) {
 function appendCategoryFilterParams(params) {
   const ids = categoryFilterIds.value
   if (!ids.length) return
-  params.category_ids = ids.join(',')
+  const expanded = expandedCategoryIdsForApi()
+  params.category_ids = expanded.join(',')
   const labels = ids
     .map(id => categoryMenuOptions.value.find(o => o.id === id)?.label)
     .filter(x => x != null && String(x).length > 0)
@@ -1359,6 +1500,12 @@ async function refetchIfInvalidated() {
 onMounted(async () => {
   accountName.value = route.query.name || 'Account'
   currency.value = route.query.currency || 'USD'
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', onWindowResizeForCategoryFlyout, { passive: true })
+    window.visualViewport?.addEventListener?.('resize', onWindowResizeForCategoryFlyout, {
+      passive: true
+    })
+  }
   await fetchAccountWorkspace()
   await load()
   await refetchIfInvalidated()
@@ -1368,6 +1515,7 @@ watch(accountId, async (newId) => {
   if (newId == null) return
   accountWorkspaceId.value = null
   categoryFilterIds.value = []
+  categoryFilterSearch.value = ''
   flowTypeFilterValues.value = []
   await fetchAccountWorkspace()
   await load()
@@ -1379,6 +1527,7 @@ watch(
   async (_newVal, oldVal) => {
     if (!isFlowLogRoute()) return
     categoryFilterIds.value = []
+    categoryFilterSearch.value = ''
     flowTypeFilterValues.value = []
     await loadCategoryMenu()
     if (oldVal !== undefined && accountId.value) {
@@ -1388,6 +1537,28 @@ watch(
   },
   { immediate: true }
 )
+
+watch(categoryMenuOpen, async open => {
+  if (!open) {
+    categoryFilterSearch.value = ''
+    categoryFlyoutTopStyle.value = {}
+    return
+  }
+  await nextTick()
+  syncCategoryFlyoutTopToFilterRow()
+})
+
+watch(() => summary.value, async () => {
+  if (!categoryMenuOpen.value) return
+  await nextTick()
+  syncCategoryFlyoutTopToFilterRow()
+})
+
+watch(filterMode, async () => {
+  if (!categoryMenuOpen.value) return
+  await nextTick()
+  syncCategoryFlyoutTopToFilterRow()
+})
 
 watch(categoryMenuOptions, opts => {
   if (!isFlowLogRoute()) return
@@ -1423,6 +1594,10 @@ watch(searchQuery, () => {
 
 onUnmounted(() => {
   clearSearchDebounce()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', onWindowResizeForCategoryFlyout)
+    window.visualViewport?.removeEventListener?.('resize', onWindowResizeForCategoryFlyout)
+  }
 })
 </script>
 
@@ -1732,8 +1907,112 @@ onUnmounted(() => {
   min-width: 140px;
 }
 
-.filter-flyout-categories {
-  max-height: min(320px, 55dvh);
+.filter-flyout.filter-flyout-categories {
+  box-sizing: border-box;
+  /* Horizontally centered on viewport; vertical offset set inline from filter row */
+  position: fixed;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  top: 148px;
+  min-width: unset;
+  width: min(420px, calc(100vw - 48px));
+  max-width: min(420px, calc(100vw - 48px));
+  max-height: none;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.04),
+    0 14px 36px rgba(0, 0, 0, 0.14);
+  z-index: 10002;
+}
+
+.filter-flyout-categories-scroll {
+  max-height: min(392px, 58dvh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
+}
+
+.filter-flyout-categories-loading-inner {
+  padding: 20px 18px;
+}
+
+.filter-flyout-cat-header {
+  padding: 12px 14px 14px;
+  background: linear-gradient(180deg, #fafafa 0%, #f5f5f7 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.filter-flyout-row-all-categories {
+  padding: 8px 2px 12px;
+}
+
+.filter-flyout-row-text-strong {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.84);
+}
+
+.filter-flyout-categories-search-wrap {
+  padding: 0;
+}
+
+.filter-flyout-categories-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.88);
+  background: #fff;
+  border: 1px solid rgba(255, 141, 40, 0.28);
+  border-radius: 12px;
+  outline: none;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.filter-flyout-categories-search:focus {
+  border-color: rgba(255, 141, 40, 0.55);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.03),
+    0 0 0 3px rgba(255, 141, 40, 0.12);
+}
+
+.filter-flyout-categories-search::placeholder {
+  color: #939393;
+}
+
+.filter-flyout-cat-section {
+  padding: 10px 12px 4px;
+}
+
+.filter-flyout-cat-section + .filter-flyout-cat-section {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.055);
+}
+
+.filter-flyout-cat-section-title {
+  padding: 10px 18px 8px;
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.42);
+}
+
+.filter-flyout-cat-empty {
+  text-align: center;
+  padding: 20px 18px 24px;
+  color: rgba(0, 0, 0, 0.38);
+  font-weight: 500;
+  font-size: 14px;
 }
 
 .filter-flyout-row {
