@@ -7,19 +7,24 @@
     :breakpoints="breakpoints"
     :handle="true"
   >
-    <ion-header class="drawer-ion-header">
-          <ion-toolbar>
-            <ion-buttons slot="start">
-              <ion-button @click="$emit('close')">Cancel</ion-button>
-            </ion-buttons>
-            <ion-title>{{ isEdit ? 'Edit Account' : 'Add New Account' }}</ion-title>
-            <ion-buttons slot="end">
-              <ion-button :disabled="saving || saveDisabled" @click="submit">
-                {{ saving ? 'Saving...' : (isEdit ? 'Save' : 'Add') }}
-              </ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-    </ion-header>
+    <div class="form-sheet-top">
+      <header class="sheet-header">
+        <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
+        <h1 class="sheet-title">{{ isEdit ? 'Edit Account' : 'Add New Account' }}</h1>
+        <button
+          type="button"
+          class="btn-done"
+          :disabled="saving || saveDisabled"
+          @click="submit"
+        >
+          {{ saving ? 'Saving...' : (isEdit ? 'Save' : 'Add') }}
+        </button>
+      </header>
+      <div class="sheet-header-divider" aria-hidden="true" />
+      <div v-if="sheetIslandSubtitle" class="workspace-info">
+        <p class="island-title">{{ sheetIslandSubtitle }}</p>
+      </div>
+    </div>
     <ion-content class="account-form-modal-content">
         <div class="adaptive-sheet-body">
         <form @submit.prevent="submit" class="drawer-form">
@@ -205,12 +210,7 @@ import {
   IonSelect,
   IonSelectOption,
   IonModal,
-  IonContent,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonButtons,
-  IonButton
+  IonContent
 } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { createAccount, updateAccount } from '@/api/accounting'
@@ -301,6 +301,13 @@ const formDisabled = computed(() => isEdit.value && !canEditAccountMeta.value)
 const saveDisabled = computed(
   () => formDisabled.value || (!isEdit.value && workspaceOptions.value.length === 0)
 )
+
+const sheetIslandSubtitle = computed(() => {
+  const wid = form.workspace_id
+  if (wid == null || wid === '') return ''
+  const row = workspaceOptions.value.find((w) => Number(w.value) === Number(wid))
+  return row?.text?.trim() || ''
+})
 
 const form = reactive({
   name: '',
@@ -520,8 +527,73 @@ async function submit() {
   min-height: 0;
 }
 
-.drawer-ion-header {
+.form-sheet-top {
   flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.sheet-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 4px 8px 10px;
+  flex-shrink: 0;
+}
+
+.sheet-header-divider {
+  height: 1px;
+  margin: 0 0 12px;
+  background: #e5e5ea;
+}
+
+.btn-cancel {
+  justify-self: start;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font-size: 17px;
+  font-weight: 400;
+  color: #8e8e93;
+  cursor: pointer;
+}
+
+.sheet-title {
+  grid-column: 2;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1c1c1e;
+  text-align: center;
+}
+
+.btn-done {
+  justify-self: end;
+  grid-column: 3;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font-size: 17px;
+  font-weight: 600;
+  color: #ff8d28;
+  cursor: pointer;
+}
+
+.btn-done:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.workspace-info {
+  padding: 0 12px 16px;
+  text-align: center;
+}
+
+.island-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1c1c1e;
+  text-align: center;
 }
 
 .drawer-form {

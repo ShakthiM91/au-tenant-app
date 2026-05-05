@@ -469,6 +469,7 @@
       :category="null"
       :type="form.type"
       :workspace-id="categoryFormWorkspaceId"
+      :workspace-name="selectedWorkspaceLabel"
       @close="showCategoryForm = false"
       @success="onCategoryFormSuccess"
     />

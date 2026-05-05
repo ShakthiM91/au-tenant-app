@@ -110,6 +110,7 @@
       :category="currentCategory"
       :type="activeTab"
       :workspace-id="workspaceId"
+      :workspace-name="workspaceName"
       @close="formOpen = false"
       @success="onFormSuccess"
     />

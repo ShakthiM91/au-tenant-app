@@ -7,26 +7,18 @@
     :breakpoints="mainBreakpoints"
     :handle="true"
   >
-    <div class="category-sheet-top">
-    <ion-header class="cat-sheet-ion-header">
-          <ion-toolbar class="cat-sheet-toolbar">
-            <ion-buttons slot="start">
-              <ion-button class="cat-sheet-btn-cancel" fill="clear" @click="$emit('close')">Cancel</ion-button>
-            </ion-buttons>
-            <ion-title class="cat-sheet-title">{{ formTitle }}</ion-title>
-            <ion-buttons slot="end">
-              <ion-button
-                class="cat-sheet-btn-primary"
-                fill="clear"
-                :disabled="saving"
-                @click="submit"
-              >
-                {{ primaryActionLabel }}
-              </ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
-    <div class="cat-sheet-header-rule" />
+    <div class="form-sheet-top">
+      <header class="sheet-header">
+        <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
+        <h1 class="sheet-title">{{ formTitle }}</h1>
+        <button type="button" class="btn-done" :disabled="saving" @click="submit">
+          {{ primaryActionLabel }}
+        </button>
+      </header>
+      <div class="sheet-header-divider" aria-hidden="true" />
+      <div v-if="workspaceSubtitle" class="workspace-info">
+        <p class="island-title">{{ workspaceSubtitle }}</p>
+      </div>
     </div>
     <ion-content class="cat-sheet-modal-content">
           <div class="adaptive-sheet-body">
@@ -201,8 +193,16 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
 import {
-  IonHeader, IonToolbar, IonButtons, IonButton, IonTitle,
-  IonContent, IonList, IonItem, IonLabel, IonModal
+  IonHeader,
+  IonToolbar,
+  IonButtons,
+  IonButton,
+  IonTitle,
+  IonContent,
+  IonList,
+  IonItem,
+  IonLabel,
+  IonModal
 } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { createCategory, updateCategory, getCategoryTree } from '@/api/accounting'
@@ -220,7 +220,9 @@ const props = defineProps({
   isOpen: { type: Boolean, default: false },
   category: { type: Object, default: null },
   type: { type: String, default: 'income' },
-  workspaceId: { type: [Number, String], default: null }
+  workspaceId: { type: [Number, String], default: null },
+  /** Shown under the header divider when set (e.g. current island). */
+  workspaceName: { type: String, default: null }
 })
 
 const emit = defineEmits(['close', 'success'])
@@ -276,6 +278,8 @@ const primaryActionLabel = computed(() => {
   if (saving.value) return 'Saving…'
   return isEdit.value ? 'Save' : 'Add'
 })
+
+const workspaceSubtitle = computed(() => (props.workspaceName || '').trim())
 
 const suggestedForType = computed(() =>
   form.type === 'income' ? SUGGESTED_INCOME : SUGGESTED_EXPENSE
@@ -404,36 +408,77 @@ async function submit() {
   --background: #ffffff;
 }
 
-.category-sheet-top {
-  flex-shrink: 0;
-}
-
 .adaptive-sheet-body {
   min-height: 0;
 }
 
-.cat-sheet-ion-header {
+.form-sheet-top {
   flex-shrink: 0;
-}
-
-.cat-sheet-toolbar {
-  --background: #ffffff;
-  --border-width: 0;
-  --min-height: 52px;
   padding: 0 4px;
 }
 
-.cat-sheet-title {
-  font-size: 17px;
-  font-weight: 700;
-  color: #1a1a2e;
+.sheet-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 4px 8px 10px;
+  flex-shrink: 0;
 }
 
-.cat-sheet-header-rule {
+.sheet-header-divider {
   height: 1px;
-  background: #ebebeb;
-  flex-shrink: 0;
+  margin: 0 0 12px;
+  background: #e5e5ea;
+}
+
+.btn-cancel {
+  justify-self: start;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font-size: 17px;
+  font-weight: 400;
+  color: #8e8e93;
+  cursor: pointer;
+}
+
+.sheet-title {
+  grid-column: 2;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1c1c1e;
+  text-align: center;
+}
+
+.btn-done {
+  justify-self: end;
+  grid-column: 3;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font-size: 17px;
+  font-weight: 600;
+  color: #ff8d28;
+  cursor: pointer;
+}
+
+.btn-done:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.workspace-info {
+  padding: 0 12px 16px;
+  text-align: center;
+}
+
+.island-title {
   margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1c1c1e;
+  text-align: center;
 }
 
 .cat-sheet-form {
@@ -570,19 +615,6 @@ async function submit() {
 .form-select-chevron {
   flex-shrink: 0;
   color: #a8a8a8;
-}
-
-/* Header buttons: grey cancel, orange primary */
-.cat-sheet-btn-cancel {
-  --color: #8e8e93;
-  font-size: 16px;
-  font-weight: 400;
-}
-
-.cat-sheet-btn-primary {
-  --color: #ff8d28;
-  font-size: 16px;
-  font-weight: 600;
 }
 
 </style>
