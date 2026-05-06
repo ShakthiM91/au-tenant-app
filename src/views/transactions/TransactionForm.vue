@@ -643,6 +643,8 @@ const workspaceSearchQuery = ref('')
 const recentTransactions = ref([])
 const titleSuggestions = ref([])
 const showTitleSuggestions = ref(false)
+/** Hide category pill row after user picks a title suggestion or commits a category */
+const hideSuggestedCategoryPillsRow = ref(false)
 let titleDebounceTimer = null
 
 const PICKER_LIST_SHEET_PCT = 72
@@ -753,6 +755,7 @@ const MAX_RECENT_CATEGORY_SUGGESTIONS = 5
 const CATEGORY_PILL_TREE_FILL = 6
 const suggestedCategoryPills = computed(() => {
   if (isEdit) return []
+  if (hideSuggestedCategoryPillsRow.value) return []
   if (form.type === 'transfer' || !categoryOptions.value.length) return []
 
   const fromRecent = []
@@ -797,6 +800,7 @@ const suggestedCategoryPills = computed(() => {
 
 function selectCategory(value) {
   form.category_id = value
+  if (!isEdit) hideSuggestedCategoryPillsRow.value = true
 }
 
 async function fetchRecentTransactions() {
@@ -890,10 +894,12 @@ async function applyTitleSuggestion(txn) {
   } finally {
     suppressTypeWatchReset.value = false
   }
+  if (!isEdit) hideSuggestedCategoryPillsRow.value = true
 }
 
 function clearCategory() {
   form.category_id = null
+  if (!isEdit) hideSuggestedCategoryPillsRow.value = false
 }
 
 const selectedAccount = computed(() => {
@@ -1365,6 +1371,7 @@ function selectWorkspace(wsId) {
   manualWorkspaceId.value = wsId
   workspacePicked.value = true
   form.category_id = null
+  hideSuggestedCategoryPillsRow.value = false
   showWorkspacePicker.value = false
   Promise.all([loadOptions(), loadAccountsForSelectedWorkspace({ preferredAccountId: null, defaultToFirst: true })])
     .then(() => {
@@ -1460,6 +1467,7 @@ function selectType(value) {
     form.category_id = null
     form.to_account_id = null
   }
+  hideSuggestedCategoryPillsRow.value = false
   loadCategories()
 }
 
@@ -1500,6 +1508,7 @@ watch(
       categoryOptions.value = []
       form.category_id = null
     }
+    if (!isEdit) hideSuggestedCategoryPillsRow.value = false
   }
 )
 
@@ -1607,6 +1616,7 @@ async function submit(stayAndAddNew = false) {
       form.amount = 0
       // Keep date/time, island (manualWorkspaceId / workspacePicked), account_id, and to_account_id
       form.category_id = null
+      hideSuggestedCategoryPillsRow.value = false
       await loadCategories()
       await fetchRecentTransactions()
       showToastIcon({ duration: 1000 })
