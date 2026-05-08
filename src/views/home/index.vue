@@ -23,7 +23,7 @@
           </div>
           <div class="banner-dots" aria-hidden="true">
             <span
-              v-for="i in 3"
+              v-for="i in BANNER_SLIDE_COUNT"
               :key="'d' + i"
               class="dot"
               :class="{ active: bannerIndex === i - 1 }"
@@ -82,7 +82,7 @@
                 <p class="activity-title">{{ row.title }}</p>
                 <div class="activity-meta">
                   <ion-icon :icon="personOutline" class="meta-user-icon" />
-                  <span class="meta-text">{{ row.meta }}</span>
+                  <span class="meta-text">{{ row.metaAuthor }} <strong>at</strong> {{ row.metaTime }}</span>
                 </div>
               </div>
               <div class="activity-right">
@@ -232,7 +232,7 @@ import {
   personOutline,
 } from 'ionicons/icons'
 import FloatingAddButton from '@/components/FloatingAddButton.vue'
-import { getRecentTransactions, getUpcomingRepayments } from '@/api/accounting'
+import { getRecentTransactions, getUpcomingRepayments, getPrimaryAccount } from '@/api/accounting'
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { useUserStore } from '@/store/user'
 import { formatTransactionAuthorLabel } from '@/utils/transactionAuthorDisplay'
@@ -259,7 +259,8 @@ const recentActivityRows = computed(() =>
     account_workspace_id: row.account_workspace_id,
     account_workspace_name: row.account_workspace_name,
     title: (row.title || row.transaction_number || 'Transaction').toString().trim() || 'Transaction',
-    meta: `${formatTransactionAuthorLabel(row, userStore.id)} at ${formatTime(row.transaction_date)}`,
+    metaAuthor: formatTransactionAuthorLabel(row, userStore.id),
+    metaTime: formatTime(row.transaction_date),
     amount: formatAmountHome(row),
     sub: accountSubLabel(row),
     amountClass:
@@ -450,8 +451,26 @@ function openRecurring(row) {
   router.push({ name: 'AccountFlowLog', params: { id: String(row.accountId) } })
 }
 
+async function openBudgetFromHome() {
+  try {
+    const res = await getPrimaryAccount()
+    const wid = res?.data?.workspace_id
+    const query = {}
+    if (wid != null && wid !== '') query.workspace_id = String(Number(wid))
+    router.push({ name: 'Categories', query })
+  } catch {
+    router.push({ name: 'Categories' })
+  }
+}
+
 function onQuickAction(item) {
-  if (item?.route) router.push(item.route)
+  if (item?.route) {
+    router.push(item.route)
+    return
+  }
+  if (item?.action === 'budget') {
+    void openBudgetFromHome()
+  }
 }
 
 onIonViewDidEnter(() => {
@@ -466,8 +485,13 @@ const bannerGradients = [
   'linear-gradient(135deg, #d4f5e8 0%, #9ee5c8 50%, #52bf90 100%)',
 ]
 
+/** Photo slide + gradients (keep in sync with template). */
+const BANNER_SLIDE_COUNT = 1 + bannerGradients.length
+
+let bannerScrollRaf = null
+
 const quickActionsRow1 = [
-  { label: 'Account\nBudget', icon: serverOutline },
+  { label: 'Account\nBudget', icon: serverOutline, action: 'budget' },
   { label: 'Account\nAnalytics', icon: barChartOutline, route: { name: 'Analytics' } },
   { label: 'Daily\nCheck in', icon: createOutline },
   { label: 'Invite a\nFriend', icon: peopleOutline },
@@ -560,10 +584,17 @@ const goals = [
 */
 
 function onBannerScroll(e) {
-  const el = e.target
-  const w = el.clientWidth || 1
-  const i = Math.round(el.scrollLeft / w)
-  bannerIndex.value = Math.min(2, Math.max(0, i))
+  const el = e.currentTarget
+  if (!el || bannerScrollRaf != null) return
+  bannerScrollRaf = requestAnimationFrame(() => {
+    bannerScrollRaf = null
+    const n = BANNER_SLIDE_COUNT
+    const slideW = el.scrollWidth / n || el.clientWidth || 1
+    let i = Math.round(el.scrollLeft / slideW)
+    if (i < 0) i = 0
+    else if (i > n - 1) i = n - 1
+    bannerIndex.value = i
+  })
 }
 
 function onFabSelect(type) {
@@ -623,6 +654,7 @@ function onFabSelect(type) {
   width: 100%;
   min-height: 160px;
   scroll-snap-align: start;
+  scroll-snap-stop: always;
   border-radius: 20px;
 }
 

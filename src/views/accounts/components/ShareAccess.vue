@@ -919,7 +919,7 @@ async function removeMember(row) {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 4px 8px 10px;
+  padding: 10px 8px 8px;
   flex-shrink: 0;
 }
 
@@ -1016,7 +1016,6 @@ async function removeMember(row) {
   justify-content: space-between;
   gap: 12px;
   min-height: 40px;
-  padding: 6px 0;
   border-bottom: 1px solid #f2f2f7;
 }
 

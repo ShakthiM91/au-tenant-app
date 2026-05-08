@@ -412,7 +412,7 @@
           </ion-buttons>
           <ion-title>Category</ion-title>
           <ion-buttons v-if="canManageCategoriesInForm" slot="end">
-            <ion-button @click="showCategoryForm = true">New category</ion-button>
+            <ion-button @click="showCategoryForm = true">Add New</ion-button>
           </ion-buttons>
         </ion-toolbar>
       </ion-header>

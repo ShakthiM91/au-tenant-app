@@ -48,10 +48,21 @@
             </button>
             <div class="add-btn-wrapper">
               <button
-                class="icon-btn add-btn"
+                type="button"
+                class="icon-btn accounts-header-icon"
+                :class="{ 'accounts-header-icon--active': showAddMenu }"
                 @click="showAddMenu = !showAddMenu; closeIslandPopover(); closeAccountPopover()"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  class="accounts-header-icon-svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
               </button>
@@ -232,7 +243,7 @@
                 <p>In order to create your first account,</p>
                 <p>Let's create an island first.</p>
                 <button type="button" class="add-first-btn" @click="onAddIsland">
-                  Create workspace
+                  Create your first island
                 </button>
               </div>
             </div>
@@ -1452,7 +1463,7 @@ onIonViewDidEnter(async () => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 5px 5px 0;
+  padding: 5px 0px 0px 5px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   min-height: 34px;

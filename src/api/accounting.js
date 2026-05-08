@@ -303,17 +303,8 @@ export function getOngoingBudget(params = {}) {
   })
 }
 
-export function getBudgetContext(params) {
-  return request({ url: '/api/accounting/budgets/context', method: 'get', params })
-}
 export function getBudgetById(id) {
   return request({ url: `/api/accounting/budgets/${id}`, method: 'get' })
-}
-export function getBudgetLog(id) {
-  return request({ url: `/api/accounting/budgets/${id}/log`, method: 'get' })
-}
-export function getBudgetCategoryBreakdown(id, params) {
-  return request({ url: `/api/accounting/budgets/${id}/category-breakdown`, method: 'get', params })
 }
 export function createBudget(data) {
   return request({ url: '/api/accounting/budgets', method: 'post', data })
@@ -323,9 +314,6 @@ export function updateBudget(id, data) {
 }
 export function abandonBudget(id) {
   return request({ url: `/api/accounting/budgets/${id}/abandon`, method: 'patch' })
-}
-export function activateBudget(id) {
-  return request({ url: `/api/accounting/budgets/${id}/activate`, method: 'patch' })
 }
 export function deleteBudget(id) {
   return request({ url: `/api/accounting/budgets/${id}`, method: 'delete' })
