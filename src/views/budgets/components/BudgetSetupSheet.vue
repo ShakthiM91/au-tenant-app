@@ -1,111 +1,120 @@
 <template>
   <ion-modal
     ref="modalRef"
+    class="budget-setup-modal"
     :is-open="isOpen"
     @didDismiss="onDismiss"
     :initial-breakpoint="initialBreakpoint"
     :breakpoints="breakpoints"
     :handle="true"
   >
-    <ion-header class="drawer-ion-header">
+    <ion-header class="drawer-ion-header budget-setup-header">
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-button @click="emitClose">Cancel</ion-button>
+          <ion-button class="budget-setup-cancel" fill="clear" @click="emitClose">Cancel</ion-button>
         </ion-buttons>
-        <ion-title>Set up a budget</ion-title>
+        <ion-title class="budget-setup-title">Set up a budget</ion-title>
         <ion-buttons slot="end">
-          <ion-button :disabled="saving || loadingPlan" class="ok-btn" @click="onOk">OK</ion-button>
+          <ion-button :disabled="saving || loadingPlan" class="ok-btn" fill="clear" @click="onOk">OK</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
     <ion-content class="budget-setup-content">
       <div class="adaptive-sheet-body">
-        <div class="form-group">
+        <div class="form-group form-group--stack">
           <label class="form-label">Budget name</label>
-          <input v-model="form.name" type="text" class="form-input" placeholder="Budget name" autocomplete="off" />
+          <input v-model="form.name" type="text" class="form-input" placeholder="" autocomplete="off" />
         </div>
 
-        <div class="form-group">
+        <div class="form-group form-group--stack">
           <label class="form-label">Budget Island</label>
           <div class="island-row">
-            <select
-              v-if="mode === 'create'"
-              v-model.number="form.workspace_id"
-              class="form-select"
-              @change="onIslandChange"
-            >
-              <option v-for="w in workspaceOptions" :key="w.key" :value="w.id">{{ w.label }}</option>
-            </select>
-            <input v-else type="text" class="form-input" readonly :value="lockedWorkspaceLabel" />
+            <input
+              type="text"
+              class="form-input form-input--embedded"
+              readonly
+              :value="lockedWorkspaceLabel"
+            />
             <span v-if="selectedBalance != null" class="bal-hint">Bal: {{ formatMoney(selectedBalance, form.currency) }}</span>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Budget frequency</label>
-          <div class="seg-row">
-            <button
-              type="button"
-              class="seg-btn"
-              :class="{ active: !form.is_recurring }"
-              @click="form.is_recurring = false"
-            >
-              One time
-            </button>
-            <button
-              type="button"
-              class="seg-btn"
-              :class="{ active: form.is_recurring }"
-              @click="form.is_recurring = true"
-            >
-              Recurring
-            </button>
+        <div class="form-group form-group--row">
+          <label class="form-label form-label--row">Budget frequency</label>
+          <div class="seg-track">
+            <div class="seg-row">
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ active: !form.is_recurring }"
+                @click="form.is_recurring = false"
+              >
+                One time
+              </button>
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ active: form.is_recurring }"
+                @click="form.is_recurring = true"
+              >
+                Recurring
+              </button>
+            </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Budget period</label>
-          <div class="seg-row seg-row--scroll">
-            <button
-              type="button"
-              class="seg-btn"
-              :class="{ active: form.period_type === 'week' }"
-              @click="setPeriod('week')"
-            >
-              Weekly
-            </button>
-            <button
-              type="button"
-              class="seg-btn"
-              :class="{ active: form.period_type === 'month' }"
-              @click="setPeriod('month')"
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              class="seg-btn"
-              :class="{ active: form.period_type === 'year' }"
-              @click="setPeriod('year')"
-            >
-              Yearly
-            </button>
-            <template v-if="BUDGET_V2_FIELDS">
-              <button type="button" class="seg-btn" disabled>Quarterly</button>
-              <button type="button" class="seg-btn" disabled>Custom</button>
-            </template>
+        <div class="form-group form-group--row">
+          <label class="form-label form-label--row">Budget period</label>
+          <div class="seg-track seg-track--scroll">
+            <div class="seg-row seg-row--scroll">
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ active: form.period_type === 'week' }"
+                @click="setPeriod('week')"
+              >
+                Weekly
+              </button>
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ active: form.period_type === 'month' }"
+                @click="setPeriod('month')"
+              >
+                Monthly
+              </button>
+              <template v-if="BUDGET_V2_FIELDS">
+                <button type="button" class="seg-btn" disabled>Quarterly</button>
+              </template>
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ active: form.period_type === 'year' }"
+                @click="setPeriod('year')"
+              >
+                Yearly
+              </button>
+              <button v-if="BUDGET_V2_FIELDS" type="button" class="seg-btn" disabled>Custom</button>
+            </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Start date</label>
-          <div class="seg-row">
-            <button type="button" class="seg-btn" :class="{ active: startMode === 'anchor' }" @click="applyAnchorStart">
-              {{ anchorLabel }}
-            </button>
-            <button type="button" class="seg-btn" :class="{ active: startMode === 'custom' }" @click="startMode = 'custom'">
-              Custom
-            </button>
+        <div class="form-group form-group--row form-group--row-multiline">
+          <label class="form-label form-label--row">Start date</label>
+          <div class="seg-track seg-track--row-end">
+            <div class="seg-row">
+              <button type="button" class="seg-btn" :class="{ active: startMode === 'anchor' }" @click="applyAnchorStart">
+                {{ anchorLabel }}
+              </button>
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ active: startMode === 'custom' }"
+                @click="startMode = 'custom'"
+              >
+                Custom
+              </button>
+            </div>
           </div>
           <div v-if="startMode === 'custom'" class="date-pickers">
             <select v-model.number="customY" class="form-select form-select--narrow">
@@ -120,16 +129,39 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Currency</label>
-          <select v-model="form.currency" class="form-select">
-            <option v-for="c in currencyOptions" :key="c.code" :value="c.code">{{ c.name }} {{ c.code }}</option>
-          </select>
+        <div class="form-group form-group--row">
+          <label class="form-label form-label--row">Currency</label>
+          <ion-select
+            v-model="form.currency"
+            interface="action-sheet"
+            placeholder="Select currency"
+            class="ion-select-inline ion-select-flow-chevron currency-ion-select"
+            @ionChange="onCurrencyIonChange"
+          >
+            <ion-select-option v-for="c in currencyOptions" :key="c.code" :value="c.code">
+              {{ c.name }} ({{ c.code }})
+            </ion-select-option>
+            <span slot="end" class="select-flow-chevron" aria-hidden="true">
+              <svg
+                class="filter-chevron"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#A8A8A8"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
+          </ion-select>
         </div>
 
-        <div v-if="BUDGET_V2_FIELDS" class="form-group">
+        <div v-if="BUDGET_V2_FIELDS" class="form-group form-group--stack">
           <label class="form-label">Description</label>
-          <input type="text" class="form-input" placeholder="Description" disabled />
+          <input type="text" class="form-input" placeholder="" disabled />
         </div>
       </div>
     </ion-content>
@@ -145,7 +177,9 @@ import {
   IonTitle,
   IonButtons,
   IonButton,
-  IonContent
+  IonContent,
+  IonSelect,
+  IonSelectOption
 } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import {
@@ -162,7 +196,7 @@ const props = defineProps({
   isOpen: { type: Boolean, default: false },
   /** 'create' | 'edit' */
   mode: { type: String, default: 'create' },
-  /** Pre-selected workspace when opening from Categories */
+  /** Current workspace id (create: from route; edit: from loaded plan). Not user-editable. */
   workspaceId: { type: Number, default: null },
   workspaceName: { type: String, default: '' },
   planId: { type: [Number, String], default: null }
@@ -432,16 +466,14 @@ async function loadCurrencies() {
 function pickWorkspaceDefault() {
   if (props.workspaceId != null && props.workspaceId !== '') {
     form.workspace_id = Number(props.workspaceId)
-    if (!workspaceOptions.value.some((o) => o.id === form.workspace_id)) {
-      form.workspace_id = workspaceOptions.value[0]?.id ?? null
-    }
-  } else {
-    form.workspace_id = workspaceOptions.value[0]?.id ?? null
+    return
   }
+  form.workspace_id = null
 }
 
-function onIslandChange() {
-  /* reactive balance updates via computed */
+function onCurrencyIonChange(ev) {
+  const v = ev.detail.value
+  if (v != null && v !== '') form.currency = String(v).toUpperCase().slice(0, 3)
 }
 
 async function loadPlanForEdit() {
@@ -502,7 +534,7 @@ async function onOk() {
     return
   }
   if (props.mode === 'create' && (form.workspace_id == null || form.workspace_id === '')) {
-    showToast('Select a budget island')
+    showToast('Open budget setup from an island')
     return
   }
   const start_date = computeStartYmd()
@@ -552,6 +584,10 @@ async function onOk() {
 </script>
 
 <style scoped>
+.budget-setup-modal {
+  --border-radius: 16px 16px 0 0;
+}
+
 .budget-setup-content {
   --background: #ffffff;
 }
@@ -560,37 +596,94 @@ async function onOk() {
   flex-shrink: 0;
 }
 
+.budget-setup-header :deep(ion-toolbar) {
+  --background: #ffffff;
+  --border-width: 0 0 1px 0;
+  --border-color: #ebebeb;
+  --min-height: 52px;
+}
+
+.budget-setup-header :deep(.budget-setup-title) {
+  font-weight: 700;
+  font-size: 17px;
+  color: #1a1a1a;
+}
+
+.budget-setup-cancel {
+  --color: rgba(0, 0, 0, 0.45);
+  font-weight: 400;
+  font-size: 16px;
+}
+
 .ok-btn {
   --color: #ff8d28;
   font-weight: 600;
+  font-size: 16px;
 }
 
 .adaptive-sheet-body {
-  padding: 8px 24px 28px;
+  padding: 12px 20px 32px;
   min-height: 0;
 }
 
 .form-group {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
+}
+
+.form-group--stack .form-label {
+  margin-bottom: 6px;
+}
+
+.form-group--row,
+.form-group--row-multiline {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 10px;
+}
+
+.form-group--row-multiline {
+  align-items: start;
+}
+
+.form-group--row-multiline > .form-label--row {
+  margin-top: 9px;
 }
 
 .form-label {
   display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #1a1a2e;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.55);
   margin-bottom: 8px;
+}
+
+.form-label--row {
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 
 .form-input {
   width: 100%;
   padding: 10px 0;
   border: none;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid #e5e5e5;
   background: transparent;
-  font-size: 15px;
-  color: #1a1a2e;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
   outline: none;
+}
+
+.form-input::placeholder {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+.form-input--embedded {
+  flex: 1;
+  min-width: 140px;
+  width: auto;
 }
 
 .form-input:focus {
@@ -604,72 +697,149 @@ async function onOk() {
   border-radius: 10px;
   font-size: 14px;
   background: #fff;
+  color: #1a1a1a;
+}
+
+.ion-select-inline {
+  width: 100%;
+  padding: 10px 0;
+  padding-inline-start: 0;
+  padding-inline-end: 0;
+  border: none;
+  border-bottom: 1px solid #e8e8e8;
+  border-radius: 0;
+  background: transparent;
+  font-size: 15px;
   color: #1a1a2e;
+  max-width: 100%;
+}
+
+.ion-select-inline::part(container) {
+  border: none;
+  background: transparent;
+}
+
+.currency-ion-select {
+  min-width: 0;
+  justify-self: stretch;
 }
 
 .form-select--narrow {
   flex: 1;
   min-width: 0;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  text-align: left;
+  text-align-last: auto;
+  background-image: none;
 }
 
 .island-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: baseline;
+  gap: 12px;
   flex-wrap: wrap;
-}
-
-.island-row .form-select {
-  flex: 1;
-  min-width: 140px;
 }
 
 .bal-hint {
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.55);
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.45);
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.seg-track {
+  min-width: 0;
+  background: #ececec;
+  border-radius: 10px;
+  padding: 3px;
+  width: 100%;
+}
+
+.seg-track--scroll {
+  overflow: hidden;
+}
+
+.seg-track--row-end {
+  justify-self: stretch;
 }
 
 .seg-row {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 0;
+  flex-wrap: nowrap;
+  align-items: stretch;
 }
 
 .seg-row--scroll {
-  flex-wrap: nowrap;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.seg-row--scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .seg-btn {
   flex: 1;
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
   border: none;
-  background: #f5f5f7;
+  background: transparent;
   font-size: 13px;
-  font-weight: 600;
-  color: #a7a7a7;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.38);
   cursor: pointer;
   white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .seg-row--scroll .seg-btn {
   flex: 0 0 auto;
+  padding: 8px 14px;
 }
 
 .seg-btn.active {
-  background: #fff;
+  background: #ffffff;
   color: #ff8d28;
-  box-shadow: 0 0 0 1.5px #ff8d28;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.seg-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.form-group--row-multiline .date-pickers {
+  grid-column: 1 / -1;
+  margin-top: 0;
 }
 
 .date-pickers {
   display: flex;
   gap: 8px;
   margin-top: 12px;
+}
+
+@media (max-width: 360px) {
+  .form-group--row,
+  .form-group--row-multiline {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group--row-multiline > .form-label--row {
+    margin-top: 0;
+  }
+
+  .seg-track--row-end {
+    justify-self: stretch;
+  }
 }
 </style>

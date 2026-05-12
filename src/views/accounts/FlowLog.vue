@@ -183,7 +183,7 @@
                     <template v-if="categoryFilterHasRenderableTree">
                       <div v-if="filteredIncomeCategoryTree.length" class="filter-flyout-cat-section">
                         <div class="filter-flyout-cat-section-title">Income</div>
-                        <FlowLogCategoryTreeRows
+                        <CategoryTreeRows
                           :nodes="filteredIncomeCategoryTree"
                           :selected-set="categorySelectionSet"
                           @toggle="onCategoryTreeToggle"
@@ -191,7 +191,7 @@
                       </div>
                       <div v-if="filteredExpenseCategoryTree.length" class="filter-flyout-cat-section">
                         <div class="filter-flyout-cat-section-title">Expense</div>
-                        <FlowLogCategoryTreeRows
+                        <CategoryTreeRows
                           :nodes="filteredExpenseCategoryTree"
                           :selected-set="categorySelectionSet"
                           @toggle="onCategoryTreeToggle"
@@ -492,9 +492,17 @@ import {
 import ReconcileModal from './components/ReconcileModal.vue'
 import AccountForm from './components/AccountForm.vue'
 import FloatingAddButton from '@/components/FloatingAddButton.vue'
-import FlowLogCategoryTreeRows from './components/FlowLogCategoryTreeRows.vue'
+import CategoryTreeRows from '@/components/CategoryTreeRows.vue'
 
 import DateRangePicker from '@/components/DateRangePicker.vue'
+import {
+  normalizeCategoryTreeResponse,
+  filterActiveCategoriesForMenu,
+  flattenCategoryLabels,
+  filterCategoryNodesBySearch,
+  buildCategoryNodeMapFromTrees,
+  expandedCategoryIdsForQuery,
+} from '@/utils/categoryFilterTree.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -573,40 +581,11 @@ const filterTypeOptions = [
   { label: 'Transfer Out', value: 'transfer_out' }
 ]
 
-const categoryNodeById = computed(() => {
-  const m = new Map()
-  function walk(nodes) {
-    for (const n of nodes || []) {
-      m.set(Number(n.id), n)
-      if (n.children?.length) walk(n.children)
-    }
-  }
-  walk(incomeCategoryTree.value)
-  walk(expenseCategoryTree.value)
-  return m
-})
+const categoryNodeById = computed(() =>
+  buildCategoryNodeMapFromTrees(incomeCategoryTree.value, expenseCategoryTree.value)
+)
 
 const categorySelectionSet = computed(() => new Set(categoryFilterIds.value.map(Number)))
-
-function filterCategoryNodesBySearch(nodes, q) {
-  const needle = String(q ?? '').trim().toLowerCase()
-  if (!needle) return nodes || []
-  const walk = arr => {
-    const out = []
-    for (const n of arr || []) {
-      const name = String(n?.name ?? '')
-      const nameMatch = name.toLowerCase().includes(needle)
-      const kids = n.children?.length ? walk(n.children) : []
-      if (nameMatch) {
-        out.push({ ...n, children: n.children || [] })
-      } else if (kids.length) {
-        out.push({ ...n, children: kids })
-      }
-    }
-    return out
-  }
-  return walk(nodes || [])
-}
 
 const filteredIncomeCategoryTree = computed(() =>
   filterCategoryNodesBySearch(incomeCategoryTree.value, categoryFilterSearch.value)
@@ -1114,30 +1093,6 @@ function openDateFilter() {
   showDatePicker.value = true
 }
 
-function normalizeCategoryTreeResponse(res) {
-  const data = res?.data ?? (res?.success ? res?.data : []) ?? []
-  return Array.isArray(data) ? data : []
-}
-
-function filterActiveCategoriesForMenu(categories) {
-  return (categories || [])
-    .filter(cat => cat.is_active !== false)
-    .map(cat => ({
-      ...cat,
-      children: cat.children?.length ? filterActiveCategoriesForMenu(cat.children) : []
-    }))
-}
-
-function flattenCategoryLabels(arr, prefix = '') {
-  const out = []
-  for (const c of arr || []) {
-    const label = prefix ? `${prefix} > ${c.name}` : c.name
-    out.push({ id: Number(c.id), label })
-    if (c.children?.length) out.push(...flattenCategoryLabels(c.children, label))
-  }
-  return out
-}
-
 async function loadCategoryMenu() {
   if (!isFlowLogRoute()) return
   categoriesLoading.value = true
@@ -1192,25 +1147,8 @@ function onCategoryTreeToggle({ id, checked }) {
   reloadFlowLogAfterCategoryChange()
 }
 
-/** Expand each selected node to include all descendant category ids for `category_ids` API filter. */
 function expandedCategoryIdsForApi() {
-  const map = categoryNodeById.value
-  const out = new Set()
-  for (const sid of categoryFilterIds.value) {
-    const node = map.get(Number(sid))
-    if (node) {
-      const stack = [node]
-      while (stack.length) {
-        const n = stack.pop()
-        out.add(Number(n.id))
-        const kids = n.children || []
-        for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i])
-      }
-    } else {
-      out.add(Number(sid))
-    }
-  }
-  return [...out].sort((a, b) => a - b)
+  return expandedCategoryIdsForQuery(categoryFilterIds.value, categoryNodeById.value)
 }
 
 async function fetchAccountWorkspace() {

@@ -697,7 +697,7 @@ async function submit() {
   border-radius: 20px;
   border: 1px solid rgba(255, 141, 40, 0.45);
   background: #fff;
-  color: #e67a00;
+  color: #ff8d28;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;

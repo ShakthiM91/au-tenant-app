@@ -18,41 +18,37 @@
           <p v-if="childrenExceedParentWarning" class="warn-banner">{{ childrenExceedParentWarning }}</p>
 
           <section v-for="group in parentGroups" :key="group.parent.id" class="budget-card">
-            <div class="card-head">
+            <div class="card-head" :class="{ 'card-head--has-children': group.leaves.length }">
               <span class="card-title">{{ group.parent.name }}</span>
-              <span class="card-sum">Σ {{ formatNum(groupSum(group)) }}</span>
-            </div>
-            <div class="card-rows">
-              <template v-if="group.leaves.length">
-                <div v-for="leaf in group.leaves" :key="leaf.id" class="amount-row">
-                  <span class="grip" aria-hidden="true">
-                    <svg width="12" height="13" viewBox="0 0 12 13" fill="none">
-                      <rect x="0" y="0" width="12" height="2.5" rx="1" fill="#A8A8A8" />
-                      <rect x="0" y="4.5" width="12" height="4" rx="1" fill="#A8A8A8" />
-                      <rect x="0" y="10.5" width="12" height="2.5" rx="1" fill="#A8A8A8" />
-                    </svg>
-                  </span>
-                  <span class="leaf-name">{{ leaf.name }}</span>
-                  <input
-                    v-model="budgetByCategoryId[leaf.id].text"
-                    type="text"
-                    inputmode="decimal"
-                    class="amount-input"
-                    placeholder="0"
-                    @blur="normalizeAmount(leaf.id)"
-                  />
-                </div>
-              </template>
-              <div v-else class="amount-row">
-                <span class="grip" aria-hidden="true" />
-                <span class="leaf-name">{{ group.parent.name }}</span>
+              <div class="card-head-aside">
                 <input
                   v-model="budgetByCategoryId[group.parent.id].text"
                   type="text"
                   inputmode="decimal"
-                  class="amount-input"
+                  class="amount-input amount-input--head"
                   placeholder="0"
                   @blur="normalizeAmount(group.parent.id)"
+                />
+                <span v-if="group.leaves.length" class="card-sum-label">Σ {{ formatNum(groupSum(group)) }}</span>
+              </div>
+            </div>
+            <div v-if="group.leaves.length" class="card-rows">
+              <div v-for="leaf in group.leaves" :key="leaf.id" class="amount-row">
+                <span class="grip" aria-hidden="true">
+                  <svg width="12" height="13" viewBox="0 0 12 13" fill="none">
+                    <rect x="0" y="0" width="12" height="2.5" rx="1" fill="#A8A8A8" />
+                    <rect x="0" y="4.5" width="12" height="4" rx="1" fill="#A8A8A8" />
+                    <rect x="0" y="10.5" width="12" height="2.5" rx="1" fill="#A8A8A8" />
+                  </svg>
+                </span>
+                <span class="leaf-name">{{ leaf.name }}</span>
+                <input
+                  v-model="budgetByCategoryId[leaf.id].text"
+                  type="text"
+                  inputmode="decimal"
+                  class="amount-input"
+                  placeholder="0"
+                  @blur="normalizeAmount(leaf.id)"
                 />
               </div>
             </div>
@@ -122,10 +118,12 @@ const parentGroups = computed(() => {
 })
 
 function groupSum(group) {
-  if (group.leaves.length) {
-    return group.leaves.reduce((s, leaf) => s + parseAmount(budgetByCategoryId[leaf.id]?.text), 0)
-  }
-  return parseAmount(budgetByCategoryId[group.parent.id]?.text)
+  const parentAmt = parseAmount(budgetByCategoryId[group.parent.id]?.text)
+  if (!group.leaves.length) return parentAmt
+  return (
+    parentAmt +
+    group.leaves.reduce((s, leaf) => s + parseAmount(budgetByCategoryId[leaf.id]?.text), 0)
+  )
 }
 
 const childrenExceedParentWarning = computed(() => {
@@ -327,19 +325,40 @@ async function onSave() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
+  gap: 12px;
+  padding: 14px 16px 12px;
+}
+
+.card-head--has-children {
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 12px;
 }
 
 .card-title {
+  flex: 1;
+  min-width: 0;
   font-size: 16px;
   font-weight: 700;
   color: #ff8d28;
 }
 
-.card-sum {
-  font-size: 15px;
+.card-head-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.card-sum-label {
+  font-size: 13px;
   font-weight: 600;
   color: #ff8d28;
+  white-space: nowrap;
+}
+
+.amount-input--head {
+  width: 112px;
 }
 
 .card-rows {

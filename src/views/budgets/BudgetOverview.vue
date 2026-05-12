@@ -35,7 +35,7 @@
           <section v-if="activeTab === 'overview' && dashboardData" class="overall-block">
             <div class="overall-head">
               <span class="overall-label">Overall Progress</span>
-              <span class="overall-pct">{{ overallPct.toFixed(0) }}%</span>
+              <span class="overall-pct" :class="barToneClass(overallPct)">{{ overallPct.toFixed(0) }}%</span>
             </div>
             <div class="overall-values">
               {{ formatMoney(dashboardData.totalActual, currency) }} / {{ formatMoney(dashboardData.totalBudget, currency) }}
@@ -57,7 +57,7 @@
                 <span class="card-title">{{ row.category_name }}</span>
                 <div class="card-head-right">
                   <span class="card-ratio">{{ formatMoney(row.actual, currency) }} / {{ formatMoney(row.budget, currency) }}</span>
-                  <span class="card-pct">{{ rowPct(row).toFixed(0) }}%</span>
+                  <span class="card-pct" :class="barToneClass(rowPct(row))">{{ rowPct(row).toFixed(0) }}%</span>
                 </div>
               </div>
               <div class="progress-track progress-track--lg">
@@ -251,8 +251,9 @@ function rowPct(row) {
 }
 
 function barToneClass(pct) {
-  if (pct > 100) return 'tone-danger'
-  if (pct >= 70) return 'tone-warn'
+  const p = Number(pct) || 0
+  if (p >= 90) return 'tone-danger'
+  if (p > 60) return 'tone-warn'
   return 'tone-ok'
 }
 
@@ -485,7 +486,18 @@ async function onEdited() {
 
 .overall-pct {
   font-weight: 700;
-  color: #52bf90;
+}
+
+.overall-pct.tone-ok {
+  color: #2d9d62;
+}
+
+.overall-pct.tone-warn {
+  color: #c9a600;
+}
+
+.overall-pct.tone-danger {
+  color: #c40010;
 }
 
 .overall-values {
@@ -518,16 +530,28 @@ async function onEdited() {
   transition: width 0.2s ease;
 }
 
-.tone-ok {
-  background: #52bf90;
+.progress-fill.tone-ok {
+  background: #2d9d62;
 }
 
-.tone-warn {
+.progress-fill.tone-warn {
   background: #e6c200;
 }
 
-.tone-danger {
-  background: rgba(196, 0, 16, 0.74);
+.progress-fill.tone-danger {
+  background: #d32f2f;
+}
+
+.card-pct.tone-ok {
+  color: #2d9d62;
+}
+
+.card-pct.tone-warn {
+  color: #c9a600;
+}
+
+.card-pct.tone-danger {
+  color: #c40010;
 }
 
 .budget-card {
@@ -564,7 +588,6 @@ async function onEdited() {
 .card-pct {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a2e;
 }
 
 .sub-list {

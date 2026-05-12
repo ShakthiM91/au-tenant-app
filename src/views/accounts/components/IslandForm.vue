@@ -7,19 +7,21 @@
     :breakpoints="breakpoints"
     :handle="true"
   >
-    <ion-header class="drawer-ion-header">
-          <ion-toolbar>
-            <ion-buttons slot="start">
-              <ion-button @click="$emit('close')">Cancel</ion-button>
-            </ion-buttons>
-            <ion-title>{{ isEdit ? 'Rename Island' : 'Add an Island' }}</ion-title>
-            <ion-buttons slot="end">
-              <ion-button :disabled="saving" @click="submit">
-                {{ saving ? 'Saving...' : (isEdit ? 'Save' : 'Add') }}
-              </ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-    </ion-header>
+    <div class="form-sheet-top">
+      <header class="sheet-header">
+        <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
+        <h1 class="sheet-title">{{ isEdit ? 'Rename Island' : 'Add an Island' }}</h1>
+        <button
+          type="button"
+          class="btn-done"
+          :disabled="saving"
+          @click="submit"
+        >
+          {{ saving ? 'Saving...' : (isEdit ? 'Save' : 'Add') }}
+        </button>
+      </header>
+      <div class="sheet-header-divider" aria-hidden="true" />
+    </div>
     <ion-content class="island-form-modal-content">
         <div class="adaptive-sheet-body">
         <form @submit.prevent="submit" class="drawer-form">
@@ -41,7 +43,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
-import { IonModal, IonContent, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton } from '@ionic/vue'
+import { IonModal, IonContent } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { createWorkspace, updateWorkspace } from '@/api/workspace'
 import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
@@ -111,8 +113,60 @@ async function submit() {
   --background: #ffffff;
 }
 
-.drawer-ion-header {
+.form-sheet-top {
   flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.sheet-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 4px 8px 10px;
+  flex-shrink: 0;
+}
+
+.sheet-header-divider {
+  height: 1px;
+  margin: 0 0 12px;
+  background: #e5e5ea;
+}
+
+.btn-cancel {
+  justify-self: start;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font-size: 17px;
+  font-weight: 400;
+  color: #8e8e93;
+  cursor: pointer;
+}
+
+.sheet-title {
+  grid-column: 2;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1c1c1e;
+  text-align: center;
+}
+
+.btn-done {
+  justify-self: end;
+  grid-column: 3;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font-size: 17px;
+  font-weight: 600;
+  color: #ff8d28;
+  cursor: pointer;
+}
+
+.btn-done:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .adaptive-sheet-body {

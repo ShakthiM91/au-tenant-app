@@ -19,7 +19,7 @@
         <span v-else class="filter-cat-hint filter-cat-hint-leaf">This category only</span>
       </span>
     </label>
-    <FlowLogCategoryTreeRows
+    <CategoryTreeRows
       v-if="node.children && node.children.length"
       :nodes="node.children"
       :depth="depth + 1"
@@ -30,13 +30,13 @@
 </template>
 
 <script setup>
-import FlowLogCategoryTreeRows from './FlowLogCategoryTreeRows.vue'
+import CategoryTreeRows from './CategoryTreeRows.vue'
 
 defineProps({
   nodes: { type: Array, default: () => [] },
   /** Precomputed Set of selected category ids for O(1) lookup */
   selectedSet: { type: Object, required: true },
-  depth: { type: Number, default: 0 }
+  depth: { type: Number, default: 0 },
 })
 
 const emit = defineEmits(['toggle'])
