@@ -13,7 +13,7 @@ export async function getAttachmentBaseUrl() {
       return cachedBaseUrl
     }
   } catch (_) {}
-  const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+  const base = import.meta.env.VITE_API_BASE_URL || ''
   return `${base.replace(/\/$/, '')}/api/attachments/files`
 }
 

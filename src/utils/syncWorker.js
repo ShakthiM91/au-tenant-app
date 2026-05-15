@@ -3,7 +3,7 @@ import { getToken } from './auth'
 import { getPendingWrites, updateEntry } from '@/db/pendingWrites'
 import { invalidateAccountingCache } from '@/db/readCache'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 
 /** Called when a transaction sync succeeds; receives account IDs to invalidate (balance/flow log). */
 let transactionInvalidationHandler = null
