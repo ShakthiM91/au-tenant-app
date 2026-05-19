@@ -98,6 +98,50 @@ function mergeCategoryRows(parts) {
   return [...map.values()].sort((a, b) => (b.amount || 0) - (a.amount || 0))
 }
 
+function mergeMonthlyCategoryRows(parts) {
+  const map = new Map()
+  for (const rows of parts) {
+    for (const r of rows) {
+      const y = Number(r.year)
+      const m = Number(r.month)
+      const id = Number(r.category_id) || 0
+      const key = `${y}-${m}-${id}`
+      const prev = map.get(key) || {
+        year: y,
+        month: m,
+        category_id: id,
+        category_name: r.category_name || 'Uncategorized',
+        amount: 0,
+      }
+      prev.amount += Number(r.amount || 0)
+      if (r.category_name) prev.category_name = r.category_name
+      map.set(key, prev)
+    }
+  }
+  return [...map.values()].sort(
+    (a, b) => a.year - b.year || a.month - b.month || (b.amount || 0) - (a.amount || 0)
+  )
+}
+
+/** @param {Array<{year:number,month:number,category_name?:string,amount:number}>} rows */
+function rowsToStackedMonthSlices(rows, startYmd, endYmd) {
+  const byMonth = new Map()
+  for (const r of rows || []) {
+    const key = `${r.year}-${r.month}`
+    if (!byMonth.has(key)) byMonth.set(key, [])
+    byMonth.get(key).push({
+      name: r.category_name || 'Uncategorized',
+      amount: Number(r.amount || 0),
+    })
+  }
+  return enumerateMonthsInclusive(startYmd, endYmd).map(({ year, month }) => {
+    const s = new Date(year, month - 1, 1)
+    const label = s.toLocaleDateString('en-US', { month: 'short' })
+    const parents = byMonth.get(`${year}-${month}`) || []
+    return { label, parents }
+  })
+}
+
 /**
  * Same union as Accounts: own workspaces + default accounts from main list + per-shared-workspace fetch.
  * @returns {{ ids: number[], accounts: object[] }}
@@ -151,6 +195,7 @@ export async function resolveAccessibleAccounts() {
 
 async function reportsChunked(accountIds, params) {
   const type = params.type || 'monthly'
+  const groupByMonth = params.group_by === 'month'
   if (!accountIds.length) return []
 
   const run = async (ids) => {
@@ -170,6 +215,9 @@ async function reportsChunked(accountIds, params) {
   const parts = await Promise.all(chunks.map(run))
   if (type === 'monthly') return mergeMonthlyRows(parts)
   if (type === 'daily') return mergeDailyRows(parts)
+  if ((type === 'category_expense' || type === 'category_income') && groupByMonth) {
+    return mergeMonthlyCategoryRows(parts)
+  }
   if (type === 'category_expense' || type === 'category_income') return mergeCategoryRows(parts)
   return parts[0] || []
 }
@@ -319,7 +367,7 @@ export function useAnalyticsCharts() {
   }
 
   /**
-   * Advanced-only category_expense usage: true last-6 leaf donut + stacked parent per month (sequential to reduce bursts).
+   * Advanced-only category_expense: last-6 leaf donut + stacked parent (one range call with group_by=month).
    */
   async function loadAdvancedCategoryCharts() {
     const ids = accountIds.value
@@ -328,35 +376,27 @@ export function useAnalyticsCharts() {
     error.value = null
     try {
       const last6 = lastNMonthsRange(6)
-      const leaf6 = await reportsChunked(ids, {
-        type: 'category_expense',
-        category_level: 'leaf',
-        start_date: last6.start_date,
-        end_date: last6.end_date,
-      })
-      categoryLeafLast6.value = leaf6
-
-      const monthsForStack = enumerateMonthsInclusive(last6.start_date, last6.end_date)
-      const stacked = []
-      for (const { year, month } of monthsForStack) {
-        const s = new Date(year, month - 1, 1)
-        const e = endOfMonth(s)
-        const rows = await reportsChunked(ids, {
+      const [leaf6, parentMonthly] = await Promise.all([
+        reportsChunked(ids, {
+          type: 'category_expense',
+          category_level: 'leaf',
+          start_date: last6.start_date,
+          end_date: last6.end_date,
+        }),
+        reportsChunked(ids, {
           type: 'category_expense',
           category_level: 'parent',
-          start_date: ymd(s),
-          end_date: ymd(e),
-        })
-        const label = s.toLocaleDateString('en-US', { month: 'short' })
-        stacked.push({
-          label,
-          parents: rows.map((r) => ({
-            name: r.category_name || 'Uncategorized',
-            amount: Number(r.amount || 0),
-          })),
-        })
-      }
-      stackedMonthSlices.value = stacked
+          group_by: 'month',
+          start_date: last6.start_date,
+          end_date: last6.end_date,
+        }),
+      ])
+      categoryLeafLast6.value = leaf6
+      stackedMonthSlices.value = rowsToStackedMonthSlices(
+        parentMonthly,
+        last6.start_date,
+        last6.end_date
+      )
       advancedCategoryLoaded.value = true
     } catch (e) {
       error.value = e?.message || String(e)
