@@ -67,6 +67,14 @@ export function createCategory(data) {
   })
 }
 
+export function ensureReconcileCategory(payload) {
+  return request({
+    url: '/api/accounting/categories/ensure-reconcile',
+    method: 'post',
+    data: payload
+  })
+}
+
 export function updateCategory(id, data) {
   return request({
     url: `/api/accounting/categories/${id}`,

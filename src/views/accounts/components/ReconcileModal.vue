@@ -33,7 +33,7 @@
                 <span v-if="workspaceLine" class="account-workspace-line">{{ workspaceLine }}</span>
                 <span class="account-name-line">{{ accountDisplayName }}</span>
               </div>
-              <span class="account-bal">Bal: {{ formatCurrency(currentBalance, account.currency) }}</span>
+              <span class="account-bal">Bal: {{ formatCurrency(currentBalance, account?.currency || 'USD') }}</span>
             </div>
           </div>
 
@@ -72,10 +72,10 @@
 
           <template v-if="difference !== null && difference !== 0">
             <div class="form-group">
-              <label class="form-label subtle-label">Category</label>
+              <label class="form-label subtle-label">Category (optional)</label>
               <button type="button" class="category-picker-line" @click="showCategoryPicker = true">
                 <span :class="{ 'picker-placeholder': !categoryText }">
-                  {{ categoryText || 'Select category' }}
+                  {{ categoryText || 'Uses Reconcile if empty' }}
                 </span>
               </button>
             </div>
@@ -144,7 +144,7 @@ import {
   IonLabel
 } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
-import { createTransaction, getCategoryTree } from '@/api/accounting'
+import { createTransaction, ensureReconcileCategory, getCategoryTree } from '@/api/accounting'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -204,11 +204,7 @@ const categoryText = computed(() => {
   return c ? c.text : ''
 })
 
-const submitDisabled = computed(() => {
-  if (difference.value === null) return true
-  if (difference.value === 0) return false
-  return categoryId.value == null
-})
+const submitDisabled = computed(() => difference.value === null)
 
 function formatNumberGrouped(amount) {
   const n = Number(amount)
@@ -235,11 +231,14 @@ function flatten(arr, pre = '') {
   return out
 }
 
+function accountWorkspaceIdNullable() {
+  const wsRaw = props.account?.workspace_id
+  return wsRaw != null && wsRaw !== '' && !Number.isNaN(Number(wsRaw)) ? Number(wsRaw) : null
+}
+
 async function loadCategories(type) {
   if (!type) return
-  const wsRaw = props.account?.workspace_id
-  const workspaceId =
-    wsRaw != null && wsRaw !== '' && !Number.isNaN(Number(wsRaw)) ? Number(wsRaw) : null
+  const workspaceId = accountWorkspaceIdNullable()
   try {
     const r = await getCategoryTree(type, workspaceId)
     const data = r?.data ?? r?.data?.data ?? []
@@ -304,8 +303,8 @@ async function handleSubmit() {
     return
   }
 
-  if (difference.value === null || categoryId.value == null) {
-    showToast(difference.value === null ? 'Enter correct balance' : 'Select a category')
+  if (difference.value === null) {
+    showToast('Enter correct balance')
     return
   }
 
@@ -316,11 +315,24 @@ async function handleSubmit() {
     const title = transactionTitle.value?.trim()
     const description = title || 'Balance reconciliation'
 
+    let resolvedCategoryId = categoryId.value
+    if (resolvedCategoryId == null) {
+      const payload = {
+        type,
+        workspace_id: accountWorkspaceIdNullable()
+      }
+      const ens = await ensureReconcileCategory(payload)
+      resolvedCategoryId = Number(ens?.data?.id)
+      if (!resolvedCategoryId) {
+        throw new Error('Could not resolve reconciliation category')
+      }
+    }
+
     const res = await createTransaction({
       transaction_number: `RECON-${Date.now()}`,
       type,
       account_id: props.account.id,
-      category_id: categoryId.value,
+      category_id: resolvedCategoryId,
       amount,
       currency: props.account.currency || 'USD',
       description,
