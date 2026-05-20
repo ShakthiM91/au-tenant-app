@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { login, register, logout, getInfo, updateProfile } from '@/api/auth'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import { clearAllClientStorage } from '@/utils/clearDeviceStorage'
+import { useSyncStore } from '@/store/sync'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -95,7 +96,7 @@ export const useUserStore = defineStore('user', {
 
         return response
       } catch (error) {
-        this.resetState()
+        await this.clearSession()
         throw error
       }
     },
@@ -106,12 +107,18 @@ export const useUserStore = defineStore('user', {
       } catch (error) {
         console.error('Logout error:', error)
       } finally {
-        this.resetState()
-        try {
-          await clearAllClientStorage()
-        } catch (e) {
-          console.warn('clearAllClientStorage failed', e)
-        }
+        await this.clearSession()
+      }
+    },
+
+    /** Wipe in-memory state and all user data on device (logout / session expiry). */
+    async clearSession() {
+      this.resetState()
+      useSyncStore().resetState()
+      try {
+        await clearAllClientStorage()
+      } catch (e) {
+        console.warn('clearAllClientStorage failed', e)
       }
     },
 

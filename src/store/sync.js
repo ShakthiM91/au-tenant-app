@@ -56,6 +56,13 @@ export const useSyncStore = defineStore('sync', () => {
     await refreshPendingCount()
   }
 
+  function resetState() {
+    pendingCount.value = 0
+    invalidatedAccountIds.value = new Set()
+    transactionListInvalidatedAt.value = 0
+    lastQueuedTransaction.value = null
+  }
+
   return {
     pendingCount,
     invalidatedAccountIds: computed(() => invalidatedAccountIds.value),
@@ -68,6 +75,7 @@ export const useSyncStore = defineStore('sync', () => {
     setTransactionListInvalidated,
     setLastQueuedTransaction,
     consumeLastQueuedTransaction,
-    syncNow
+    syncNow,
+    resetState
   }
 })
