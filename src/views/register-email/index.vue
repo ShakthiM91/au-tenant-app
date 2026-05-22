@@ -138,7 +138,7 @@
               </div>
 
               <div class="login-icons">
-                <button class="icon-btn" type="button">
+                <button class="icon-btn" type="button" :disabled="loading || googleLoading" @click="signUpWithGoogle">
                   <img class="icon-btn-svg" src="/brands/google-g.png" alt="" width="18" height="18" />
                 </button>
                 <button class="icon-btn" type="button">
@@ -158,10 +158,14 @@ import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { useUserStore } from '@/store/user'
+import { useGoogleAuth } from '@/composables/useGoogleAuth'
+import { useAuthSession } from '@/composables/useAuthSession'
 import { showToast } from '@/utils/ionicFeedback'
 
 const router = useRouter()
 const userStore = useUserStore()
+const { signInWithGoogle } = useAuthSession()
+const { loading: googleLoading, connectWithGoogle } = useGoogleAuth()
 
 const loading = ref(false)
 
@@ -215,6 +219,23 @@ async function onSignUp() {
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || 'Registration failed'
     showToast(message)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function signUpWithGoogle() {
+  const idToken = await connectWithGoogle()
+  if (!idToken) return
+
+  loading.value = true
+  try {
+    await signInWithGoogle(idToken)
+    showToast('Account created successfully')
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Google sign-up failed'
+    showToast(message)
+    console.error('Google register error:', error)
   } finally {
     loading.value = false
   }

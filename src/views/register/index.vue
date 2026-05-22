@@ -20,9 +20,9 @@
 
           <div class="signup-section">
             <div class="signup-buttons">
-              <button class="signup-btn" @click="continueWithGoogle">
+              <button class="signup-btn" :disabled="loading" @click="continueWithGoogle">
                 <img class="btn-icon" src="/brands/google-g.png" alt="" width="18" height="18" />
-                <span>Continue with Google</span>
+                <span>{{ loading ? 'Signing in…' : 'Continue with Google' }}</span>
               </button>
 
               <button class="signup-btn" @click="continueWithApple">
@@ -46,7 +46,7 @@
             </div>
 
             <div class="login-icons">
-              <button class="icon-btn" @click="continueWithGoogle">
+              <button class="icon-btn" :disabled="loading" @click="continueWithGoogle">
                 <img class="icon-btn-svg" src="/brands/google-g.png" alt="" width="18" height="18" />
               </button>
               <button class="icon-btn" @click="continueWithApple">
@@ -67,13 +67,33 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
+import { useGoogleAuth } from '@/composables/useGoogleAuth'
+import { useAuthSession } from '@/composables/useAuthSession'
+import { showToast } from '@/utils/ionicFeedback'
 
 const router = useRouter()
+const loading = ref(false)
+const { connectWithGoogle } = useGoogleAuth()
+const { signInWithGoogle } = useAuthSession()
 
-function continueWithGoogle() {
-  // TODO: implement Google sign-in
+async function continueWithGoogle() {
+  const idToken = await connectWithGoogle()
+  if (!idToken) return
+
+  loading.value = true
+  try {
+    await signInWithGoogle(idToken)
+    showToast('Account created successfully')
+  } catch (error) {
+    const msg = error.response?.data?.error || error.message || 'Google sign-up failed'
+    showToast(msg)
+    console.error('Google register error:', error)
+  } finally {
+    loading.value = false
+  }
 }
 
 function continueWithApple() {
@@ -225,8 +245,13 @@ function loginWithEmail() {
   cursor: pointer;
 }
 
-.signup-btn:active {
+.signup-btn:active:not(:disabled) {
   transform: scale(0.98);
+}
+
+.signup-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .signup-btn .btn-icon {

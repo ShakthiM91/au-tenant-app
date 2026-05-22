@@ -4,6 +4,17 @@ import { useRoute } from 'vue-router'
 const DISMISS_KEY = 'pwa_install_dismissed_at'
 const DISMISS_DAYS = 7
 
+const AUTH_PATH_PREFIXES = [
+  '/login',
+  '/register',
+  '/register-email',
+  '/welcome',
+  '/splash',
+  '/onboarding',
+  '/verify',
+  '/profile-setup'
+]
+
 // Module-level: survives component unmounts
 let deferredPromptRef = null
 
@@ -27,6 +38,17 @@ export function useInstallPrompt() {
   const isAndroid = () => /Android/i.test(navigator.userAgent || '')
   const isIos = () => /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
 
+  const isCapacitorNative = () => {
+    try {
+      return window.Capacitor?.isNativePlatform?.() === true
+    } catch {
+      return false
+    }
+  }
+
+  const isAuthRoute = () =>
+    AUTH_PATH_PREFIXES.some((p) => route.path === p || route.path.startsWith(`${p}/`))
+
   const wasDismissedRecently = () => {
     try {
       const raw = localStorage.getItem(DISMISS_KEY)
@@ -41,7 +63,8 @@ export function useInstallPrompt() {
   }
 
   const canShowBanner = computed(() => {
-    if (route.path === '/login') return false
+    if (isCapacitorNative()) return false
+    if (isAuthRoute()) return false
     if (isStandalone()) return false
     if (!isMobile()) return false
     if (isDismissed.value) return false
@@ -86,7 +109,7 @@ export function useInstallPrompt() {
   }
 
   onMounted(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined' || isCapacitorNative()) return
     if (wasDismissedRecently()) isDismissed.value = true
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
   })

@@ -1,7 +1,7 @@
 {
-  "name": "au-tenant-app",
+  "name": "rupee-life-app",
   "version": "0.0.1",
-  "description": "AU Tenant Mobile App",
+  "description": "Rupee Life Mobile App",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,6 +17,7 @@
     "@capacitor/cli": "^6.0.0",
     "@capacitor/core": "^6.0.0",
     "@capacitor/ios": "^8.0.2",
+    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@ionic/vue": "^8.0.0",
     "@ionic/vue-router": "^8.0.0",
     "axios": "^1.6.5",

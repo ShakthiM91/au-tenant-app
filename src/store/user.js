@@ -1,5 +1,12 @@
 import { defineStore } from 'pinia'
-import { login, register, logout, getInfo, updateProfile } from '@/api/auth'
+import {
+  login,
+  register,
+  loginWithGoogle as loginWithGoogleApi,
+  logout,
+  getInfo,
+  updateProfile
+} from '@/api/auth'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import { clearAllClientStorage } from '@/utils/clearDeviceStorage'
 import { useSyncStore } from '@/store/sync'
@@ -53,6 +60,22 @@ export const useUserStore = defineStore('user', {
         } else {
           throw new Error('Invalid registration response')
         }
+      } catch (error) {
+        removeToken()
+        throw error
+      }
+    },
+
+    async loginWithGoogle({ idToken }) {
+      try {
+        const response = await loginWithGoogleApi({ idToken })
+
+        if (response && response.accessToken) {
+          this.token = response.accessToken
+          setToken(response.accessToken)
+          return response
+        }
+        throw new Error('Invalid Google sign-in response')
       } catch (error) {
         removeToken()
         throw error

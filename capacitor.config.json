@@ -1,8 +1,14 @@
 {
-  "appId": "com.autenant.app",
-  "appName": "AU Tenant",
+  "appId": "com.rupee-life.app",
+  "appName": "Rupee Life",
   "webDir": "dist",
   "server": {
     "iosScheme": "https"
+  },
+  "plugins": {
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "forceCodeForRefreshToken": false
+    }
   }
 }

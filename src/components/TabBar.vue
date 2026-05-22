@@ -91,6 +91,20 @@ const tabs = [
   background: #fff;
   z-index: 100;
   border-top: 1px solid #f0f0f0;
+  padding-bottom: var(--au-safe-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+/* Fill sub-pixel gap below tab bar on iOS PWA / native */
+.tab-bar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--au-safe-bottom, env(safe-area-inset-bottom, 0px));
+  transform: translateY(100%);
+  background: #fff;
+  pointer-events: none;
 }
 
 .tabs {

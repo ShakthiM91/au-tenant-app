@@ -18,6 +18,15 @@ export function register(data) {
   })
 }
 
+export function loginWithGoogle(data) {
+  return request({
+    url: '/api/auth/google',
+    method: 'post',
+    data: { ...data, appToken: import.meta.env.VITE_APP_TOKEN },
+    skipQueue: true
+  })
+}
+
 export function logout() {
   return request({
     url: '/api/auth/logout',

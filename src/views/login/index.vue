@@ -65,10 +65,10 @@
             </div>
 
             <div class="login-icons">
-              <button class="icon-btn" type="button" @click="loginWithGoogle">
+              <button class="icon-btn" type="button" :disabled="loading || googleLoading" @click="loginWithGoogle">
                 <img class="icon-btn-svg" src="/brands/google-g.png" alt="" width="18" height="18" />
               </button>
-              <button class="icon-btn" type="button" @click="loginWithApple">
+              <button class="icon-btn" type="button" :disabled="loading" @click="loginWithApple">
                 <img class="icon-btn-svg" src="/brands/apple.svg" alt="" width="18" height="18" />
               </button>
             </div>
@@ -84,12 +84,16 @@ import { reactive, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { useUserStore } from '@/store/user'
+import { useGoogleAuth } from '@/composables/useGoogleAuth'
+import { useAuthSession } from '@/composables/useAuthSession'
 import { showToast } from '@/utils/ionicFeedback'
 import { validEmail } from '@/utils/validate'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const { signInWithGoogle } = useAuthSession()
+const { loading: googleLoading, connectWithGoogle } = useGoogleAuth()
 
 const form = reactive({
   email: '',
@@ -139,8 +143,20 @@ function onForgotPassword() {
   // TODO: navigate to forgot password page
 }
 
-function loginWithGoogle() {
-  // TODO: implement Google login
+async function loginWithGoogle() {
+  const idToken = await connectWithGoogle()
+  if (!idToken) return
+
+  loading.value = true
+  try {
+    await signInWithGoogle(idToken)
+  } catch (error) {
+    const msg = error.response?.data?.error || error.message || 'Google sign-in failed'
+    showToast(msg)
+    console.error('Google login error:', error)
+  } finally {
+    loading.value = false
+  }
 }
 
 function loginWithApple() {
@@ -338,8 +354,14 @@ function loginWithApple() {
   box-shadow: 0 3.8px 4px 1px rgba(0, 0, 0, 0.16);
 }
 
-.login-button:active {
+.login-button:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+.login-button:disabled,
+.icon-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .forgot-text {

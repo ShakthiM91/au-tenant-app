@@ -13,6 +13,9 @@ import { useSyncStore } from '@/store/sync'
 import { getToken } from '@/utils/auth'
 import { warmBootstrapCache, refreshBootstrapCache } from '@/utils/bootstrapCache'
 import App from './App.vue'
+import { installIosViewportFix } from '@/utils/iosViewportFix'
+
+installIosViewportFix()
 
 const app = createApp(App)
 const pinia = createPinia()
