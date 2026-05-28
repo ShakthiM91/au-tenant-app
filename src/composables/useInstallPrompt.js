@@ -12,7 +12,8 @@ const AUTH_PATH_PREFIXES = [
   '/splash',
   '/onboarding',
   '/verify',
-  '/profile-setup'
+  '/profile-setup',
+  '/personalization-survey'
 ]
 
 // Module-level: survives component unmounts

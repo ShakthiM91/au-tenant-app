@@ -38,7 +38,7 @@ import { IonPage, IonContent } from '@ionic/vue'
 const router = useRouter()
 
 function onContinue() {
-  // TODO: navigate to dashboard/home once built
+  router.replace('/home')
 }
 </script>
 

@@ -157,14 +157,12 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
-import { useUserStore } from '@/store/user'
 import { useGoogleAuth } from '@/composables/useGoogleAuth'
 import { useAuthSession } from '@/composables/useAuthSession'
 import { showToast } from '@/utils/ionicFeedback'
 
 const router = useRouter()
-const userStore = useUserStore()
-const { signInWithGoogle } = useAuthSession()
+const { signInWithGoogle, signUpWithPassword } = useAuthSession()
 const { loading: googleLoading, connectWithGoogle } = useGoogleAuth()
 
 const loading = ref(false)
@@ -212,10 +210,12 @@ async function onSignUp() {
   loading.value = true
   try {
     const name = [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(' ')
-    await userStore.register({ name, email: form.email.trim(), password: form.password })
-    await userStore.getInfo()
+    await signUpWithPassword({
+      name,
+      email: form.email.trim(),
+      password: form.password
+    })
     showToast('Account created successfully')
-    router.replace('/home')
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || 'Registration failed'
     showToast(message)

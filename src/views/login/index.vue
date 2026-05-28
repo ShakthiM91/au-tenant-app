@@ -92,7 +92,7 @@ import { validEmail } from '@/utils/validate'
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const { signInWithGoogle } = useAuthSession()
+const { signInWithGoogle, finishAuthenticatedSession } = useAuthSession()
 const { loading: googleLoading, connectWithGoogle } = useGoogleAuth()
 
 const form = reactive({
@@ -126,10 +126,7 @@ async function onLogin() {
   loading.value = true
   try {
     await userStore.login(form)
-    await userStore.getInfo()
-    const redirect = route.query.redirect || '/home'
-    router.push(redirect)
-    // showToast('Login successful')
+    await finishAuthenticatedSession()
   } catch (error) {
     const msg = error.response?.data?.error || error.message || 'Login failed'
     showToast(msg)

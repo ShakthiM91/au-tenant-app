@@ -10,6 +10,7 @@ import {
 import { getToken, setToken, removeToken } from '@/utils/auth'
 import { clearAllClientStorage } from '@/utils/clearDeviceStorage'
 import { useSyncStore } from '@/store/sync'
+import { clearSurveyGateCache } from '@/utils/onboardingSurvey/resolveDestination'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -136,6 +137,7 @@ export const useUserStore = defineStore('user', {
 
     /** Wipe in-memory state and all user data on device (logout / session expiry). */
     async clearSession() {
+      clearSurveyGateCache()
       this.resetState()
       useSyncStore().resetState()
       try {

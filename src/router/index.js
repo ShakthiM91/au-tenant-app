@@ -1,6 +1,11 @@
 import { createRouter, createWebHistory } from '@ionic/vue-router'
 import { useUserStore } from '@/store/user'
 import { getToken } from '@/utils/auth'
+import {
+  userNeedsPersonalizationSurvey,
+  isSurveyExemptPath
+} from '@/utils/onboardingSurvey/resolveDestination'
+import { SURVEY_ROUTE } from '@/utils/onboardingSurvey/constants'
 
 const routes = [
   {
@@ -44,6 +49,11 @@ const routes = [
     name: 'Welcome',
     component: () => import('@/views/welcome/index.vue'),
     meta: { public: true }
+  },
+  {
+    path: '/personalization-survey',
+    name: 'PersonalizationSurvey',
+    component: () => import('@/views/personalization-survey/index.vue'),
   },
   {
     path: '/login',
@@ -139,21 +149,25 @@ router.beforeEach(async (to, from, next) => {
   if (hasToken) {
     if (to.path === '/login') {
       next({ path: '/home' })
-    } else {
-      const userStore = useUserStore()
-      const hasRoles = userStore.role
+      return
+    }
 
-      if (hasRoles) {
-        next()
-      } else {
-        try {
-          await userStore.getInfo()
-          next()
-        } catch (error) {
-          await userStore.clearSession()
-          next(`/login?redirect=${encodeURIComponent(to.path)}`)
-        }
+    const userStore = useUserStore()
+    const hasRoles = userStore.role
+
+    try {
+      if (!hasRoles) {
+        await userStore.getInfo()
       }
+      const needsSurvey = await userNeedsPersonalizationSurvey()
+      if (needsSurvey && !isSurveyExemptPath(to.path)) {
+        next(SURVEY_ROUTE)
+        return
+      }
+      next()
+    } catch (error) {
+      await userStore.clearSession()
+      next(`/login?redirect=${encodeURIComponent(to.path)}`)
     }
   } else {
     if (to.path === '/login' || to.meta?.public) {

@@ -25,7 +25,8 @@ service.interceptors.request.use(
     const token = getToken()
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
-    } else if (APP_TOKEN) {
+    }
+    if (APP_TOKEN) {
       config.headers['X-App-Token'] = APP_TOKEN
     }
     return config
@@ -93,11 +94,13 @@ service.interceptors.response.use(
         message: message || 'You do not have permission for this action.'
       })
     } else if (status === 404) {
-      showToast({
-        variant: 'error',
-        title: 'Not found',
-        message: 'That resource could not be found.'
-      })
+      if (!error.config?.skipErrorToast) {
+        showToast({
+          variant: 'error',
+          title: 'Not found',
+          message: 'That resource could not be found.'
+        })
+      }
     } else if (status === 500) {
       showToast({
         variant: 'error',

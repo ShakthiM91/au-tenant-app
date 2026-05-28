@@ -25,24 +25,39 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { getToken } from '@/utils/auth'
+import { useUserStore } from '@/store/user'
+import { resolvePostAuthDestination } from '@/utils/onboardingSurvey/resolveDestination'
 import pkg from '../../../package.json'
 
 const router = useRouter()
+const userStore = useUserStore()
 const appVersion = pkg.version || '0.0.1'
 
 const ONBOARDING_KEY = 'au_onboarding_completed'
 
 onMounted(() => {
-  setTimeout(() => {
-    const hasToken = getToken()
+  setTimeout(async () => {
     const onboardingDone = localStorage.getItem(ONBOARDING_KEY) === 'true'
 
     if (!onboardingDone) {
       router.replace('/onboarding')
-    } else if (hasToken) {
-      router.replace('/home')
-    } else {
+      return
+    }
+
+    const hasToken = getToken()
+    if (!hasToken) {
       router.replace('/register')
+      return
+    }
+
+    try {
+      if (!userStore.role) {
+        await userStore.getInfo()
+      }
+      const dest = await resolvePostAuthDestination()
+      router.replace(dest)
+    } catch {
+      router.replace('/login')
     }
   }, 3000)
 })
