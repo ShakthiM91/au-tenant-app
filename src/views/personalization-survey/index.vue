@@ -27,6 +27,11 @@
                 :disabled="submitting"
                 @submit="handleContinue"
               />
+              <DateAnswer
+                v-else-if="isDate"
+                v-model="textValue"
+                :disabled="submitting"
+              />
               <ChoiceOptions
                 v-else
                 :options="currentQuestion.options || []"
@@ -73,6 +78,7 @@ import { HOME_ROUTE } from '@/utils/onboardingSurvey/constants'
 import QuestionHeader from './components/QuestionHeader.vue'
 import ChoiceOptions from './components/ChoiceOptions.vue'
 import TextAnswer from './components/TextAnswer.vue'
+import DateAnswer from './components/DateAnswer.vue'
 import SurveyActions from './components/SurveyActions.vue'
 import SubmittingOverlay from './components/SubmittingOverlay.vue'
 
@@ -88,6 +94,8 @@ const {
   showSkipPersonalization,
   showSkipThisStep,
   isText,
+  isDate,
+  isFreeform,
   isMultiSelect,
   selectedOptionIds,
   textValue,
@@ -99,7 +107,7 @@ const {
 } = useOnboardingSurvey()
 
 const showContinueButton = computed(
-  () => isText.value || isMultiSelect.value
+  () => isFreeform.value || isMultiSelect.value
 )
 
 onMounted(() => {

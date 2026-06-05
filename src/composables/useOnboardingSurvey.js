@@ -5,10 +5,14 @@ import { clearSurveyGateCache } from '@/utils/onboardingSurvey/resolveDestinatio
 import {
   isTreeSurvey,
   isTextQuestion,
+  isDateQuestion,
+  isFreeformQuestion,
+  isValidDateAnswer,
   sortQuestions,
   questionsById,
   canSkipPersonalization,
   canSkipThisStep,
+  isQuestionRequired,
   durationSince,
   buildAnswersPayload
 } from '@/utils/onboardingSurvey/helpers'
@@ -60,8 +64,12 @@ export function useOnboardingSurvey() {
 
   const isText = computed(() => isTextQuestion(currentQuestion.value))
 
+  const isDate = computed(() => isDateQuestion(currentQuestion.value))
+
+  const isFreeform = computed(() => isFreeformQuestion(currentQuestion.value))
+
   const isMultiSelect = computed(
-    () => !isText.value && Boolean(currentQuestion.value?.allow_multiple)
+    () => !isFreeform.value && Boolean(currentQuestion.value?.allow_multiple)
   )
 
   async function loadSurvey() {
@@ -127,15 +135,19 @@ export function useOnboardingSurvey() {
   function validateCurrentAnswer() {
     const q = currentQuestion.value
     if (!q) return false
-    if (isText.value) {
+    if (isFreeform.value) {
       const text = textValue.value?.trim()
-      if (q.is_required !== false && !text) {
-        validationError.value = 'Please enter your answer'
+      if (isQuestionRequired(q) && !text) {
+        validationError.value = isDate.value ? 'Please select a date' : 'Please enter your answer'
+        return false
+      }
+      if (isDate.value && text && !isValidDateAnswer(text)) {
+        validationError.value = 'Please enter a valid date'
         return false
       }
       return true
     }
-    if (q.is_required !== false && !selectedOptionIds.value.length) {
+    if (isQuestionRequired(q) && !selectedOptionIds.value.length) {
       validationError.value = 'Please select an answer'
       return false
     }
@@ -146,9 +158,9 @@ export function useOnboardingSurvey() {
     const q = currentQuestion.value
     if (!q) return
     const durationMs = durationSince(questionShownAt.value)
-    if (isText.value) {
+    if (isFreeform.value) {
       const text = textValue.value?.trim()
-      if (!text && q.is_required === false) {
+      if (!text && !isQuestionRequired(q)) {
         answers.value.delete(q.id)
         return
       }
@@ -230,7 +242,7 @@ export function useOnboardingSurvey() {
 
   async function skipThisStep() {
     const q = currentQuestion.value
-    if (!q || q.is_required !== false) return null
+    if (!q || isQuestionRequired(q)) return null
     answers.value.delete(q.id)
     if (isTree.value) {
       validationError.value = 'This question cannot be skipped in a branching survey'
@@ -266,6 +278,8 @@ export function useOnboardingSurvey() {
     showSkipPersonalization,
     showSkipThisStep,
     isText,
+    isDate,
+    isFreeform,
     isMultiSelect,
     selectedOptionIds,
     textValue,

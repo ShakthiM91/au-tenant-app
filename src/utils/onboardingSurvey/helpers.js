@@ -6,6 +6,23 @@ export function isTextQuestion(question) {
   return question?.input_type === 'text'
 }
 
+export function isDateQuestion(question) {
+  return question?.input_type === 'date'
+}
+
+export function isFreeformQuestion(question) {
+  return isTextQuestion(question) || isDateQuestion(question)
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export function isValidDateAnswer(value) {
+  const raw = String(value || '').trim()
+  if (!ISO_DATE_RE.test(raw)) return false
+  const d = new Date(`${raw}T00:00:00.000Z`)
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === raw
+}
+
 export function sortQuestions(questions) {
   return [...(questions || [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 }
@@ -23,8 +40,15 @@ export function canSkipPersonalization(survey, currentQuestion, byId) {
   return atOrder >= skipOrder
 }
 
+export function isQuestionRequired(question) {
+  if (!question) return true
+  const v = question.is_required
+  if (v === false || v === 0 || v === '0') return false
+  return true
+}
+
 export function canSkipThisStep(question) {
-  return question && question.is_required === false
+  return question && !isQuestionRequired(question)
 }
 
 export function durationSince(shownAt) {
