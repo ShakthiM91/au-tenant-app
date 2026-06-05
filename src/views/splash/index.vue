@@ -46,7 +46,7 @@ onMounted(() => {
 
     const hasToken = getToken()
     if (!hasToken) {
-      router.replace('/register')
+      router.replace('/start')
       return
     }
 

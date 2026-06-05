@@ -138,7 +138,7 @@ export function useOnboardingSurvey() {
     if (isFreeform.value) {
       const text = textValue.value?.trim()
       if (isQuestionRequired(q) && !text) {
-        validationError.value = isDate.value ? 'Please select a date' : 'Please enter your answer'
+        validationError.value = isDate.value ? 'Please enter a complete date' : 'Please enter your answer'
         return false
       }
       if (isDate.value && text && !isValidDateAnswer(text)) {

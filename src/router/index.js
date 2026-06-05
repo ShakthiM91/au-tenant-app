@@ -21,6 +21,12 @@ const routes = [
     meta: { public: true }
   },
   {
+    path: '/start',
+    name: 'WelcomeMain',
+    component: () => import('@/views/welcome-main/index.vue'),
+    meta: { public: true }
+  },
+  {
     path: '/register',
     name: 'Register',
     component: () => import('@/views/register/index.vue'),
@@ -147,7 +153,7 @@ router.beforeEach(async (to, from, next) => {
   const hasToken = getToken()
 
   if (hasToken) {
-    if (to.path === '/login') {
+    if (to.path === '/login' || to.path === '/start') {
       next({ path: '/home' })
       return
     }
