@@ -1378,7 +1378,7 @@ async function fetchFlowLog(page = 1, append = false) {
   if (page === 1) loading.value = true
   else loadingMore.value = true
   try {
-    const params = { page, limit: pageSize }
+    const params = { page, limit: pageSize, category_path: 'direct' }
     appendFlowTypeFilterParams(params)
     if (dateFrom.value) params.from_date = dateFrom.value
     if (dateTo.value) params.to_date = dateTo.value
