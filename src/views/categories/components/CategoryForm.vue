@@ -75,7 +75,7 @@
               </div>
             </div>
 
-            <div v-if="!isEdit" class="form-group">
+            <div v-if="canEditParent" class="form-group">
               <span class="form-label">Parent Category</span>
               <button type="button" class="form-select-row" @click="showParentPicker = true">
                 <span class="form-select-value">{{ parentText || 'None' }}</span>
@@ -92,6 +92,13 @@
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
+            </div>
+            <div v-else-if="isEdit && editedHasChildren" class="form-group">
+              <span class="form-label">Parent Category</span>
+              <div class="form-select-row form-select-row--disabled">
+                <span class="form-select-value">None</span>
+              </div>
+              <p class="form-hint">This category has sub-categories, so it can't be moved under another category.</p>
             </div>
 
             <div class="form-group">
@@ -292,23 +299,39 @@ function toBoolean(v) {
   return Boolean(v)
 }
 
+/** Whether the category being edited has its own sub-categories (found in the tree). */
+const editedHasChildren = computed(() => {
+  const id = props.category?.id
+  if (id == null) return false
+  const node = findInTree(parentCategories.value, id)
+  return Boolean(node?.children?.length)
+})
+
+/**
+ * Show the parent picker on create always; on edit only when the category has no
+ * sub-categories of its own (keeps the hierarchy to two levels).
+ */
+const canEditParent = computed(() => !isEdit.value || !editedHasChildren.value)
+
 const rootParentOptions = computed(() =>
   (parentCategories.value || []).filter(
     (item) => item.is_active !== false && item.id !== props.category?.id
   )
 )
 
+/** Find a node by id in a category tree (root list with optional `children`). */
+function findInTree(items, id) {
+  for (const item of items || []) {
+    if (item.id === id) return item
+    const r = findInTree(item.children, id)
+    if (r) return r
+  }
+  return null
+}
+
 const parentText = computed(() => {
   if (!form.parent_id) return 'None'
-  function find(items) {
-    for (const item of items || []) {
-      if (item.id === form.parent_id) return item.name
-      const r = find(item.children)
-      if (r) return r
-    }
-    return null
-  }
-  return find(parentCategories.value) || 'Unknown'
+  return findInTree(parentCategories.value, form.parent_id)?.name || 'Unknown'
 })
 
 async function loadParents() {
@@ -605,6 +628,18 @@ async function submit() {
   color: #1a1a2e;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.form-select-row--disabled {
+  cursor: default;
+  color: #a7a7a7;
+}
+
+.form-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #a7a7a7;
 }
 
 .form-select-value {
