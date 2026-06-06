@@ -135,9 +135,9 @@
             </div>
           </section>
 
-          <!-- 2. My accounts — own workspaces only; always shown (empty state when user has none) -->
-          <section class="section-block">
-            <h3 class="section-label">My accounts</h3>
+          <!-- 2. My accounts — own workspaces only; hidden when user has none but has shared workspaces -->
+          <section v-if="myOwnWorkspaceGroups.length || !sharedWithMeGroups.length" class="section-block">
+            <h3 class="section-label">My Islands</h3>
             <template v-if="myOwnWorkspaceGroups.length">
               <div class="island-cards">
                 <div
@@ -238,9 +238,9 @@
                 </div>
               </div>
             </template>
-            <div v-else class="island-card my-accounts-empty-card">
+            <div v-else-if="!sharedWithMeGroups.length" class="island-card my-accounts-empty-card">
               <div class="empty-state workspace-empty-prompt my-accounts-empty">
-                <p>In order to create your first account,</p>
+                <p style="margin-bottom: 0px;">In order to create your first account,</p>
                 <p>Let's create an island first.</p>
                 <button type="button" class="add-first-btn" @click="onAddIsland">
                   Create your first island
@@ -1353,8 +1353,8 @@ onIonViewDidEnter(async () => {
 /* Visual bands between Invitations / My accounts / Shared — matches grouped mock layout */
 .section-block:not(:last-child) {
   padding-bottom: 24px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  /* margin-bottom: 24px; */
+  /* border-bottom: 1px solid rgba(0, 0, 0, 0.06); */
 }
 
 .section-block:last-child {
