@@ -82,7 +82,7 @@
                 <p class="activity-title">{{ row.title }}</p>
                 <div class="activity-meta">
                   <ion-icon :icon="personOutline" class="meta-user-icon" />
-                  <span class="meta-text">{{ row.metaAuthor }} <strong>at</strong> {{ row.metaTime }}</span>
+                  <span class="meta-text"><strong>{{ row.metaAuthor }}</strong> at <strong>{{ row.metaTime }}</strong></span>
                 </div>
               </div>
               <div class="activity-right">
