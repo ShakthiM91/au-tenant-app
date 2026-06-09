@@ -363,6 +363,20 @@
             </div>
             <div class="detail-cell">
               <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22a8 8 0 0 1 16 0"/><circle cx="10" cy="8" r="4"/><path d="M14 2a6 6 0 0 1 5 9"/></svg></span>
+                <span>Island</span>
+              </div>
+              <span class="detail-cell-value">{{ detailIslandLabel(selectedTransaction) }}</span>
+            </div>
+            <div class="detail-cell" v-if="selectedTransaction.type !== 'transfer'">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+                <span>Account</span>
+              </div>
+              <span class="detail-cell-value">{{ selectedTransaction.account_name || '—' }}</span>
+            </div>
+            <div class="detail-cell">
+              <div class="detail-cell-label">
                 <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg></span>
                 <span>Title</span>
               </div>
@@ -714,6 +728,13 @@ function formatDate(s) {
 
 function getCategoryLabel(row) {
   return row.category_name || row.category || '-'
+}
+
+/** Island (workspace) the transaction's account belongs to; accounts without a workspace are the Default Island. */
+function detailIslandLabel(row) {
+  if (!row) return '—'
+  const name = (row.account_workspace_name || '').toString().trim()
+  return name || 'Default Island'
 }
 
 function formatAmountShort(row) {

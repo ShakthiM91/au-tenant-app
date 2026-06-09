@@ -1895,7 +1895,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 0;
-  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+  /* border-bottom: 1px solid rgba(168, 168, 168, 0.55); */
   gap: 12px;
 }
 
@@ -1937,7 +1937,7 @@ onMounted(async () => {
   align-items: stretch;
   gap: 0;
   padding: 18px 0;
-  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+  /* border-bottom: 1px solid rgba(168, 168, 168, 0.55); */
 }
 
 .dual-col {
@@ -2017,7 +2017,7 @@ onMounted(async () => {
 
 /* Bottom rule only when the pill row is present; otherwise it stacked with .category-field-line. */
 .field-category--suggestions {
-  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+  /* border-bottom: 1px solid rgba(168, 168, 168, 0.55); */
 }
 
 .field-category .field-label {
@@ -2031,7 +2031,7 @@ onMounted(async () => {
   gap: 4px;
   padding: 4px 0 12px;
   margin-bottom: 4px;
-  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+  /* border-bottom: 1px solid rgba(168, 168, 168, 0.55); */
 }
 
 .category-field-open {
