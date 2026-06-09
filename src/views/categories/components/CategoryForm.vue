@@ -103,12 +103,11 @@
 
             <div class="form-group">
               <label class="form-label" for="cat-desc">Description</label>
-              <textarea
+              <input
                 id="cat-desc"
                 v-model="form.description"
-                class="form-textarea"
+                class="form-input"
                 placeholder="Optional"
-                rows="2"
               />
             </div>
 
@@ -621,7 +620,6 @@ async function submit() {
   width: 100%;
   padding: 10px 0;
   border: none;
-  border-bottom: 1px solid #e8e8e8;
   background: transparent;
   font-size: 15px;
   text-align: left;

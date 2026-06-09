@@ -171,11 +171,10 @@
 
           <div class="form-group">
             <label class="form-label">Description</label>
-            <textarea
+            <input
               v-model="form.description"
-              class="form-textarea"
+              class="form-input"
               placeholder="Optional"
-              rows="2"
               :disabled="formDisabled"
             />
           </div>
@@ -668,7 +667,6 @@ async function submit() {
   padding-inline-start: 0;
   padding-inline-end: 0;
   border: none;
-  border-bottom: 1px solid #E8E8E8;
   border-radius: 0;
   background: transparent;
   font-size: 15px;
