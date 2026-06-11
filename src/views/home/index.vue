@@ -3,7 +3,11 @@
     <ion-content :fullscreen="true" :scroll-y="true">
       <div class="home-wrap">
         <header class="greeting-header">
-          <span class="greeting-text">Hi, {{ greetingName }} 👋</span>
+          <img
+            :src="brandLogoUrl"
+            alt="Rupee Life"
+            class="brand-logo"
+          />
         </header>
 
         <section class="banner-section">
@@ -82,7 +86,7 @@
                 <p class="activity-title">{{ row.title }}</p>
                 <div class="activity-meta">
                   <ion-icon :icon="personOutline" class="meta-user-icon" />
-                  <span class="meta-text"><strong>{{ row.metaAuthor }}</strong> at <strong>{{ row.metaTime }}</strong></span>
+                  <span class="meta-text">{{ row.metaAuthor }} <span style="color: #a7a7a7;">at</span> {{ row.metaTime }}</span>
                 </div>
               </div>
               <div class="activity-right">
@@ -241,10 +245,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const bannerIndex = ref(0)
 
-const greetingName = computed(() => {
-  const n = (userStore.name || '').trim()
-  return n || 'User'
-})
+const brandLogoUrl = `${import.meta.env.BASE_URL}rupee-life-logo.png`
 
 const defaultCurrency = ref({ code: 'USD' })
 const recentActivityLoading = ref(true)
@@ -624,10 +625,12 @@ function onFabSelect(type) {
   padding: 10px 0 14px;
 }
 
-.greeting-text {
-  font-size: 18px;
-  font-weight: 700;
-  color: #000;
+.brand-logo {
+  display: block;
+  height: 32px;
+  width: auto;
+  max-width: min(220px, 72vw);
+  object-fit: contain;
 }
 
 .banner-section {
