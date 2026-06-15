@@ -331,20 +331,16 @@ function computeStartYmd() {
 function computeEndYmd(startYmd) {
   const [y, m, d] = startYmd.split('-').map(Number)
   const start = new Date(y, m - 1, d, 12, 0, 0, 0)
-  if (!form.is_recurring) {
-    if (form.period_type === 'week') {
-      const end = new Date(start)
-      end.setDate(end.getDate() + 6)
-      return toYmd(end)
-    }
-    if (form.period_type === 'month') {
-      const end = new Date(y, m, 0, 12, 0, 0, 0)
-      return toYmd(end)
-    }
-    const end = new Date(y, 11, 31, 12, 0, 0, 0)
+  if (form.period_type === 'week') {
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
     return toYmd(end)
   }
-  const end = new Date(y + 10, m - 1, d, 12, 0, 0, 0)
+  if (form.period_type === 'month') {
+    const end = new Date(y, m, 0, 12, 0, 0, 0)
+    return toYmd(end)
+  }
+  const end = new Date(y, 11, 31, 12, 0, 0, 0)
   return toYmd(end)
 }
 
