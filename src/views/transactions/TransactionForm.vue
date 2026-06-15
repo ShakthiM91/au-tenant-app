@@ -81,6 +81,7 @@
               <svg class="field-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
           </div>
+          <p v-if="backdateLimitHint" class="backdate-hint">{{ backdateLimitHint }}</p>
 
           <!-- Island + Account side-by-side (income / expense) -->
           <div v-if="form.type !== 'transfer'" class="field-workspace-account-row">
@@ -142,6 +143,7 @@
           <DatePicker
             :visible="showDatePicker"
             :model-value="dateOnlyValue"
+            :min-date="minTransactionDate"
             @close="showDatePicker = false"
             @select="onDateSelect"
           />
@@ -562,6 +564,12 @@ import {
 } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
+import { getTenant } from '@/api/tenant'
+import {
+  getMinAllowedTransactionDay,
+  getBackdateLimitHint,
+  isDateBeforeMin
+} from '@/utils/backdateSettings'
 import { useUserStore } from '@/store/user'
 import { useSyncStore } from '@/store/sync'
 import { invalidateAccountingCache } from '@/db/readCache'
@@ -635,6 +643,9 @@ const showCategoryPicker = ref(false)
 const showCurrencyPicker = ref(false)
 const showCategoryForm = ref(false)
 const showDatePicker = ref(false)
+const tenantSettings = ref({})
+const minTransactionDate = computed(() => getMinAllowedTransactionDay(tenantSettings.value))
+const backdateLimitHint = computed(() => getBackdateLimitHint(tenantSettings.value))
 const showTimePicker = ref(false)
 const showCalculator = ref(false)
 const showWorkspacePicker = ref(false)
@@ -1583,6 +1594,11 @@ async function submit(stayAndAddNew = false) {
     showToast('Amount must be greater than 0')
     return
   }
+  const normalizedDate = normalizeTransactionDateTime(form.transaction_date)
+  if (isDateBeforeMin(normalizedDate, minTransactionDate.value)) {
+    showToast(backdateLimitHint.value || 'Transaction date is too far in the past')
+    return
+  }
   saving.value = true
   try {
     const body = {
@@ -1683,6 +1699,15 @@ onIonViewDidEnter(async () => {
 })
 
 onMounted(async () => {
+  try {
+    const tenantRes = await getTenant()
+    const settings = tenantRes?.data?.settings
+    tenantSettings.value =
+      typeof settings === 'string' ? JSON.parse(settings) : settings || {}
+  } catch (_) {
+    tenantSettings.value = {}
+  }
+
   if (!isEdit && workspaceIdFromRoute.value != null) {
     workspacePicked.value = true
   }
@@ -1901,6 +1926,12 @@ onMounted(async () => {
 
 .field-datetime-row {
   flex-wrap: nowrap;
+}
+
+.backdate-hint {
+  margin: -4px 0 8px;
+  font-size: 12px;
+  color: #6e6a7c;
 }
 
 .datetime-trigger {

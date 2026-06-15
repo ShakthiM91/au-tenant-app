@@ -55,7 +55,14 @@
 
             <div class="picker-quick">
               <button type="button" class="quick-btn" @click="setToday">Today</button>
-              <button type="button" class="quick-btn" @click="setYesterday">Yesterday</button>
+              <button
+                v-if="canSelectYesterday"
+                type="button"
+                class="quick-btn"
+                @click="setYesterday"
+              >
+                Yesterday
+              </button>
             </div>
           </div>
           </div>
@@ -70,7 +77,8 @@ import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  modelValue: { type: String, default: '' }
+  modelValue: { type: String, default: '' },
+  minDate: { type: String, default: '' }
 })
 
 const emit = defineEmits(['update:modelValue', 'close', 'select'])
@@ -114,6 +122,17 @@ const headerDateLabel = computed(() => {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: '2-digit' })
 })
 
+const canSelectYesterday = computed(() => {
+  if (!props.minDate) return true
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  return toDateStr(d) >= props.minDate
+})
+
+function isDateDisabled(dateStr) {
+  return props.minDate && dateStr < props.minDate
+}
+
 const calendarCells = computed(() => {
   const year = viewYear.value
   const month = viewMonth.value
@@ -156,15 +175,18 @@ const calendarCells = computed(() => {
 
     const isSelected = dateStr === tempDate.value
     const isToday = dateStr === today
+    const isDisabled = isDateDisabled(dateStr)
 
     cells.push({
       key: `${year}-${month}-${i}`,
       label,
       date: dateStr,
+      disabled: isDisabled,
       classes: [
         otherMonth && 'other-month',
         isSelected && 'selected',
         isToday && !isSelected && 'today',
+        isDisabled && 'disabled'
       ].filter(Boolean).join(' ')
     })
   }
@@ -182,6 +204,7 @@ function navMonth(delta) {
 }
 
 function onDayClick(cell) {
+  if (cell.disabled) return
   tempDate.value = cell.date
 }
 
@@ -317,6 +340,12 @@ function onCancel() { emit('close') }
 
 .day-cell:not(.selected):active {
   background: rgba(255, 141, 40, 0.15);
+}
+
+.day-cell.disabled {
+  color: #d0d0d0;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .picker-quick {
