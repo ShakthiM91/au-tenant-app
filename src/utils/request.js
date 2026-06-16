@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { showToast } from '@/utils/ionicFeedback'
 import { getToken } from './auth'
+import { refreshSession } from './tokenRefresh'
 import { enqueue } from '@/db/pendingWrites'
 import { runSync } from '@/utils/syncWorker'
 import { useSyncStore } from '@/store/sync'
@@ -50,10 +51,11 @@ service.interceptors.response.use(
     }
     return res
   },
-  (error) => {
+  async (error) => {
     console.error('Response error:', error)
     const status = error.response?.status
     const message = error.response?.data?.error || error.message
+    const config = error.config
     const currentPath = _router?.currentRoute?.value?.path
     const isInvalidOrExpiredToken403 =
       status === 403 && /invalid or expired token/i.test(message || '')
@@ -67,6 +69,23 @@ service.interceptors.response.use(
     }
 
     const isPublicRoute = _router?.currentRoute?.value?.meta?.public === true
+    const isAuthError = status === 401 || isInvalidOrExpiredToken403
+
+    if (
+      isAuthError &&
+      config &&
+      !config._retried &&
+      !config.skipAuthRefresh &&
+      !isPublicRoute
+    ) {
+      const refreshed = await refreshSession()
+      if (refreshed) {
+        config._retried = true
+        config.headers = config.headers || {}
+        config.headers['Authorization'] = `Bearer ${getToken()}`
+        return service(config)
+      }
+    }
 
     if (status === 401) {
       if (!isPublicRoute) {

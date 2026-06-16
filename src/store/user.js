@@ -7,7 +7,7 @@ import {
   getInfo,
   updateProfile
 } from '@/api/auth'
-import { getToken, setToken, removeToken } from '@/utils/auth'
+import { getToken, setToken, removeToken, setRefreshToken, removeRefreshToken } from '@/utils/auth'
 import { clearAllClientStorage } from '@/utils/clearDeviceStorage'
 import { useSyncStore } from '@/store/sync'
 import { clearSurveyGateCache } from '@/utils/onboardingSurvey/resolveDestination'
@@ -40,12 +40,16 @@ export const useUserStore = defineStore('user', {
         if (response && response.accessToken) {
           this.token = response.accessToken
           setToken(response.accessToken)
+          if (response.refreshToken) {
+            setRefreshToken(response.refreshToken)
+          }
           return response
         } else {
           throw new Error('Invalid login response')
         }
       } catch (error) {
         removeToken()
+        removeRefreshToken()
         throw error
       }
     },
@@ -58,12 +62,16 @@ export const useUserStore = defineStore('user', {
         if (response && response.accessToken) {
           this.token = response.accessToken
           setToken(response.accessToken)
+          if (response.refreshToken) {
+            setRefreshToken(response.refreshToken)
+          }
           return response
         } else {
           throw new Error('Invalid registration response')
         }
       } catch (error) {
         removeToken()
+        removeRefreshToken()
         throw error
       }
     },
@@ -75,11 +83,15 @@ export const useUserStore = defineStore('user', {
         if (response && response.accessToken) {
           this.token = response.accessToken
           setToken(response.accessToken)
+          if (response.refreshToken) {
+            setRefreshToken(response.refreshToken)
+          }
           return response
         }
         throw new Error('Invalid Google sign-in response')
       } catch (error) {
         removeToken()
+        removeRefreshToken()
         throw error
       }
     },
@@ -196,6 +208,7 @@ export const useUserStore = defineStore('user', {
       this.permissions = []
       this.menus = []
       removeToken()
+      removeRefreshToken()
     }
   }
 })

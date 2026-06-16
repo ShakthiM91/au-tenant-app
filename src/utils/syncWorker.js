@@ -55,6 +55,24 @@ function isTransactionUrl(url) {
 
 let syncLock = false
 
+async function syncRequest(config) {
+  try {
+    return await syncClient.request(config)
+  } catch (err) {
+    const status = err.response?.status
+    if (status === 401 && !config._authRetried) {
+      const { refreshSession } = await import('./tokenRefresh')
+      if (await refreshSession()) {
+        config._authRetried = true
+        config.headers = config.headers || {}
+        config.headers['Authorization'] = `Bearer ${getToken()}`
+        return syncClient.request(config)
+      }
+    }
+    throw err
+  }
+}
+
 /**
  * Process all pending writes: send to backend, update entry on success/failure.
  * Server wins: store server_response; for transactions, call invalidation handler.
@@ -71,7 +89,7 @@ export async function runSync() {
         headers['X-Idempotency-Key'] = entry.id
       }
       try {
-        const res = await syncClient.request({
+        const res = await syncRequest({
           method: entry.method,
           url: entry.url,
           data: entry.payload,

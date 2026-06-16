@@ -10,8 +10,9 @@ import router from './router'
 import { setRouter } from '@/utils/request'
 import { setTransactionInvalidationHandler, setTransactionListInvalidationHandler, runSync } from '@/utils/syncWorker'
 import { useSyncStore } from '@/store/sync'
-import { getToken } from '@/utils/auth'
+import { getToken, getRefreshToken } from '@/utils/auth'
 import { warmBootstrapCache, refreshBootstrapCache } from '@/utils/bootstrapCache'
+import { isAccessTokenExpiringSoon, refreshSession } from '@/utils/tokenRefresh'
 import App from './App.vue'
 import { installIosViewportFix } from '@/utils/iosViewportFix'
 
@@ -49,8 +50,12 @@ setInterval(() => {
 }, SYNC_INTERVAL_MS)
 
 async function initAppResumeSync() {
-  function onResume() {
+  async function onResume() {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return
+    const token = getToken()
+    if (token && getRefreshToken() && isAccessTokenExpiringSoon(token)) {
+      await refreshSession().catch(() => {})
+    }
     if (!getToken()) return
     runSync().then(() => syncStore.refreshPendingCount())
     refreshBootstrapCache().catch(() => {})

@@ -1,11 +1,31 @@
+import axios from 'axios'
 import request from '@/utils/request'
+import { getToken, getRefreshToken } from '@/utils/auth'
+
+const refreshClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  timeout: 10000
+})
+
+export function refreshAccessToken(refreshToken) {
+  return refreshClient
+    .post('/api/auth/refresh', { refreshToken })
+    .then((res) => {
+      const data = res.data
+      if (data.success === false) {
+        return Promise.reject(new Error(data.error || 'Refresh failed'))
+      }
+      return data
+    })
+}
 
 export function login(data) {
   return request({
     url: '/api/auth/login',
     method: 'post',
     data,
-    skipQueue: true
+    skipQueue: true,
+    skipAuthRefresh: true
   })
 }
 
@@ -14,7 +34,8 @@ export function register(data) {
     url: '/api/auth/register',
     method: 'post',
     data: { ...data, appToken: import.meta.env.VITE_APP_TOKEN },
-    skipQueue: true
+    skipQueue: true,
+    skipAuthRefresh: true
   })
 }
 
@@ -23,7 +44,8 @@ export function loginWithGoogle(data) {
     url: '/api/auth/google',
     method: 'post',
     data: { ...data, appToken: import.meta.env.VITE_APP_TOKEN },
-    skipQueue: true
+    skipQueue: true,
+    skipAuthRefresh: true
   })
 }
 
@@ -31,7 +53,12 @@ export function logout() {
   return request({
     url: '/api/auth/logout',
     method: 'post',
-    skipQueue: true
+    data: {
+      accessToken: getToken(),
+      refreshToken: getRefreshToken()
+    },
+    skipQueue: true,
+    skipAuthRefresh: true
   })
 }
 
