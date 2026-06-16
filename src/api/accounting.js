@@ -144,6 +144,36 @@ export function getReports(params) {
   })
 }
 
+/** Workspace-scoped analytics bundle for au-tenant-app (island_scope: all | null | workspace id). */
+export function getAnalyticsOverview(islandScope = 'all') {
+  const island_scope =
+    islandScope === 'all'
+      ? 'all'
+      : islandScope === 'null'
+        ? 'null'
+        : String(islandScope)
+  return request({
+    url: '/api/accounting/analytics/overview',
+    method: 'get',
+    params: { island_scope }
+  })
+}
+
+/** Advanced category charts for au-tenant-app analytics (lazy-loaded). */
+export function getAnalyticsAdvanced(islandScope = 'all') {
+  const island_scope =
+    islandScope === 'all'
+      ? 'all'
+      : islandScope === 'null'
+        ? 'null'
+        : String(islandScope)
+  return request({
+    url: '/api/accounting/analytics/advanced',
+    method: 'get',
+    params: { island_scope }
+  })
+}
+
 export function getCategoryBreakdown(params) {
   return request({
     url: '/api/accounting/category-breakdown',

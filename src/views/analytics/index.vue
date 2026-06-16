@@ -18,7 +18,7 @@
         </div>
 
         <div class="account-row">
-          <button type="button" class="account-pill">
+          <button type="button" class="account-pill" @click="showIslandScopeSheet">
             <span class="account-pill__label">{{ analytics.headerLabel }}</span>
             <ion-icon :icon="chevronDown" class="account-pill__chev" />
           </button>
@@ -349,6 +349,7 @@ import {
   IonIcon,
   IonSpinner,
   onIonViewDidEnter,
+  actionSheetController,
 } from '@ionic/vue'
 import { ellipsisVertical, chevronDown } from 'ionicons/icons'
 import { showToast } from '@/utils/ionicFeedback'
@@ -567,7 +568,34 @@ const balanceDisplay = computed(() => {
   }
 })
 
+async function showIslandScopeSheet() {
+  await analytics.loadIslandOptions()
+  const buttons = analytics.islandOptions.map((o) => ({
+    text: o.name,
+    handler: () => {
+      void (async () => {
+        await analytics.setIslandScope(o.key)
+        if (analytics.error) {
+          showToast(analytics.error)
+          return
+        }
+        if (viewMode.value === 'advanced') {
+          await analytics.loadAdvancedCategoryCharts()
+          if (analytics.error) showToast(analytics.error)
+        }
+      })()
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Select island',
+    buttons,
+  })
+  await sheet.present()
+}
+
 onIonViewDidEnter(async () => {
+  await analytics.loadIslandOptions()
   await analytics.refresh()
   if (analytics.error) {
     showToast(analytics.error)
