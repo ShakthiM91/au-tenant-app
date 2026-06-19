@@ -46,6 +46,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
+import { HOME_ROUTE } from '@/utils/onboardingSurvey/constants'
+import { clearPostRegisterFlow, markSurveyGatePassed } from '@/utils/onboardingSurvey/resolveDestination'
 
 const ONBOARDING_KEY = 'au_onboarding_completed'
 
@@ -96,7 +98,9 @@ function onTouchEnd() {
 
 function completeOnboarding() {
   localStorage.setItem(ONBOARDING_KEY, 'true')
-  router.replace('/register')
+  markSurveyGatePassed()
+  clearPostRegisterFlow()
+  router.replace(HOME_ROUTE)
 }
 
 function onCtaClick() {

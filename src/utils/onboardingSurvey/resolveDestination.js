@@ -1,47 +1,91 @@
 import { getOnboardingStatus, getOnboardingSurvey } from '@/api/onboarding'
-import { HOME_ROUTE, SURVEY_ROUTE } from './constants'
+import {
+  HOME_ROUTE,
+  ONBOARDING_ROUTE,
+  SURVEY_GATE_PASSED_KEY,
+  SURVEY_ROUTE
+} from './constants'
+import {
+  clearWorkspaceAccountSurveyCache,
+  userHasWorkspacesOrAccounts
+} from './userActivity'
 
 function isNotFound(err) {
   return err?.response?.status === 404
 }
 
-/**
- * Where to send the user after auth when survey gating applies.
- */
-export async function resolvePostAuthDestination() {
+async function resolveSurveyOrFallback(fallbackRoute, { skipWorkspaceCheck = false } = {}) {
   if (!import.meta.env.VITE_APP_TOKEN) {
     console.warn('[onboarding] VITE_APP_TOKEN not set; skipping personalization survey')
-    return HOME_ROUTE
+    return fallbackRoute
+  }
+
+  if (!skipWorkspaceCheck && (await userHasWorkspacesOrAccounts())) {
+    return fallbackRoute
   }
 
   try {
     const statusRes = await getOnboardingStatus()
     if (statusRes?.data?.completed) {
-      return HOME_ROUTE
+      return fallbackRoute
     }
   } catch (err) {
-    if (isNotFound(err)) return HOME_ROUTE
+    if (isNotFound(err)) return fallbackRoute
     console.warn('[onboarding] status check failed', err)
-    return HOME_ROUTE
+    return fallbackRoute
   }
 
   try {
     await getOnboardingSurvey()
     return SURVEY_ROUTE
   } catch (err) {
-    if (isNotFound(err)) return HOME_ROUTE
+    if (isNotFound(err)) return fallbackRoute
     console.warn('[onboarding] survey load failed', err)
-    return HOME_ROUTE
+    return fallbackRoute
   }
+}
+
+/**
+ * Where to send the user after auth when survey gating applies (splash, login).
+ */
+export async function resolvePostAuthDestination() {
+  return resolveSurveyOrFallback(HOME_ROUTE)
+}
+
+/**
+ * After welcome screen in the post-registration flow.
+ */
+export async function resolvePostWelcomeDestination() {
+  return resolveSurveyOrFallback(ONBOARDING_ROUTE, { skipWorkspaceCheck: true })
+}
+
+export function isPostRegisterFlow() {
+  return sessionStorage.getItem('au_post_register_flow') === 'true'
+}
+
+export function clearPostRegisterFlow() {
+  sessionStorage.removeItem('au_post_register_flow')
 }
 
 let cachedNeedsSurvey = null
 
+export function hasSurveyGatePassed() {
+  return localStorage.getItem(SURVEY_GATE_PASSED_KEY) === 'true'
+}
+
+export function markSurveyGatePassed() {
+  cachedNeedsSurvey = false
+  localStorage.setItem(SURVEY_GATE_PASSED_KEY, 'true')
+}
+
 export function clearSurveyGateCache() {
   cachedNeedsSurvey = null
+  clearWorkspaceAccountSurveyCache()
 }
 
 export async function userNeedsPersonalizationSurvey(force = false) {
+  if (!force && (await userHasWorkspacesOrAccounts())) return false
+  if (!force && isPostRegisterFlow() && hasSurveyGatePassed()) return false
   if (!force && cachedNeedsSurvey !== null) return cachedNeedsSurvey
   const dest = await resolvePostAuthDestination()
   cachedNeedsSurvey = dest === SURVEY_ROUTE

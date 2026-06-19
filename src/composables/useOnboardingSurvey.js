@@ -1,7 +1,7 @@
 import { ref, computed, shallowRef } from 'vue'
 import { getOnboardingSurvey, submitOnboardingResponse } from '@/api/onboarding'
-import { WELCOME_ROUTE, HOME_ROUTE } from '@/utils/onboardingSurvey/constants'
-import { clearSurveyGateCache } from '@/utils/onboardingSurvey/resolveDestination'
+import { HOME_ROUTE, ONBOARDING_ROUTE } from '@/utils/onboardingSurvey/constants'
+import { clearSurveyGateCache, isPostRegisterFlow, markSurveyGatePassed } from '@/utils/onboardingSurvey/resolveDestination'
 import {
   isTreeSurvey,
   isTextQuestion,
@@ -186,7 +186,8 @@ export function useOnboardingSurvey() {
       }
       await submitOnboardingResponse(payload)
       clearSurveyGateCache()
-      return completionStatus === 'skipped' ? HOME_ROUTE : WELCOME_ROUTE
+      markSurveyGatePassed()
+      return isPostRegisterFlow() ? ONBOARDING_ROUTE : HOME_ROUTE
     } catch (err) {
       validationError.value =
         err?.response?.data?.error || err?.message || 'Failed to submit'

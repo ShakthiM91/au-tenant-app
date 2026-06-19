@@ -9,7 +9,7 @@
 
         <div v-else-if="loadError" class="state-block">
           <p class="error-text">{{ loadError }}</p>
-          <button type="button" class="secondary-btn" @click="goHome">Go to home</button>
+          <button type="button" class="secondary-btn" @click="goAfterSurveyExit">Continue</button>
         </div>
 
         <div v-else-if="currentQuestion" class="survey-stage">
@@ -74,7 +74,8 @@ import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { useOnboardingSurvey } from '@/composables/useOnboardingSurvey'
-import { HOME_ROUTE } from '@/utils/onboardingSurvey/constants'
+import { HOME_ROUTE, ONBOARDING_ROUTE } from '@/utils/onboardingSurvey/constants'
+import { isPostRegisterFlow } from '@/utils/onboardingSurvey/resolveDestination'
 import QuestionHeader from './components/QuestionHeader.vue'
 import ChoiceOptions from './components/ChoiceOptions.vue'
 import TextAnswer from './components/TextAnswer.vue'
@@ -114,8 +115,8 @@ onMounted(() => {
   loadSurvey()
 })
 
-function goHome() {
-  router.replace(HOME_ROUTE)
+function goAfterSurveyExit() {
+  router.replace(isPostRegisterFlow() ? ONBOARDING_ROUTE : HOME_ROUTE)
 }
 
 async function navigateIfRoute(route) {

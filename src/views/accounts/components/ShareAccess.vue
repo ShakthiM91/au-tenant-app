@@ -409,10 +409,24 @@ function memberRoleKey(m) {
 /** Workspace owner row: explicit role or creator (covers legacy rows missing role). */
 function isOwnerMember(m) {
   if (memberRoleKey(m) === 'owner') return true
+  const omid = inferredOwnerMemberId.value
+  if (omid != null && !Number.isNaN(omid) && m.member_profile_id != null) {
+    return Number(m.member_profile_id) === omid
+  }
   const oid = inferredOwnerUserId.value
   if (oid == null || Number.isNaN(oid)) return false
   return Number(m.user_id) === oid
 }
+
+const inferredOwnerMemberId = computed(() => {
+  const island = props.group?.island
+  if (!island || workspaceId.value == null) return null
+  const raw = island.owner_member_id
+  if (raw != null && raw !== '' && !Number.isNaN(Number(raw))) {
+    return Number(raw)
+  }
+  return null
+})
 
 /** Creator id from workspace row; fallback when API omitted created_by (legacy / client gap). */
 const inferredOwnerUserId = computed(() => {
@@ -438,17 +452,23 @@ const effectiveMembers = computed(() => {
   const list = Array.isArray(members.value) ? [...members.value] : []
   const oid = inferredOwnerUserId.value
   if (oid == null || Number.isNaN(oid)) return list
+  const omid = inferredOwnerMemberId.value
   const hasCreatorRow = list.some(
-    (m) => memberRoleKey(m) === 'owner' || Number(m.user_id) === oid
+    (m) =>
+      memberRoleKey(m) === 'owner' ||
+      (omid != null && Number(m.member_profile_id) === omid) ||
+      (oid != null && Number(m.user_id) === oid)
   )
   if (hasCreatorRow) return list
   const island = props.group?.island
   const isSelf = oid === Number(userStore.id)
+  const syntheticMemberId = omid ?? null
   return [
     {
-      id: `synthetic-owner-${oid}`,
+      id: syntheticMemberId != null ? `synthetic-owner-${syntheticMemberId}` : `synthetic-owner-${oid}`,
       synthetic: true,
       workspace_id: Number(workspaceId.value),
+      member_profile_id: syntheticMemberId,
       user_id: oid,
       role: 'owner',
       status: 'active',
@@ -466,6 +486,9 @@ const effectiveMembers = computed(() => {
 function memberSortId(m) {
   const n = Number(m.id)
   if (!Number.isNaN(n)) return n
+  if (m.member_profile_id != null && !Number.isNaN(Number(m.member_profile_id))) {
+    return 1e15 + Number(m.member_profile_id)
+  }
   return 1e15 + Number(m.user_id)
 }
 
@@ -490,6 +513,11 @@ function normalizeEmailForCompare(s) {
 
 function isInviteeCurrentUserById(userId) {
   return userStore.id != null && Number(userId) === Number(userStore.id)
+}
+
+function isInviteeCurrentUser(user) {
+  const uid = user?.user_id ?? user?.id
+  return isInviteeCurrentUserById(uid)
 }
 
 function baseMemberLabel(m) {
@@ -522,8 +550,12 @@ function statusLabel(m) {
   return ''
 }
 
-const isAlreadyMember = (userId) =>
-  effectiveMembers.value.some((m) => Number(m.user_id) === Number(userId))
+const isAlreadyMember = (memberProfileId) =>
+  effectiveMembers.value.some(
+    (m) =>
+      Number(m.member_profile_id) === Number(memberProfileId) ||
+      Number(m.user_id) === Number(memberProfileId)
+  )
 
 function defaultPermState() {
   return {
@@ -641,7 +673,7 @@ function toggleAccount(accountId, checked) {
 }
 
 function toggleSelectUser(u) {
-  if (isAlreadyMember(u.id) || isInviteeCurrentUserById(u.id)) return
+  if (isAlreadyMember(u.id) || isInviteeCurrentUser(u)) return
   closeEditMember()
   if (selectedUser.value?.id === u.id) {
     resetInviteForm()
@@ -840,7 +872,7 @@ async function searchUsers() {
   try {
     const res = await searchWorkspaceUsers(workspaceId.value, check.email)
     const list = Array.isArray(res?.data) ? res.data : []
-    const withoutSelf = list.filter((u) => !isInviteeCurrentUserById(u.id))
+    const withoutSelf = list.filter((u) => !isInviteeCurrentUser(u))
     if (list.length > 0 && withoutSelf.length === 0) {
       searchEmailError.value = 'You cannot share access with yourself'
     } else {
@@ -859,7 +891,7 @@ async function searchUsers() {
 
 async function sendInvite(user) {
   if (!canSubmitInvite.value || !workspaceId.value) return
-  if (isInviteeCurrentUserById(user?.id)) {
+  if (isInviteeCurrentUser(user)) {
     showToast('You cannot share access with yourself')
     return
   }
@@ -871,7 +903,7 @@ async function sendInvite(user) {
   inviting.value = true
   try {
     await inviteWorkspaceMember(workspaceId.value, {
-      user_id: user.id,
+      member_profile_id: user.member_profile_id ?? user.id,
       role: 'member',
       invite_mode: 'pending',
       account_grants

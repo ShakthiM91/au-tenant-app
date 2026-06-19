@@ -23,7 +23,9 @@
           </div>
 
           <div class="bottom-section">
-            <button class="cta-button" @click="onContinue">I'm All In !</button>
+            <button class="cta-button" :disabled="continuing" @click="onContinue">
+              {{ continuing ? 'Loading...' : "I'm All In !" }}
+            </button>
           </div>
         </div>
       </div>
@@ -32,13 +34,30 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
+import { resolvePostWelcomeDestination, markSurveyGatePassed } from '@/utils/onboardingSurvey/resolveDestination'
+import { ONBOARDING_ROUTE } from '@/utils/onboardingSurvey/constants'
 
 const router = useRouter()
+const continuing = ref(false)
 
-function onContinue() {
-  router.replace('/home')
+async function onContinue() {
+  if (continuing.value) return
+  continuing.value = true
+  try {
+    const dest = await resolvePostWelcomeDestination()
+    if (dest === ONBOARDING_ROUTE) {
+      markSurveyGatePassed()
+    }
+    await router.replace(dest)
+  } catch {
+    markSurveyGatePassed()
+    await router.replace(ONBOARDING_ROUTE)
+  } finally {
+    continuing.value = false
+  }
 }
 </script>
 
@@ -189,5 +208,10 @@ function onContinue() {
 
 .cta-button:active {
   transform: scale(0.97);
+}
+
+.cta-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
