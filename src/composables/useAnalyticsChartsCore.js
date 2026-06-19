@@ -1,6 +1,17 @@
 import { getAccounts, getAccountsByWorkspace } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 
+/** Soft-deleted workspaces must not appear in analytics scope. */
+function isActiveWorkspace(ws) {
+  return !!ws && (ws.deleted_at == null || ws.deleted_at === '')
+}
+
+function accountInActiveWorkspaces(account, activeWorkspaceIds) {
+  const wid = account.workspace_id
+  if (wid == null || wid === '') return true
+  return activeWorkspaceIds.has(Number(wid))
+}
+
 /**
  * Same union as Accounts: own workspaces + default accounts from main list + per-shared-workspace fetch.
  * @returns {Promise<{ ids: number[], accounts: object[] }>}
@@ -8,10 +19,11 @@ import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 export async function resolveAccessibleAccounts() {
   const byId = new Map()
 
-  const addList = (list) => {
+  const addList = (list, activeWorkspaceIds) => {
     if (!Array.isArray(list)) return
     for (const a of list) {
       if (a?.is_active === false) continue
+      if (!accountInActiveWorkspaces(a, activeWorkspaceIds)) continue
       const id = Number(a.id)
       if (Number.isNaN(id)) continue
       if (!byId.has(id)) byId.set(id, a)
@@ -24,31 +36,38 @@ export async function resolveAccessibleAccounts() {
     getAccounts({ is_active: true }).catch(() => null),
   ])
 
-  const ownWorkspaces = Array.isArray(ownResult?.data) ? ownResult.data : []
-  const sharedWorkspaces = Array.isArray(sharedResult?.data?.active) ? sharedResult.data.active : []
+  const ownWorkspaces = (Array.isArray(ownResult?.data) ? ownResult.data : []).filter(isActiveWorkspace)
+  const sharedWorkspaces = (Array.isArray(sharedResult?.data?.active) ? sharedResult.data.active : []).filter(
+    isActiveWorkspace
+  )
   const mainAccounts = Array.isArray(mainRes?.data) ? mainRes.data : []
+
+  const activeWorkspaceIds = new Set([
+    ...ownWorkspaces.map((ws) => Number(ws.id)),
+    ...sharedWorkspaces.map((ws) => Number(ws.id)),
+  ])
 
   const byWorkspace = (wid) => (a) => (a.workspace_id ?? null) === (wid ?? null)
 
   for (const ws of ownWorkspaces) {
-    addList(mainAccounts.filter(byWorkspace(ws.id)))
+    addList(mainAccounts.filter(byWorkspace(ws.id)), activeWorkspaceIds)
   }
-  addList(mainAccounts.filter(byWorkspace(null)))
+  addList(mainAccounts.filter(byWorkspace(null)), activeWorkspaceIds)
 
   await Promise.all(
     sharedWorkspaces.map(async (ws) => {
       try {
         const r = await getAccountsByWorkspace(ws.id, { is_active: true })
-        addList(Array.isArray(r?.data) ? r.data : [])
+        addList(Array.isArray(r?.data) ? r.data : [], activeWorkspaceIds)
       } catch {
         /* skip */
       }
     })
   )
 
-  const accounts = [...byId.values()].sort((a, b) =>
-    String(a.name || '').localeCompare(String(b.name || ''))
-  )
+  const accounts = [...byId.values()]
+    .filter((a) => accountInActiveWorkspaces(a, activeWorkspaceIds))
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
   return { ids: accounts.map((a) => Number(a.id)), accounts }
 }
 

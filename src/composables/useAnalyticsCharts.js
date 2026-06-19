@@ -12,6 +12,10 @@ function islandScopeAllowsView(scope) {
   return !!scope.view
 }
 
+function isActiveWorkspace(ws) {
+  return !!ws && (ws.deleted_at == null || ws.deleted_at === '')
+}
+
 /** @param {string} key */
 function scopeKeyToValue(key) {
   if (key === ALL_ISLANDS_KEY) return 'all'
@@ -166,8 +170,10 @@ export function useAnalyticsCharts() {
       getWorkspaces().catch(() => null),
       getSharedWorkspaces().catch(() => null),
     ])
-    const own = Array.isArray(ownRes?.data) ? ownRes.data : []
-    const shared = Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []
+    const own = (Array.isArray(ownRes?.data) ? ownRes.data : []).filter(isActiveWorkspace)
+    const shared = (Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []).filter(
+      isActiveWorkspace
+    )
 
     for (const ws of own) {
       const s = ws.permission_scope
