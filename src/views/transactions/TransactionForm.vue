@@ -295,7 +295,7 @@
     </ion-content>
 
     <!-- Workspace / island picker (create, no workspace in URL) -->
-    <ion-modal
+    <ion-modal mode="ios"
       ref="pickWorkspaceModalRef"
       :is-open="showWorkspacePicker"
       @didDismiss="showWorkspacePicker = false"
@@ -335,7 +335,7 @@
     </ion-modal>
 
     <!-- Account picker modal -->
-    <ion-modal
+    <ion-modal mode="ios"
       ref="pickAccountModalRef"
       :is-open="showAccountPicker"
       @didDismiss="showAccountPicker = false"
@@ -367,7 +367,7 @@
     </ion-modal>
 
     <!-- To account picker -->
-    <ion-modal
+    <ion-modal mode="ios"
       ref="pickToAccountModalRef"
       :is-open="showToAccountPicker"
       @didDismiss="showToAccountPicker = false"
@@ -399,7 +399,7 @@
     </ion-modal>
 
     <!-- Category picker -->
-    <ion-modal
+    <ion-modal mode="ios"
       ref="pickCategoryModalRef"
       :is-open="showCategoryPicker"
       @didDismiss="showCategoryPicker = false"
@@ -434,7 +434,7 @@
     </ion-modal>
 
     <!-- Currency picker -->
-    <ion-modal
+    <ion-modal mode="ios"
       ref="pickCurrencyModalRef"
       :is-open="showCurrencyPicker"
       @didDismiss="showCurrencyPicker = false"

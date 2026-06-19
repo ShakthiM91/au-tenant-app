@@ -1,5 +1,5 @@
 <template>
-  <ion-modal
+  <ion-modal mode="ios"
     ref="modalRef"
     class="budget-setup-modal"
     :is-open="isOpen"
@@ -590,31 +590,6 @@ async function onOk() {
 
 .drawer-ion-header {
   flex-shrink: 0;
-}
-
-.budget-setup-header :deep(ion-toolbar) {
-  --background: #ffffff;
-  --border-width: 0 0 1px 0;
-  --border-color: #ebebeb;
-  --min-height: 52px;
-}
-
-.budget-setup-header :deep(.budget-setup-title) {
-  font-weight: 700;
-  font-size: 17px;
-  color: #1a1a1a;
-}
-
-.budget-setup-cancel {
-  --color: rgba(0, 0, 0, 0.45);
-  font-weight: 400;
-  font-size: 16px;
-}
-
-.ok-btn {
-  --color: #ff8d28;
-  font-weight: 600;
-  font-size: 16px;
 }
 
 .adaptive-sheet-body {

@@ -364,7 +364,7 @@
       <div class="tab-spacer" />
     </ion-content>
 
-    <ion-modal
+    <ion-modal mode="ios"
       ref="sortModalRef"
       :is-open="showSortMenu"
       @didDismiss="showSortMenu = false"

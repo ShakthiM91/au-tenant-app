@@ -288,7 +288,7 @@
     <FloatingAddButton v-if="transactionsFabVisible" @select="onFabSelect" />
 
     <!-- Transaction detail (same flow as Flow Log: preview then Edit) -->
-    <ion-modal
+    <ion-modal mode="ios"
       :is-open="detailVisible"
       @didDismiss="onDetailModalDismiss"
       :initial-breakpoint="1"

@@ -16,7 +16,7 @@
       Clear date
     </button>
 
-    <ion-modal
+    <ion-modal mode="ios"
       ref="modalRef"
       :is-open="modalOpen"
       @didDismiss="onModalDismiss"
@@ -213,22 +213,6 @@ function clear() {
   color: #ff8d28;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.bday-toolbar {
-  --background: #ffffff;
-  --border-width: 0;
-}
-
-.bday-toolbar ion-title {
-  font-size: 17px;
-  font-weight: 700;
-  color: #1a1a2e;
-}
-
-.bday-done {
-  --color: #ff8d28;
-  font-weight: 600;
 }
 
 .adaptive-sheet-body {

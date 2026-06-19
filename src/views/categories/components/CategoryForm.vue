@@ -1,5 +1,5 @@
 <template>
-  <ion-modal
+  <ion-modal mode="ios"
     ref="mainModalRef"
     :is-open="isOpen"
     @didDismiss="onDidDismiss"
@@ -134,7 +134,7 @@
     </ion-content>
   </ion-modal>
 
-  <ion-modal
+  <ion-modal mode="ios"
     ref="parentModalRef"
     :is-open="showParentPicker"
     @didDismiss="showParentPicker = false"
@@ -169,7 +169,7 @@
       </ion-content>
     </ion-modal>
 
-  <ion-modal
+  <ion-modal mode="ios"
     ref="activeModalRef"
     :is-open="showActivePicker"
     @didDismiss="showActivePicker = false"

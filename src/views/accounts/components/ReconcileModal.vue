@@ -1,5 +1,5 @@
 <template>
-  <ion-modal
+  <ion-modal mode="ios"
     ref="mainModalRef"
     :is-open="visible && !!account"
     @didDismiss="onMainDismiss"
@@ -95,7 +95,7 @@
     </ion-content>
   </ion-modal>
 
-  <ion-modal
+  <ion-modal mode="ios"
     ref="catModalRef"
     :is-open="showCategoryPicker && !!account"
     @didDismiss="showCategoryPicker = false"

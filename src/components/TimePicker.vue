@@ -1,5 +1,5 @@
 <template>
-  <ion-modal
+  <ion-modal mode="ios"
     ref="modalRef"
     :is-open="visible"
     @didDismiss="onCancel"

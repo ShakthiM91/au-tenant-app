@@ -1,0 +1,32 @@
+/* iOS-style sheet toolbar for ion-modal overlays (and TransactionForm no-acct gate). */
+
+ion-modal ion-header ion-toolbar,
+.no-acct-sheet ion-header ion-toolbar {
+  --background: #ffffff;
+  --border-width: 0 0 1px 0;
+  --border-color: #e5e5ea;
+  --min-height: 44px;
+  --padding-top: 4px;
+  --padding-bottom: 4px;
+}
+
+ion-modal ion-header ion-title,
+.no-acct-sheet ion-header ion-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1c1c1e;
+}
+
+ion-modal ion-header ion-buttons[slot='end'] ion-button,
+.no-acct-sheet ion-header ion-buttons[slot='end'] ion-button {
+  font-size: 17px;
+  font-weight: 600;
+  text-transform: none;
+}
+
+ion-modal ion-header ion-buttons[slot='start'] ion-button,
+.no-acct-sheet ion-header ion-buttons[slot='start'] ion-button {
+  font-size: 17px;
+  font-weight: 400;
+  text-transform: none;
+}

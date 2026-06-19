@@ -93,7 +93,7 @@
         </p>
       </div>
 
-      <ion-modal
+      <ion-modal mode="ios"
         ref="birthdayModalRef"
         :is-open="birthdayPickerOpen"
         :initial-breakpoint="birthdayInitialBreakpoint"
@@ -550,22 +550,6 @@ function onFieldClick(label) {
 }
 
 /* Birthday sheet (ion-datetime) */
-.bday-modal-toolbar {
-  --background: #ffffff;
-  --border-width: 0;
-}
-
-.bday-modal-toolbar ion-title {
-  font-size: 17px;
-  font-weight: 700;
-  color: #1a1a2e;
-}
-
-.bday-done-btn {
-  --color: #ff8d28;
-  font-weight: 600;
-}
-
 .bday-modal-content {
   --background: #ffffff;
 }

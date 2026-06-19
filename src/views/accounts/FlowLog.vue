@@ -332,7 +332,7 @@
     </ion-content>
 
     <!-- Transaction Detail Popup -->
-    <ion-modal
+    <ion-modal mode="ios"
       :is-open="detailVisible"
       @didDismiss="detailVisible = false"
       :initial-breakpoint="1"
