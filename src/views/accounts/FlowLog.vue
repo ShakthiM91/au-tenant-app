@@ -303,7 +303,7 @@
                       <svg class="person-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>
                       </svg>
-                      {{ getFlowLogUserLabel(row) }} <strong>at</strong> {{ formatFlowLogListTime(row.transaction_date) }}
+                      <strong>{{ getFlowLogUserLabel(row) }}</strong> at <strong>{{ formatFlowLogListTime(row.transaction_date) }}</strong>
                     </span>
                     <span class="tx-category-pill">{{ flowCategoryLabel(row) || '-' }}</span>
                     <span v-if="formatFlowLogBalanceLine(row)" class="tx-balance">{{ formatFlowLogBalanceLine(row) }}</span>
