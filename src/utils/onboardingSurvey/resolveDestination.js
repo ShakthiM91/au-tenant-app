@@ -53,6 +53,7 @@ export function isSurveyExemptPath(path) {
     path === '/personalization-survey' ||
     path === '/welcome' ||
     path === '/' ||
+    path === '/start' ||
     path.startsWith('/onboarding') ||
     path.startsWith('/register') ||
     path === '/login' ||

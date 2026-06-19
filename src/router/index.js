@@ -173,13 +173,13 @@ router.beforeEach(async (to, from, next) => {
       next()
     } catch (error) {
       await userStore.clearSession()
-      next(`/login?redirect=${encodeURIComponent(to.path)}`)
+      next('/start')
     }
   } else {
     if (to.path === '/login' || to.meta?.public) {
       next()
     } else {
-      next(`/login?redirect=${encodeURIComponent(to.path)}`)
+      next('/start')
     }
   }
 })

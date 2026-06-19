@@ -13,6 +13,13 @@ function getTokenExpiry(token) {
   }
 }
 
+export function isAccessTokenExpired(token) {
+  if (!token) return true
+  const exp = getTokenExpiry(token)
+  if (!exp) return false
+  return Date.now() / 1000 >= exp
+}
+
 export function isAccessTokenExpiringSoon(token, bufferSec = 300) {
   if (!token) return false
   const exp = getTokenExpiry(token)

@@ -21,45 +21,62 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { getToken } from '@/utils/auth'
 import { useUserStore } from '@/store/user'
 import { resolvePostAuthDestination } from '@/utils/onboardingSurvey/resolveDestination'
+import { isAccessTokenExpired, refreshSession } from '@/utils/tokenRefresh'
 import pkg from '../../../package.json'
 
 const router = useRouter()
 const userStore = useUserStore()
 const appVersion = pkg.version || '0.0.1'
 
-const ONBOARDING_KEY = 'au_onboarding_completed'
+const MIN_SPLASH_MS = 3000
 
-onMounted(() => {
-  setTimeout(async () => {
-    const onboardingDone = localStorage.getItem(ONBOARDING_KEY) === 'true'
+function waitForMinSplash(elapsedMs) {
+  const remaining = MIN_SPLASH_MS - elapsedMs
+  if (remaining <= 0) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, remaining))
+}
 
-    if (!onboardingDone) {
-      router.replace('/onboarding')
-      return
+async function resolveSplashDestination() {
+
+  let token = getToken()
+  if (!token) {
+    return '/start'
+  }
+
+  if (isAccessTokenExpired(token)) {
+    const refreshed = await refreshSession()
+    if (!refreshed) {
+      await userStore.clearSession()
+      return '/start'
     }
-
-    const hasToken = getToken()
-    if (!hasToken) {
-      router.replace('/start')
-      return
+    token = getToken()
+    if (!token) {
+      return '/start'
     }
+  }
 
-    try {
-      if (!userStore.role) {
-        await userStore.getInfo()
-      }
-      const dest = await resolvePostAuthDestination()
-      router.replace(dest)
-    } catch {
-      router.replace('/login')
+  try {
+    if (!userStore.role) {
+      await userStore.getInfo()
     }
-  }, 3000)
+    return await resolvePostAuthDestination()
+  } catch {
+    await userStore.clearSession()
+    return '/start'
+  }
+}
+
+onMounted(async () => {
+  const splashStart = Date.now()
+  const destination = await resolveSplashDestination()
+  await waitForMinSplash(Date.now() - splashStart)
+  router.replace(destination)
 })
 </script>
 

@@ -62,9 +62,9 @@ service.interceptors.response.use(
 
     function redirectToLogin() {
       if (_router) {
-        _router.push('/login')
+        _router.push('/start')
       } else {
-        window.location.href = '/login'
+        window.location.href = '/start'
       }
     }
 
