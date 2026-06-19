@@ -6,24 +6,24 @@ function isActiveWorkspace(ws) {
   return !!ws && (ws.deleted_at == null || ws.deleted_at === '')
 }
 
-function accountInActiveWorkspaces(account, activeWorkspaceIds) {
-  const wid = account.workspace_id
-  if (wid == null || wid === '') return true
-  return activeWorkspaceIds.has(Number(wid))
+function belongsToWorkspace(account, workspaceId) {
+  return Number(account.workspace_id) === Number(workspaceId)
 }
 
 /**
- * Same union as Accounts: own workspaces + default accounts from main list + per-shared-workspace fetch.
+ * Own + shared workspace accounts only (excludes default island).
+ * Used for island_scope=all — must match a single workspace when only one is active.
  * @returns {Promise<{ ids: number[], accounts: object[] }>}
  */
-export async function resolveAccessibleAccounts() {
+export async function resolveWorkspaceIslandAccounts() {
   const byId = new Map()
 
-  const addList = (list, activeWorkspaceIds) => {
+  const addList = (list) => {
     if (!Array.isArray(list)) return
     for (const a of list) {
       if (a?.is_active === false) continue
-      if (!accountInActiveWorkspaces(a, activeWorkspaceIds)) continue
+      const wid = a.workspace_id
+      if (wid == null || wid === '') continue
       const id = Number(a.id)
       if (Number.isNaN(id)) continue
       if (!byId.has(id)) byId.set(id, a)
@@ -41,24 +41,22 @@ export async function resolveAccessibleAccounts() {
     isActiveWorkspace
   )
   const mainAccounts = Array.isArray(mainRes?.data) ? mainRes.data : []
-
   const activeWorkspaceIds = new Set([
     ...ownWorkspaces.map((ws) => Number(ws.id)),
     ...sharedWorkspaces.map((ws) => Number(ws.id)),
   ])
 
-  const byWorkspace = (wid) => (a) => (a.workspace_id ?? null) === (wid ?? null)
+  const byWorkspace = (wid) => (a) => Number(a.workspace_id) === Number(wid)
 
   for (const ws of ownWorkspaces) {
-    addList(mainAccounts.filter(byWorkspace(ws.id)), activeWorkspaceIds)
+    addList(mainAccounts.filter(byWorkspace(ws.id)))
   }
-  addList(mainAccounts.filter(byWorkspace(null)), activeWorkspaceIds)
 
   await Promise.all(
     sharedWorkspaces.map(async (ws) => {
       try {
         const r = await getAccountsByWorkspace(ws.id, { is_active: true })
-        addList(Array.isArray(r?.data) ? r.data : [], activeWorkspaceIds)
+        addList(Array.isArray(r?.data) ? r.data : [])
       } catch {
         /* skip */
       }
@@ -66,8 +64,35 @@ export async function resolveAccessibleAccounts() {
   )
 
   const accounts = [...byId.values()]
-    .filter((a) => accountInActiveWorkspaces(a, activeWorkspaceIds))
+    .filter((a) => activeWorkspaceIds.has(Number(a.workspace_id)))
     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+  return { ids: accounts.map((a) => Number(a.id)), accounts }
+}
+
+/**
+ * Default island only (workspace_id IS NULL).
+ * @returns {Promise<{ ids: number[], accounts: object[] }>}
+ */
+export async function resolveDefaultIslandAccounts() {
+  const mainRes = await getAccounts({ is_active: true }).catch(() => null)
+  const mainAccounts = Array.isArray(mainRes?.data) ? mainRes.data : []
+  const accounts = mainAccounts
+    .filter((a) => a?.is_active !== false && (a.workspace_id == null || a.workspace_id === ''))
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+  return { ids: accounts.map((a) => Number(a.id)), accounts }
+}
+
+/** @deprecated Use resolveWorkspaceIslandAccounts or resolveAccountsForScope */
+export async function resolveAccessibleAccounts() {
+  const workspace = await resolveWorkspaceIslandAccounts()
+  const defaults = await resolveDefaultIslandAccounts()
+  const byId = new Map()
+  for (const a of [...workspace.accounts, ...defaults.accounts]) {
+    byId.set(Number(a.id), a)
+  }
+  const accounts = [...byId.values()].sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  )
   return { ids: accounts.map((a) => Number(a.id)), accounts }
 }
 
@@ -76,15 +101,13 @@ export async function resolveAccessibleAccounts() {
  * @returns {Promise<{ ids: number[], accounts: object[] }>}
  */
 export async function resolveAccountsForScope(scope) {
-  const { accounts } = await resolveAccessibleAccounts()
   if (scope === 'all') {
-    return { ids: accounts.map((a) => Number(a.id)), accounts }
+    return resolveWorkspaceIslandAccounts()
   }
   if (scope === 'null') {
-    const filtered = accounts.filter((a) => a.workspace_id == null || a.workspace_id === '')
-    return { ids: filtered.map((a) => Number(a.id)), accounts: filtered }
+    return resolveDefaultIslandAccounts()
   }
-  const wid = Number(scope)
-  const filtered = accounts.filter((a) => Number(a.workspace_id) === wid)
+  const { accounts } = await resolveWorkspaceIslandAccounts()
+  const filtered = accounts.filter((a) => belongsToWorkspace(a, scope))
   return { ids: filtered.map((a) => Number(a.id)), accounts: filtered }
 }

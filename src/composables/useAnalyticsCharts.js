@@ -1,7 +1,6 @@
 import { ref, reactive } from 'vue'
-import { getAnalyticsOverview, getAnalyticsAdvanced } from '@/api/accounting'
+import { getAccounts, getAnalyticsOverview, getAnalyticsAdvanced } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
-import { resolveAccessibleAccounts } from '@/composables/useAnalyticsChartsCore'
 
 const ALL_ISLANDS_KEY = 'all'
 const DEFAULT_ISLAND_KEY = 'null'
@@ -196,8 +195,11 @@ export function useAnalyticsCharts() {
       })
     }
 
-    const { accounts } = await resolveAccessibleAccounts()
-    const hasDefault = accounts.some((a) => a.workspace_id == null || a.workspace_id === '')
+    const mainRes = await getAccounts({ is_active: true }).catch(() => null)
+    const mainAccounts = Array.isArray(mainRes?.data) ? mainRes.data : []
+    const hasDefault = mainAccounts.some(
+      (a) => a?.is_active !== false && (a.workspace_id == null || a.workspace_id === '')
+    )
     if (hasDefault) {
       opts.push({ key: DEFAULT_ISLAND_KEY, idNum: null, name: 'Default Island' })
     }
