@@ -397,10 +397,34 @@
             </div>
             <div class="detail-cell">
               <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22a8 8 0 0 1 16 0"/><circle cx="10" cy="8" r="4"/><path d="M14 2a6 6 0 0 1 5 9"/></svg></span>
+                <span>Island</span>
+              </div>
+              <span class="detail-cell-value">{{ detailIslandLabel(selectedTransaction) }}</span>
+            </div>
+            <div class="detail-cell" v-if="!isFlowTransfer(selectedTransaction)">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+                <span>Account</span>
+              </div>
+              <span class="detail-cell-value">{{ detailAccountLabel(selectedTransaction) }}</span>
+            </div>
+            <div class="detail-cell">
+              <div class="detail-cell-label">
                 <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg></span>
                 <span>Title</span>
               </div>
               <span class="detail-cell-value">{{ flowTransactionTitle(selectedTransaction) || '—' }}</span>
+            </div>
+            <div
+              class="detail-cell detail-cell-span-full"
+              v-if="isFlowTransfer(selectedTransaction) && detailTransferAccountsLabel(selectedTransaction)"
+            >
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                <span>Accounts</span>
+              </div>
+              <span class="detail-cell-value">{{ detailTransferAccountsLabel(selectedTransaction) }}</span>
             </div>
             <div
               class="detail-cell detail-cell-span-full"
@@ -998,6 +1022,33 @@ function flowTransactionTitle(row) {
   return (row.transaction_title ?? row.title ?? '').toString().trim()
 }
 
+function isFlowTransfer(row) {
+  const t = row?.flow_type
+  return t === 'transfer_in' || t === 'transfer_out'
+}
+
+/** Island (workspace) for the account this flow log belongs to. */
+function detailIslandLabel(row) {
+  const name = (
+    accountWorkspaceLabel.value ||
+    row?.account_workspace_name ||
+  '').toString().trim()
+  return name || 'Default Island'
+}
+
+function detailAccountLabel(row) {
+  if (!row) return '—'
+  return accountName.value || row.account_name || '—'
+}
+
+/** From → to for transfer_in / transfer_out rows on this account's flow log. */
+function detailTransferAccountsLabel(row) {
+  if (!row || !isFlowTransfer(row)) return ''
+  const current = accountName.value || row.account_name || '—'
+  const related = row.related_account_name || '—'
+  if (row.flow_type === 'transfer_out') return `${current} → ${related}`
+  return `${related} → ${current}`
+}
 
 function syncCategoryFlyoutTopToFilterRow() {
   if (!categoryMenuOpen.value) return

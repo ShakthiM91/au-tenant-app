@@ -2280,7 +2280,7 @@ onMounted(async () => {
 }
 
 .field-underline-last {
-  border-bottom: none;
+  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
   padding-bottom: 8px;
 }
 
