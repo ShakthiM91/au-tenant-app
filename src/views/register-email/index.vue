@@ -162,7 +162,7 @@ import { useAuthSession } from '@/composables/useAuthSession'
 import { showToast } from '@/utils/ionicFeedback'
 
 const router = useRouter()
-const { signUpWithGoogle, signUpWithPassword } = useAuthSession()
+const { signUpWithGoogle: registerWithGoogle, signUpWithPassword } = useAuthSession()
 const { loading: googleLoading, connectWithGoogle } = useGoogleAuth()
 
 const loading = ref(false)
@@ -230,7 +230,7 @@ async function signUpWithGoogle() {
 
   loading.value = true
   try {
-    await signUpWithGoogle(idToken)
+    await registerWithGoogle(idToken)
     showToast('Account created successfully')
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || 'Google sign-up failed'
