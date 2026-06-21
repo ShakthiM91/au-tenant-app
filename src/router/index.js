@@ -62,6 +62,12 @@ const routes = [
     component: () => import('@/views/personalization-survey/index.vue'),
   },
   {
+    path: '/survey-processing',
+    name: 'SurveyProcessing',
+    component: () => import('@/views/survey-processing/index.vue'),
+    meta: { public: true }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/login/index.vue'),

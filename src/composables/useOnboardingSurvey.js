@@ -1,6 +1,6 @@
 import { ref, computed, shallowRef } from 'vue'
 import { getOnboardingSurvey, submitOnboardingResponse } from '@/api/onboarding'
-import { HOME_ROUTE, ONBOARDING_ROUTE } from '@/utils/onboardingSurvey/constants'
+import { HOME_ROUTE, ONBOARDING_ROUTE, SURVEY_PROCESSING_ROUTE } from '@/utils/onboardingSurvey/constants'
 import { clearSurveyGateCache, isPostRegisterFlow, markSurveyGatePassed } from '@/utils/onboardingSurvey/resolveDestination'
 import {
   isTreeSurvey,
@@ -187,7 +187,10 @@ export function useOnboardingSurvey() {
       await submitOnboardingResponse(payload)
       clearSurveyGateCache()
       markSurveyGatePassed()
-      return isPostRegisterFlow() ? ONBOARDING_ROUTE : HOME_ROUTE
+      if (isPostRegisterFlow()) {
+        return completionStatus === 'completed' ? SURVEY_PROCESSING_ROUTE : ONBOARDING_ROUTE
+      }
+      return HOME_ROUTE
     } catch (err) {
       validationError.value =
         err?.response?.data?.error || err?.message || 'Failed to submit'

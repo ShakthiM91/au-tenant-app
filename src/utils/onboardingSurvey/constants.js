@@ -1,4 +1,5 @@
 export const SURVEY_ROUTE = '/personalization-survey'
+export const SURVEY_PROCESSING_ROUTE = '/survey-processing'
 export const WELCOME_ROUTE = '/welcome'
 export const ONBOARDING_ROUTE = '/onboarding'
 export const HOME_ROUTE = '/home'
@@ -14,5 +15,6 @@ export const SURVEY_EXEMPT_PREFIXES = [
   '/verify',
   '/profile-setup',
   '/personalization-survey',
+  '/survey-processing',
   '/welcome'
 ]

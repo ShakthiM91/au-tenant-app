@@ -95,6 +95,7 @@ export async function userNeedsPersonalizationSurvey(force = false) {
 export function isSurveyExemptPath(path) {
   return (
     path === '/personalization-survey' ||
+    path === '/survey-processing' ||
     path === '/welcome' ||
     path === '/' ||
     path === '/start' ||
