@@ -54,8 +54,8 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Monthly Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 12 Months</span>
+              <button type="button" class="period-chip" aria-label="Select period" @click="showMonthlyAnalysisPeriodSheet">
+                <span>{{ monthlyAnalysisPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
@@ -155,8 +155,8 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Monthly Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 12 Months</span>
+              <button type="button" class="period-chip" aria-label="Select period" @click="showMonthlyAnalysisPeriodSheet">
+                <span>{{ monthlyAnalysisPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
@@ -381,6 +381,12 @@ import {
 const analytics = useAnalyticsCharts()
 const viewMode = ref('basic')
 
+const MONTHLY_ANALYSIS_PERIODS = [
+  { months: 6, label: 'Last 6 Months' },
+  { months: 12, label: 'Last 12 Months' },
+]
+const monthlyAnalysisMonths = ref(6)
+
 function cumSum(arr) {
   let s = 0
   return arr.map((v) => {
@@ -446,6 +452,21 @@ const monthlySeries = computed(() => {
   return { labels, expense, income }
 })
 
+const monthlyAnalysisPeriodLabel = computed(() => {
+  const opt = MONTHLY_ANALYSIS_PERIODS.find((p) => p.months === monthlyAnalysisMonths.value)
+  return opt?.label || 'Last 6 Months'
+})
+
+const monthlyAnalysisSeries = computed(() => {
+  const rows = analytics.monthlyLast12.slice(-monthlyAnalysisMonths.value)
+  const labels = rows.map((r) =>
+    new Date(r.year, r.month - 1, 1).toLocaleDateString('en-US', { month: 'short' })
+  )
+  const expense = rows.map((r) => Number(r.expense) || 0)
+  const income = rows.map((r) => Number(r.income) || 0)
+  return { labels, expense, income }
+})
+
 const highlightMonthLabel = computed(() => {
   const { labels, expense } = monthlySeries.value
   if (!labels.length) return ''
@@ -461,7 +482,7 @@ const highlightMonthLabel = computed(() => {
 })
 
 const monthlyBarOption = computed(() =>
-  buildMonthlyExpenseBarOption(monthlySeries.value.labels, monthlySeries.value.expense)
+  buildMonthlyExpenseBarOption(monthlyAnalysisSeries.value.labels, monthlyAnalysisSeries.value.expense)
 )
 
 const incomeExpenseBarOption = computed(() =>
@@ -578,6 +599,22 @@ const balanceDisplay = computed(() => {
     return String(Math.round(n * 100) / 100)
   }
 })
+
+async function showMonthlyAnalysisPeriodSheet() {
+  const selected = monthlyAnalysisMonths.value
+  const buttons = MONTHLY_ANALYSIS_PERIODS.map(({ months, label }) => ({
+    text: months === selected ? `${label} ✓` : label,
+    handler: () => {
+      monthlyAnalysisMonths.value = months
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Time range',
+    buttons,
+  })
+  await sheet.present()
+}
 
 async function showDailyMonthSheet() {
   const selected = analytics.selectedDailyMonth
