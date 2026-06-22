@@ -174,6 +174,21 @@ export function getAnalyticsAdvanced(islandScope = 'all') {
   })
 }
 
+/** Daily income/expense for a single calendar month (au-tenant-app analytics). */
+export function getAnalyticsDaily(islandScope = 'all', startDate, endDate) {
+  const island_scope =
+    islandScope === 'all'
+      ? 'all'
+      : islandScope === 'null'
+        ? 'null'
+        : String(islandScope)
+  return request({
+    url: '/api/accounting/analytics/daily',
+    method: 'get',
+    params: { island_scope, start_date: startDate, end_date: endDate }
+  })
+}
+
 export function getCategoryBreakdown(params) {
   return request({
     url: '/api/accounting/category-breakdown',

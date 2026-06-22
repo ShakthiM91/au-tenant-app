@@ -97,26 +97,32 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Daily Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last Month</span>
+              <button type="button" class="period-chip" aria-label="Select month" @click="showDailyMonthSheet">
+                <span>{{ dailyMonthLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h130">
-              <VChart class="echart" :option="dailyAnalysisOption" autoresize />
+            <div class="chart-card__body chart-card__body--h130 chart-card__body--chart-loading">
+              <div v-if="analytics.dailyMonthLoading" class="chart-inline-loading">
+                <ion-spinner name="crescent" />
+              </div>
+              <VChart v-else class="echart" :option="dailyAnalysisOption" autoresize />
             </div>
           </section>
 
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Monthly Progression</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Time range">
-                <span>{{ progressionMonthLabel }}</span>
+              <button type="button" class="period-chip period-chip--narrow" aria-label="Select month" @click="showDailyMonthSheet">
+                <span>{{ dailyMonthLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h150">
-              <VChart class="echart" :option="monthlyProgressionStepOption" autoresize />
+            <div class="chart-card__body chart-card__body--h150 chart-card__body--chart-loading">
+              <div v-if="analytics.dailyMonthLoading" class="chart-inline-loading">
+                <ion-spinner name="crescent" />
+              </div>
+              <VChart v-else class="echart" :option="monthlyProgressionStepOption" autoresize />
             </div>
           </section>
 
@@ -353,7 +359,7 @@ import {
 } from '@ionic/vue'
 import { ellipsisVertical, chevronDown } from 'ionicons/icons'
 import { showToast } from '@/utils/ionicFeedback'
-import { useAnalyticsCharts, previousCalendarMonthRange } from '@/composables/useAnalyticsCharts'
+import { useAnalyticsCharts, previousCalendarMonthRange, selectableDailyMonths } from '@/composables/useAnalyticsCharts'
 import {
   monthlyExpenseBarOption as buildMonthlyExpenseBarOption,
   incomeExpenseBarOption as buildIncomeExpenseBarOption,
@@ -423,6 +429,11 @@ const progressionYm = computed(() => {
 const progressionMonthLabel = computed(() => {
   const { year, month } = progressionYm.value
   return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long' })
+})
+
+const dailyMonthLabel = computed(() => {
+  const { year, month } = analytics.selectedDailyMonth
+  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 })
 
 const monthlySeries = computed(() => {
@@ -497,8 +508,8 @@ const categoryWiseDonutOption = computed(() =>
 )
 
 const dailyExpenseSeries = computed(() => {
-  const { year, month } = progressionYm.value
-  return expenseByDayOfMonth(analytics.dailyLastMonth, year, month)
+  const { year, month } = analytics.selectedDailyMonth
+  return expenseByDayOfMonth(analytics.dailyMonthRows, year, month)
 })
 
 const dailyAnalysisOption = computed(() => {
@@ -567,6 +578,37 @@ const balanceDisplay = computed(() => {
     return String(Math.round(n * 100) / 100)
   }
 })
+
+async function showDailyMonthSheet() {
+  const selected = analytics.selectedDailyMonth
+  const buttons = selectableDailyMonths().map(({ year, month }) => {
+    const label = new Date(year, month - 1, 1).toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    })
+    const isSelected = year === selected.year && month === selected.month
+    return {
+      text: isSelected ? `${label} ✓` : label,
+      handler: () => {
+        void (async () => {
+          if (isSelected) return
+          try {
+            await analytics.loadDailyMonth(year, month)
+            if (analytics.error) showToast(analytics.error)
+          } catch {
+            if (analytics.error) showToast(analytics.error)
+          }
+        })()
+      },
+    }
+  })
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Select month',
+    buttons,
+  })
+  await sheet.present()
+}
 
 async function showIslandScopeSheet() {
   await analytics.loadIslandOptions()
@@ -669,7 +711,7 @@ watch(viewMode, async (mode) => {
 .analytics-toolbar {
   --min-height: 48px;
   --border-width: 0;
-  --background: #efeef3;
+  --background: white;
   --padding-top: 4px;
 }
 
@@ -689,7 +731,7 @@ watch(viewMode, async (mode) => {
 }
 
 .analytics-content {
-  --background: #efeef3;
+  --background: white;
 }
 
 .page-inner {
@@ -774,7 +816,7 @@ watch(viewMode, async (mode) => {
 }
 
 .section-title {
-  --section-title-accent: #007bff;
+  --section-title-accent: #ff8d28;
   margin: 10px 0 8px;
   padding: 12px 14px 12px 22px;
   font-size: 17px;
@@ -803,7 +845,7 @@ watch(viewMode, async (mode) => {
 }
 
 .section-title--expense {
-  color: #7b1fa2;
+  color: #ff8d28;
 }
 
 .section-title--category {
@@ -848,7 +890,7 @@ watch(viewMode, async (mode) => {
   background: #fff;
   border: 1px solid rgba(168, 168, 168, 0.35);
   border-radius: 5px;
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1;
   color: rgba(0, 0, 0, 0.7);
   cursor: pointer;

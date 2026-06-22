@@ -1,5 +1,5 @@
 import { ref, reactive } from 'vue'
-import { getAccounts, getAnalyticsOverview, getAnalyticsAdvanced } from '@/api/accounting'
+import { getAccounts, getAnalyticsOverview, getAnalyticsAdvanced, getAnalyticsDaily } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 
 const ALL_ISLANDS_KEY = 'all'
@@ -79,6 +79,30 @@ export function previousCalendarMonthRange() {
   return { start_date: ymd(first), end_date: ymd(last) }
 }
 
+/** @param {number} year @param {number} month 1–12 */
+export function calendarMonthRange(year, month) {
+  const first = new Date(year, month - 1, 1)
+  const last = new Date(year, month, 0)
+  return { start_date: ymd(first), end_date: ymd(last) }
+}
+
+/** Default month for Daily Analysis (current calendar month). */
+export function defaultDailyAnalysisMonth() {
+  const now = new Date()
+  return { year: now.getFullYear(), month: now.getMonth() + 1 }
+}
+
+/** Selectable months for Daily Analysis: current month back 5 months (6 total). */
+export function selectableDailyMonths() {
+  const now = new Date()
+  const out = []
+  for (let i = 0; i <= 5; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    out.push({ year: d.getFullYear(), month: d.getMonth() + 1 })
+  }
+  return out
+}
+
 export function allTimeRangeStart() {
   return { start_date: '2000-01-01', end_date: ymd(new Date()) }
 }
@@ -139,6 +163,12 @@ export function useAnalyticsCharts() {
   const categoryLeafLast6 = ref([])
   const categoryParentAllTime = ref([])
   const dailyLastMonth = ref([])
+  /** @type {import('vue').Ref<{year:number,month:number}>} */
+  const selectedDailyMonth = ref(defaultDailyAnalysisMonth())
+  const dailyMonthRows = ref([])
+  const dailyMonthLoading = ref(false)
+  /** @type {Map<string, Array<{date:string,income:number,expense:number}>>} */
+  const dailyMonthCache = new Map()
   const stackedMonthSlices = ref([])
   const categoryMonthlyBars = ref({ labels: [], values: [], categoryName: '' })
 
@@ -213,6 +243,7 @@ export function useAnalyticsCharts() {
     persistScope(selectedIslandScope.value)
     updateHeaderLabel()
     advancedCategoryLoaded.value = false
+    dailyMonthCache.clear()
     await refresh()
   }
 
@@ -222,6 +253,7 @@ export function useAnalyticsCharts() {
     categoryLeafLast6.value = []
     categoryParentAllTime.value = []
     dailyLastMonth.value = []
+    dailyMonthRows.value = []
     stackedMonthSlices.value = []
     categoryMonthlyBars.value = { labels: [], values: [], categoryName: '' }
     budgetRadar.value = null
@@ -247,6 +279,38 @@ export function useAnalyticsCharts() {
     }
   }
 
+  function dailyCacheKey(year, month) {
+    return `${scopeValueToKey(selectedIslandScope.value)}:${year}-${String(month).padStart(2, '0')}`
+  }
+
+  async function loadDailyMonth(year, month) {
+    const cacheKey = dailyCacheKey(year, month)
+    const cached = dailyMonthCache.get(cacheKey)
+    if (cached) {
+      selectedDailyMonth.value = { year, month }
+      dailyMonthRows.value = cached
+      return
+    }
+
+    const prev = { ...selectedDailyMonth.value }
+    selectedDailyMonth.value = { year, month }
+    dailyMonthLoading.value = true
+    error.value = null
+    try {
+      const { start_date, end_date } = calendarMonthRange(year, month)
+      const res = await getAnalyticsDaily(selectedIslandScope.value, start_date, end_date)
+      const rows = Array.isArray(res?.data) ? res.data : []
+      dailyMonthCache.set(cacheKey, rows)
+      dailyMonthRows.value = rows
+    } catch (e) {
+      error.value = e?.message || String(e)
+      selectedDailyMonth.value = prev
+      throw e
+    } finally {
+      dailyMonthLoading.value = false
+    }
+  }
+
   async function refresh() {
     loading.value = true
     error.value = null
@@ -255,6 +319,7 @@ export function useAnalyticsCharts() {
       advancedCategoryLoaded.value = false
       stackedMonthSlices.value = []
       categoryLeafLast6.value = []
+      dailyMonthCache.clear()
 
       const res = await getAnalyticsOverview(selectedIslandScope.value)
       const data = res?.data
@@ -267,6 +332,13 @@ export function useAnalyticsCharts() {
       budgetRadar.value = data?.budget_radar ?? null
 
       applyCategoryMonthlyBars(monthlyLast12.value, categoryLeafAllTime.value)
+
+      const { year, month } = selectedDailyMonth.value
+      try {
+        await loadDailyMonth(year, month)
+      } catch {
+        /* error surfaced via analytics.error */
+      }
     } catch (e) {
       error.value = e?.message || String(e)
       clearChartState()
@@ -312,6 +384,9 @@ export function useAnalyticsCharts() {
     categoryLeafLast6,
     categoryParentAllTime,
     dailyLastMonth,
+    selectedDailyMonth,
+    dailyMonthRows,
+    dailyMonthLoading,
     stackedMonthSlices,
     categoryMonthlyBars,
     budgetRadar,
@@ -320,6 +395,7 @@ export function useAnalyticsCharts() {
     loadIslandOptions,
     setIslandScope,
     refresh,
+    loadDailyMonth,
     loadAdvancedCategoryCharts,
   })
 }
