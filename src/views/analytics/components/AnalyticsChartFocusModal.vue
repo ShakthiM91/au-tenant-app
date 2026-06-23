@@ -20,10 +20,12 @@
       <p class="chart-focus-modal__hint">{{ hintText }}</p>
       <div class="chart-focus-modal__chart-wrap">
         <VChart
+          ref="chartRef"
           class="chart-focus-modal__chart"
           :option="expandedOption"
           autoresize
           @click="onChartClick"
+          @dblclick="onChartDblClick"
         />
       </div>
       <div v-if="selectedSlice" class="chart-focus-modal__detail">
@@ -37,7 +39,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, toRef, watch } from 'vue'
 import {
   IonModal,
   IonHeader,
@@ -47,7 +49,8 @@ import {
   IonButton,
   IonContent,
 } from '@ionic/vue'
-import { expandChartOption, isPieChartOption } from '@/views/analytics/chartOptions'
+import { expandChartOption } from '@/views/analytics/chartOptions'
+import { useAnalyticsChartHandlers } from '@/views/analytics/useAnalyticsChartHandlers'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -58,15 +61,22 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
-const selectedIndex = ref(null)
+const optionRef = toRef(props, 'option')
+const {
+  chartRef,
+  selectedIndex,
+  isPie,
+  isTreemap,
+  resetInteraction,
+  onChartClick,
+  onChartDblClick,
+} = useAnalyticsChartHandlers(optionRef)
 
-const isPie = computed(() => isPieChartOption(props.option))
-
-const hintText = computed(() =>
-  isPie.value
-    ? 'Tap a segment to focus · Tap again to clear'
-    : 'Pinch or scroll to zoom · Drag to pan'
-)
+const hintText = computed(() => {
+  if (isPie.value) return 'Tap a segment to focus · Tap again to clear'
+  if (isTreemap.value) return 'Tap a category to zoom in · Double-tap to zoom out'
+  return 'Pinch or scroll to zoom · Drag to pan'
+})
 
 const expandedOption = computed(() =>
   expandChartOption(props.option, { selectedIndex: selectedIndex.value })
@@ -97,20 +107,13 @@ const selectedSlice = computed(() => {
 watch(
   () => props.open,
   (open) => {
-    if (!open) selectedIndex.value = null
+    if (!open) resetInteraction()
   }
 )
 
 function onDismiss() {
-  selectedIndex.value = null
+  resetInteraction()
   emit('close')
-}
-
-function onChartClick(params) {
-  if (!isPie.value || params?.componentType !== 'series' || params?.seriesType !== 'pie') return
-  if (params?.data?.name === 'No data') return
-  const idx = params.dataIndex
-  selectedIndex.value = selectedIndex.value === idx ? null : idx
 }
 </script>
 

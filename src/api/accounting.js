@@ -204,6 +204,69 @@ export function getAnalyticsPatterns(islandScope = 'all', pattern, startDate, en
   })
 }
 
+/** Monthly expense totals for selected category ids (au-tenant-app category analysis). */
+export function getAnalyticsCategoryMonthly(
+  islandScope = 'all',
+  startDate,
+  endDate,
+  categoryIds,
+  categoryLabels = []
+) {
+  const island_scope =
+    islandScope === 'all'
+      ? 'all'
+      : islandScope === 'null'
+        ? 'null'
+        : String(islandScope)
+  const ids = (Array.isArray(categoryIds) ? categoryIds : [])
+    .map((n) => Number(n))
+    .filter((n) => !Number.isNaN(n) && n > 0)
+  const labels = (Array.isArray(categoryLabels) ? categoryLabels : [])
+    .map((s) => String(s))
+    .filter((s) => s.length > 0)
+  return request({
+    url: '/api/accounting/analytics/category-monthly',
+    method: 'get',
+    params: {
+      island_scope,
+      start_date: startDate,
+      end_date: endDate,
+      category_ids: ids.join(','),
+      ...(labels.length ? { category_labels: JSON.stringify(labels) } : {}),
+    },
+  })
+}
+
+/** Parent category expense by month for stacked analysis chart. */
+export function getAnalyticsStacked(islandScope = 'all', startDate, endDate) {
+  const island_scope =
+    islandScope === 'all'
+      ? 'all'
+      : islandScope === 'null'
+        ? 'null'
+        : String(islandScope)
+  return request({
+    url: '/api/accounting/analytics/stacked',
+    method: 'get',
+    params: { island_scope, start_date: startDate, end_date: endDate }
+  })
+}
+
+/** Income and expense category flows for Sankey diagram (single calendar month). */
+export function getAnalyticsSankey(islandScope = 'all', startDate, endDate) {
+  const island_scope =
+    islandScope === 'all'
+      ? 'all'
+      : islandScope === 'null'
+        ? 'null'
+        : String(islandScope)
+  return request({
+    url: '/api/accounting/analytics/sankey',
+    method: 'get',
+    params: { island_scope, start_date: startDate, end_date: endDate }
+  })
+}
+
 /** Parent and leaf category expense totals for a date range (au-tenant-app donut charts). */
 export function getAnalyticsCategories(islandScope = 'all', startDate, endDate) {
   const island_scope =

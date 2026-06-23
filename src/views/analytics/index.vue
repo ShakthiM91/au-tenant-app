@@ -240,17 +240,17 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Stacked Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 6 Months</span>
+              <button type="button" class="period-chip" aria-label="Select period" @click="showStackedPeriodSheet">
+                <span>{{ stackedPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
             <AnalyticsChartPanel
               body-class="chart-card__body--h150"
               title="Stacked Analysis"
-              subtitle="Last 6 Months"
+              :subtitle="stackedPeriodLabel"
               :option="stackedCategoryOption"
-              :loading="analytics.advancedCategoryLoading"
+              :loading="analytics.stackedLoading"
               @open="openChartFocus"
             />
           </section>
@@ -258,19 +258,27 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Category Analysis</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Category">
-                <span>{{ categoryAnalysisTitle }}</span>
-                <ion-icon :icon="chevronDown" class="period-chip__icon" />
-              </button>
+              <CategoryPickerFlyout
+                ref="categoryAnalysisPickerRef"
+                v-model="categoryAnalysisSelectedId"
+                class="category-analysis-picker"
+                :workspace-id="categoryPickerWorkspaceId"
+                :display-label="categoryAnalysisTitle"
+                placeholder="Select category"
+                aria-label="Select category"
+                @select="onCategoryAnalysisSelect"
+              >
+                <template #chevron>
+                  <ion-icon :icon="chevronDown" class="period-chip__icon" />
+                </template>
+              </CategoryPickerFlyout>
             </div>
-            <p v-if="analytics.categoryMonthlyBars?.heuristic" class="chart-hint">
-              Approximate monthly amounts (same share as top sub-category over 12 months).
-            </p>
             <AnalyticsChartPanel
               body-class="chart-card__body--h120"
               title="Category Analysis"
               :subtitle="categoryAnalysisTitle"
               :option="categoryAnalysisBarOption"
+              :loading="analytics.categoryAnalysisLoading"
               @open="openChartFocus"
             />
           </section>
@@ -278,16 +286,17 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Category Treemap</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Time range">
-                <span>Last 12 months</span>
+              <button type="button" class="period-chip period-chip--narrow" aria-label="Select period" @click="showTreemapPeriodSheet">
+                <span>{{ treemapPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
             <AnalyticsChartPanel
               body-class="chart-card__body--h220"
               title="Category Treemap"
-              subtitle="Last 12 months"
+              :subtitle="treemapPeriodLabel"
               :option="treemapRsOption"
+              :loading="analytics.treemapLoading"
               @open="openChartFocus"
             />
           </section>
@@ -297,14 +306,21 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Sankey Diagram</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Time range">
-                <span>All Time</span>
+              <button type="button" class="period-chip period-chip--narrow" aria-label="Select month" @click="showSankeyMonthSheet">
+                <span>{{ sankeyMonthLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h260 chart-card__body--deferred">
-              <p class="chart-deferred-msg">Coming soon — flow charts need a dedicated reporting contract.</p>
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--sankey"
+              :body-style="sankeyBodyStyle"
+              chart-class="echart--sankey"
+              title="Sankey Diagram"
+              :subtitle="sankeyMonthLabel"
+              :option="sankeyOption"
+              :loading="analytics.sankeyLoading"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -447,8 +463,14 @@ import {
   useAnalyticsCharts,
   previousCalendarMonthRange,
   selectableDailyMonths,
+  selectableSankeyMonths,
   PATTERN_PERIOD_OPTIONS,
   CATEGORY_DONUT_PERIOD_OPTIONS,
+  STACKED_PERIOD_OPTIONS,
+  TREEMAP_PERIOD_OPTIONS,
+  STANDARD_PERIOD_OPTIONS,
+  chartPeriodLabel,
+  sliceMonthlyByPeriod,
   expensesByWeekday,
   expensesByDayOfMonthPattern,
   WEEKDAY_LABELS,
@@ -467,21 +489,34 @@ import {
   stackedCategoryPercentOption as buildStackedCategoryPercentOption,
   categoryMonthlyBarsOption as buildCategoryMonthlyBarsOption,
   treemapFromCategories,
+  sankeyFromFlow,
+  sankeyChartHeight,
   paretoOption as buildParetoOption,
   radarBudgetOption as buildRadarBudgetOption,
   emptyRadarPlaceholder as buildEmptyRadarPlaceholder,
 } from '@/views/analytics/chartOptions'
 import AnalyticsChartPanel from '@/views/analytics/components/AnalyticsChartPanel.vue'
 import AnalyticsChartFocusModal from '@/views/analytics/components/AnalyticsChartFocusModal.vue'
+import CategoryPickerFlyout from '@/components/CategoryPickerFlyout.vue'
+import {
+  categoryIdsForQuery,
+  categoryLabelsForQuery,
+} from '@/utils/categoryFilterTree.js'
 
 const analytics = useAnalyticsCharts()
 const viewMode = ref('basic')
 const chartFocus = ref(null)
+const categoryAnalysisPickerRef = ref(null)
+const categoryAnalysisSelectedId = ref(null)
 
-const MONTHLY_ANALYSIS_PERIODS = [
-  { months: 6, label: 'Last 6 Months' },
-  { months: 12, label: 'Last 12 Months' },
-]
+const categoryPickerWorkspaceId = computed(() => {
+  const scope = analytics.selectedIslandScope
+  if (scope === 'all' || scope === 'null') return null
+  const n = Number(scope)
+  return Number.isFinite(n) ? n : null
+})
+
+const MONTHLY_ANALYSIS_PERIODS = STANDARD_PERIOD_OPTIONS
 const monthlyAnalysisMonths = ref(6)
 
 const patternPeriodLabel = computed(() => {
@@ -489,12 +524,19 @@ const patternPeriodLabel = computed(() => {
   return opt?.label || 'All Time'
 })
 
-const categoryDonutPeriodLabel = computed(() => {
-  const opt = CATEGORY_DONUT_PERIOD_OPTIONS.find((p) => p.months === analytics.categoryDonutPeriodMonths)
-  return opt?.label || 'This Month'
-})
+const categoryDonutPeriodLabel = computed(() =>
+  chartPeriodLabel(analytics.categoryDonutPeriodMonths, 'This Month')
+)
 
 const categoryDonutLoading = computed(() => analytics.categoryDonutLoading)
+
+const stackedPeriodLabel = computed(() =>
+  chartPeriodLabel(analytics.stackedPeriodMonths, 'Last 6 Months')
+)
+
+const treemapPeriodLabel = computed(() =>
+  chartPeriodLabel(analytics.treemapPeriodMonths, 'Last 12 Months')
+)
 
 const weekdayAnalysisOption = computed(() => {
   const expenses = expensesByWeekday(analytics.weekdayRows)
@@ -561,6 +603,11 @@ const dailyMonthLabel = computed(() => {
   return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 })
 
+const sankeyMonthLabel = computed(() => {
+  const { year, month } = analytics.selectedSankeyMonth
+  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+})
+
 const monthlySeries = computed(() => {
   const rows = analytics.monthlyLast12
   const labels = rows.map((r) =>
@@ -571,13 +618,12 @@ const monthlySeries = computed(() => {
   return { labels, expense, income }
 })
 
-const monthlyAnalysisPeriodLabel = computed(() => {
-  const opt = MONTHLY_ANALYSIS_PERIODS.find((p) => p.months === monthlyAnalysisMonths.value)
-  return opt?.label || 'Last 6 Months'
-})
+const monthlyAnalysisPeriodLabel = computed(() =>
+  chartPeriodLabel(monthlyAnalysisMonths.value, 'Last 6 Months')
+)
 
 const monthlyAnalysisSeries = computed(() => {
-  const rows = analytics.monthlyLast12.slice(-monthlyAnalysisMonths.value)
+  const rows = sliceMonthlyByPeriod(analytics.monthlyLast12, monthlyAnalysisMonths.value)
   const labels = rows.map((r) =>
     new Date(r.year, r.month - 1, 1).toLocaleDateString('en-US', { month: 'short' })
   )
@@ -683,12 +729,72 @@ const stackedCategoryOption = computed(() =>
 
 const categoryAnalysisTitle = computed(() => analytics.categoryMonthlyBars.categoryName || 'Category')
 
+function resolveCategoryPickerMaps() {
+  const picker = categoryAnalysisPickerRef.value
+  const rawMap = picker?.categoryNodeById
+  const nodeMap = rawMap instanceof Map ? rawMap : rawMap?.value instanceof Map ? rawMap.value : new Map()
+  const rawOpts = picker?.categoryMenuOptions
+  const menuOptions = Array.isArray(rawOpts) ? rawOpts : rawOpts?.value ?? []
+  return { nodeMap, menuOptions }
+}
+
+function categoryAnalysisQueryForId(categoryId) {
+  const { nodeMap, menuOptions } = resolveCategoryPickerMaps()
+  const id = Number(categoryId)
+  return {
+    ids: categoryIdsForQuery([id], nodeMap),
+    labels: categoryLabelsForQuery([id], menuOptions),
+  }
+}
+
+function categoryAnalysisLabel(categoryId) {
+  const { nodeMap, menuOptions } = resolveCategoryPickerMaps()
+  const node = nodeMap.get(Number(categoryId))
+  if (node?.name) return node.name
+  const flat = menuOptions.find((o) => o.id === Number(categoryId))
+  return flat?.label?.split(' > ').pop() || categoryAnalysisTitle.value
+}
+
+async function onCategoryAnalysisSelect(categoryId) {
+  const id = Number(categoryId)
+  if (!Number.isFinite(id) || id <= 0) return
+  categoryAnalysisSelectedId.value = id
+  const query = categoryAnalysisQueryForId(id)
+  try {
+    await analytics.setCategoryAnalysisCategory(
+      id,
+      query.ids,
+      categoryAnalysisLabel(id),
+      query.labels
+    )
+    if (analytics.error) showToast(analytics.error)
+  } catch {
+    if (analytics.error) showToast(analytics.error)
+  }
+}
+
+watch(
+  () => analytics.categoryAnalysisId,
+  (id) => {
+    const n = Number(id)
+    if (Number.isFinite(n) && n > 0) categoryAnalysisSelectedId.value = n
+  },
+  { immediate: true }
+)
+
 const categoryAnalysisBarOption = computed(() => {
   const { labels, values } = analytics.categoryMonthlyBars
   return buildCategoryMonthlyBarsOption(labels, values)
 })
 
-const treemapRsOption = computed(() => treemapFromCategories(analytics.categoryParentAllTime))
+const treemapRsOption = computed(() => treemapFromCategories(analytics.treemapParentRows))
+
+const sankeyOption = computed(() => sankeyFromFlow(analytics.sankeyFlow))
+
+const sankeyBodyStyle = computed(() => {
+  const h = sankeyChartHeight(sankeyOption.value)
+  return { height: `${h}px`, minHeight: `${h}px` }
+})
 
 const pareto12kOption = computed(() => {
   const rows = analytics.categoryParentAllTime
@@ -726,6 +832,66 @@ function openChartFocus(payload) {
 
 function closeChartFocus() {
   chartFocus.value = null
+}
+
+async function loadAdvancedCharts() {
+  await categoryAnalysisPickerRef.value?.loadCategories?.()
+  await Promise.all([
+    analytics.loadStackedChart(),
+    analytics.loadPatternCharts(),
+    analytics.loadTreemapChart(),
+    analytics.ensureSankeyChart(),
+    analytics.ensureCategoryAnalysisChart((id) => categoryAnalysisQueryForId(id)),
+  ])
+  if (analytics.error) showToast(analytics.error)
+}
+
+async function showTreemapPeriodSheet() {
+  const selected = analytics.treemapPeriodMonths
+  const buttons = TREEMAP_PERIOD_OPTIONS.map(({ months, label }) => ({
+    text: months === selected ? `${label} ✓` : label,
+    handler: () => {
+      void (async () => {
+        if (months === selected) return
+        try {
+          await analytics.setTreemapPeriod(months)
+          if (analytics.error) showToast(analytics.error)
+        } catch {
+          if (analytics.error) showToast(analytics.error)
+        }
+      })()
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Time range',
+    buttons,
+  })
+  await sheet.present()
+}
+
+async function showStackedPeriodSheet() {
+  const selected = analytics.stackedPeriodMonths
+  const buttons = STACKED_PERIOD_OPTIONS.map(({ months, label }) => ({
+    text: months === selected ? `${label} ✓` : label,
+    handler: () => {
+      void (async () => {
+        if (months === selected) return
+        try {
+          await analytics.setStackedPeriod(months)
+          if (analytics.error) showToast(analytics.error)
+        } catch {
+          if (analytics.error) showToast(analytics.error)
+        }
+      })()
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Time range',
+    buttons,
+  })
+  await sheet.present()
 }
 
 async function showCategoryDonutPeriodSheet() {
@@ -792,6 +958,37 @@ async function showMonthlyAnalysisPeriodSheet() {
   await sheet.present()
 }
 
+async function showSankeyMonthSheet() {
+  const selected = analytics.selectedSankeyMonth
+  const buttons = selectableSankeyMonths().map(({ year, month }) => {
+    const label = new Date(year, month - 1, 1).toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    })
+    const isSelected = year === selected.year && month === selected.month
+    return {
+      text: isSelected ? `${label} ✓` : label,
+      handler: () => {
+        void (async () => {
+          if (isSelected) return
+          try {
+            await analytics.loadSankeyChart(year, month)
+            if (analytics.error) showToast(analytics.error)
+          } catch {
+            if (analytics.error) showToast(analytics.error)
+          }
+        })()
+      },
+    }
+  })
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Select month',
+    buttons,
+  })
+  await sheet.present()
+}
+
 async function showDailyMonthSheet() {
   const selected = analytics.selectedDailyMonth
   const buttons = selectableDailyMonths().map(({ year, month }) => {
@@ -835,11 +1032,7 @@ async function showIslandScopeSheet() {
           return
         }
         if (viewMode.value === 'advanced') {
-          await Promise.all([
-            analytics.loadAdvancedCategoryCharts(),
-            analytics.loadPatternCharts(),
-          ])
-          if (analytics.error) showToast(analytics.error)
+          await loadAdvancedCharts()
         }
       })()
     },
@@ -859,21 +1052,13 @@ onIonViewDidEnter(async () => {
     showToast(analytics.error)
   }
   if (viewMode.value === 'advanced') {
-    await Promise.all([
-      analytics.loadAdvancedCategoryCharts(),
-      analytics.loadPatternCharts(),
-    ])
-    if (analytics.error) showToast(analytics.error)
+    await loadAdvancedCharts()
   }
 })
 
 watch(viewMode, async (mode) => {
   if (mode !== 'advanced') return
-  await Promise.all([
-    analytics.loadAdvancedCategoryCharts(),
-    analytics.loadPatternCharts(),
-  ])
-  if (analytics.error) showToast(analytics.error)
+  await loadAdvancedCharts()
 })
 </script>
 

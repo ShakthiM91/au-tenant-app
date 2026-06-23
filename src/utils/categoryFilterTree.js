@@ -58,9 +58,10 @@ export function buildCategoryNodeMapFromTrees(incomeTree, expenseTree) {
 
 /** Expand selected nodes to all descendant category ids (for `category_ids`-style APIs). */
 export function expandedCategoryIdsForQuery(selectedIds, nodeByIdMap) {
+  const map = nodeByIdMap instanceof Map ? nodeByIdMap : new Map()
   const out = new Set()
   for (const sid of selectedIds || []) {
-    const node = nodeByIdMap.get(Number(sid))
+    const node = map.get(Number(sid))
     if (node) {
       const stack = [node]
       while (stack.length) {
@@ -74,4 +75,33 @@ export function expandedCategoryIdsForQuery(selectedIds, nodeByIdMap) {
     }
   }
   return [...out].sort((a, b) => a - b)
+}
+
+/** Ids for query: parent nodes expand to subtree; leaf nodes stay single. */
+export function categoryIdsForQuery(selectedIds, nodeByIdMap) {
+  const map = nodeByIdMap instanceof Map ? nodeByIdMap : new Map()
+  const out = new Set()
+  for (const sid of selectedIds || []) {
+    const id = Number(sid)
+    const node = map.get(id)
+    if (node?.children?.length) {
+      for (const cid of expandedCategoryIdsForQuery([id], map)) out.add(cid)
+    } else if (Number.isFinite(id) && id > 0) {
+      out.add(id)
+    }
+  }
+  return [...out].sort((a, b) => a - b)
+}
+
+/** Labels for legacy rows where category_id is null (matches FlowLog filter). */
+export function categoryLabelsForQuery(selectedIds, menuOptions) {
+  const labels = new Set()
+  for (const sid of selectedIds || []) {
+    const opt = (menuOptions || []).find((o) => o.id === Number(sid))
+    if (!opt?.label) continue
+    labels.add(opt.label)
+    const short = opt.label.split(' > ').pop()
+    if (short) labels.add(short)
+  }
+  return [...labels]
 }

@@ -615,17 +615,65 @@ export function ieProgressionDualAreaOption(dayLabels, cumIncome, cumExpense) {
   }
 }
 
+/** Curated gradient pairs — hues spaced for clear separation in stacked bars. */
 const STACK_PALETTE = [
-  ['#FFB74D', '#E65100'],
-  ['#F48FB1', '#C2185B'],
-  ['#64B5F6', '#0D47A1'],
-  ['#E0E0E0', '#757575'],
-  ['#A5D6A7', '#2E7D32'],
-  ['#B39DDB', '#4527A0'],
+  ['#FFB74D', '#E65100'], // orange
+  ['#64B5F6', '#1565C0'], // blue
+  ['#81C784', '#2E7D32'], // green
+  ['#F06292', '#AD1457'], // rose
+  ['#4DB6AC', '#00695C'], // teal
+  ['#9575CD', '#4527A0'], // purple
+  ['#FFD54F', '#F57C00'], // amber
+  ['#7986CB', '#283593'], // indigo
+  ['#AED581', '#558B2F'], // lime
+  ['#FF8A65', '#BF360C'], // deep orange
+  ['#4DD0E1', '#00838F'], // cyan
+  ['#A1887F', '#4E342E'], // brown
+  ['#BA68C8', '#6A1B9A'], // magenta
+  ['#E57373', '#C62828'], // red
+  ['#90A4AE', '#37474F'], // blue grey
+  ['#FFF176', '#F9A825'], // yellow
+  ['#80CBC4', '#00796B'], // mint
+  ['#CE93D8', '#512DA8'], // violet
 ]
 
 function sk(a, t, b) {
   return lg(a + t, b)
+}
+
+function hslToHex(h, s, l) {
+  const sn = s / 100
+  const ln = l / 100
+  const c = (1 - Math.abs(2 * ln - 1)) * sn
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = ln - c / 2
+  let r = 0
+  let g = 0
+  let b = 0
+  if (h < 60) [r, g, b] = [c, x, 0]
+  else if (h < 120) [r, g, b] = [x, c, 0]
+  else if (h < 180) [r, g, b] = [0, c, x]
+  else if (h < 240) [r, g, b] = [0, x, c]
+  else if (h < 300) [r, g, b] = [x, 0, c]
+  else [r, g, b] = [c, 0, x]
+  const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+/** Golden-angle hues for categories beyond the curated palette. */
+function stackPalettePair(index) {
+  if (index < STACK_PALETTE.length) return STACK_PALETTE[index]
+  const hue = (index * 137.508) % 360
+  return [hslToHex(hue, 62, 68), hslToHex(hue, 72, 32)]
+}
+
+/** Stable, collision-free color per category name. */
+function buildStackCategoryColorMap(names) {
+  const map = new Map()
+  ;[...new Set(names)]
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((name, i) => map.set(name, stackPalettePair(i)))
+  return map
 }
 
 /** stackedMonthSlices: { label, parents: { name, amount }[] }[] */
@@ -653,7 +701,9 @@ export function stackedCategoryPercentOption(stackedMonthSlices) {
     }
   }
 
-  const series = names.map((name, si) => {
+  const colorMap = buildStackCategoryColorMap(names)
+
+  const series = names.map((name) => {
     const data = slices.map((month) => {
       const parents = month.parents || []
       const row = parents.find((p) => p.name === name)
@@ -661,7 +711,7 @@ export function stackedCategoryPercentOption(stackedMonthSlices) {
       const tot = parents.reduce((s, p) => s + Number(p.amount), 0)
       return tot > 0 ? (amt / tot) * 100 : 0
     })
-    const [c1, c2] = STACK_PALETTE[si % STACK_PALETTE.length]
+    const [c1, c2] = colorMap.get(name) || STACK_PALETTE[0]
     return {
       name,
       type: 'bar',
@@ -815,6 +865,168 @@ export function treemapFromCategories(rows) {
       },
     ],
   }
+}
+
+const SANKEY_HUB = 'Funds'
+const SANKEY_SAVINGS = 'Unallocated'
+const SANKEY_SPENDING = 'Spending'
+const SANKEY_INCOME_COLORS = [D.green, D.green2, '#81C784', '#4DB6AC', '#AED581']
+const SANKEY_EXPENSE_COLORS = [D.red, D.coral, D.pink, D.tabOrange, '#FF7043', '#E57373']
+
+function sankeyNodeName(base, used, fallbackSuffix) {
+  const label = String(base || 'Uncategorized').trim() || 'Uncategorized'
+  if (!used.has(label)) {
+    used.add(label)
+    return label
+  }
+  let n = 2
+  let candidate = `${label} ${fallbackSuffix}`
+  while (used.has(candidate)) {
+    n += 1
+    candidate = `${label} ${fallbackSuffix} ${n}`
+  }
+  used.add(candidate)
+  return candidate
+}
+
+/** @param {{ income?: Array<{category_name?:string,amount:number}>, expense?: Array<{category_name?:string,amount:number}>, totals?: { income?: number, expense?: number } }} flow */
+export function sankeyFromFlow(flow) {
+  const incomeRows = (flow?.income || []).filter((r) => Number(r.amount) > 0)
+  const expenseRows = (flow?.expense || []).filter((r) => Number(r.amount) > 0)
+  const totalIncome =
+    Number(flow?.totals?.income) || incomeRows.reduce((s, r) => s + Number(r.amount || 0), 0)
+  const totalExpense =
+    Number(flow?.totals?.expense) || expenseRows.reduce((s, r) => s + Number(r.amount || 0), 0)
+
+  if (totalIncome <= 0 && totalExpense <= 0) {
+    return {
+      title: {
+        text: 'No flow data',
+        left: 'center',
+        top: 'middle',
+        textStyle: { color: D.muted, fontSize: 11 },
+      },
+      series: [],
+    }
+  }
+
+  const nodes = []
+  const links = []
+  const usedNames = new Set()
+
+  function addNode(name, depth, color) {
+    nodes.push({
+      name,
+      depth,
+      itemStyle: color ? { color, borderColor: 'rgba(255,255,255,0.85)', borderWidth: 1 } : undefined,
+    })
+  }
+
+  if (totalIncome > 0) {
+    incomeRows.forEach((row, i) => {
+      const name = sankeyNodeName(row.category_name, usedNames, '(income)')
+      addNode(name, 0, SANKEY_INCOME_COLORS[i % SANKEY_INCOME_COLORS.length])
+      links.push({ source: name, target: SANKEY_HUB, value: Number(row.amount) })
+    })
+  } else if (totalExpense > 0) {
+    addNode(SANKEY_SPENDING, 0, D.axis)
+    links.push({ source: SANKEY_SPENDING, target: SANKEY_HUB, value: totalExpense })
+  }
+
+  addNode(SANKEY_HUB, 1, D.blue)
+
+  const expenseScale =
+    totalIncome > 0 && totalExpense > totalIncome ? totalIncome / totalExpense : 1
+  let allocatedExpense = 0
+
+  expenseRows.forEach((row, i) => {
+    const name = sankeyNodeName(row.category_name, usedNames, '(expense)')
+    const raw = Number(row.amount) || 0
+    const value = Math.round(raw * expenseScale * 100) / 100
+    if (value <= 0) return
+    addNode(name, 2, SANKEY_EXPENSE_COLORS[i % SANKEY_EXPENSE_COLORS.length])
+    links.push({ source: SANKEY_HUB, target: name, value })
+    allocatedExpense += value
+  })
+
+  const remainder = Math.max(0, Math.round((totalIncome - allocatedExpense) * 100) / 100)
+  if (remainder > 0.01) {
+    addNode(SANKEY_SAVINGS, 2, D.green)
+    links.push({ source: SANKEY_HUB, target: SANKEY_SAVINGS, value: remainder })
+  }
+
+  const nodeCount = nodes.length
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      triggerOn: 'mousemove',
+      confine: true,
+      formatter: (p) => {
+        if (p.dataType === 'edge') {
+          const v = Number(p.value) || 0
+          let amt
+          try {
+            amt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(v)
+          } catch {
+            amt = String(Math.round(v * 100) / 100)
+          }
+          return `${p.data.source} → ${p.data.target}<br/>${amt}`
+        }
+        const v = Number(p.value) || 0
+        if (!v) return p.name
+        let amt
+        try {
+          amt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(v)
+        } catch {
+          amt = String(Math.round(v * 100) / 100)
+        }
+        return `${p.name}<br/>${amt}`
+      },
+    },
+    __sankeyNodeCount: nodeCount,
+    series: [
+      {
+        type: 'sankey',
+        left: '3%',
+        right: '3%',
+        top: 10,
+        bottom: 10,
+        nodeGap: Math.max(6, Math.min(10, 200 / Math.max(nodeCount, 6))),
+        nodeWidth: 14,
+        nodeAlign: 'justify',
+        layoutIterations: 64,
+        emphasis: { focus: 'adjacency' },
+        lineStyle: { color: 'gradient', curveness: 0.5, opacity: 0.45 },
+        levels: [
+          {
+            depth: 0,
+            label: { position: 'right', distance: 5, fontSize: 9, color: D.muted },
+          },
+          {
+            depth: 1,
+            label: { position: 'inside', fontSize: 8, color: 'rgba(255,255,255,0.95)' },
+          },
+          {
+            depth: 2,
+            label: { position: 'left', distance: 5, fontSize: 9, color: D.muted },
+          },
+        ],
+        label: {
+          show: true,
+          color: D.muted,
+          fontSize: 9,
+        },
+        data: nodes,
+        links,
+      },
+    ],
+  }
+}
+
+export function sankeyChartHeight(option) {
+  const n = Number(option?.__sankeyNodeCount) || 6
+  return Math.min(480, Math.max(300, n * 34))
 }
 
 export function paretoOption(sortedCategories, amounts) {
@@ -990,6 +1202,51 @@ export function isPieChartOption(option) {
   return hasPieSeries(option)
 }
 
+function hasTreemapSeries(option) {
+  const series = option?.series
+  const list = Array.isArray(series) ? series : [series]
+  return list.some((s) => s?.type === 'treemap')
+}
+
+export function isTreemapChartOption(option) {
+  return hasTreemapSeries(option)
+}
+
+/** Inline pie/treemap interaction without full modal expand treatment. */
+export function interactiveChartOption(option, { selectedIndex = null } = {}) {
+  if (!option || typeof option !== 'object') return option
+  const seriesList = Array.isArray(option.series) ? option.series : [option.series]
+  const nextSeries = seriesList.map((s) => {
+    if (s?.type === 'treemap') {
+      return {
+        ...s,
+        roam: true,
+        scaleLimit: { min: 0.6, max: 3 },
+        nodeClick: false,
+      }
+    }
+    if (s?.type === 'pie') {
+      const data = (s.data || []).map((d, i) => ({
+        ...d,
+        selected: selectedIndex === i,
+      }))
+      return {
+        ...s,
+        data,
+        selectedMode: 'single',
+        selectedOffset: 8,
+        emphasis: {
+          scale: true,
+          scaleSize: 10,
+          label: { show: true, fontSize: 10 },
+        },
+      }
+    }
+    return s
+  })
+  return { ...option, series: nextSeries }
+}
+
 /** Drop compact-view formatters that hide x-axis ticks (e.g. day 1,6,12 only). */
 function expandedCategoryAxisLabel(axisLabel, catLen) {
   const base = { color: D.axis, ...(axisLabel || {}) }
@@ -1139,7 +1396,39 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
     const seriesList = Array.isArray(option.series) ? option.series : [option.series]
     next.series = (Array.isArray(next.series) ? next.series : seriesList).map((s, si) => {
       if (s?.type === 'treemap') {
-        return { ...s, roam: true, scaleLimit: { min: 0.6, max: 3 } }
+        return {
+          ...s,
+          roam: true,
+          scaleLimit: { min: 0.6, max: 3 },
+          nodeClick: false,
+        }
+      }
+      if (s?.type === 'sankey') {
+        return {
+          ...s,
+          left: '2%',
+          right: '2%',
+          top: 16,
+          bottom: 16,
+          nodeWidth: 18,
+          levels: s.levels?.length
+            ? s.levels.map((lvl) => ({
+                ...lvl,
+                label: {
+                  ...(lvl.label || {}),
+                  fontSize: Math.max(11, Number(lvl.label?.fontSize) || 9) + 2,
+                },
+              }))
+            : [
+                { depth: 0, label: { position: 'right', fontSize: 11 } },
+                { depth: 1, label: { position: 'right', fontSize: 11 } },
+                { depth: 2, label: { position: 'left', fontSize: 11 } },
+              ],
+          label: {
+            ...(s.label || {}),
+            fontSize: Math.max(10, Number(s.label?.fontSize) || 9) + 2,
+          },
+        }
       }
       if (s?.type === 'pie') {
         const src = (Array.isArray(next.series) ? next.series : seriesList)[si] || s

@@ -2,10 +2,12 @@ import { ref, reactive, computed } from 'vue'
 import {
   getAccounts,
   getAnalyticsOverview,
-  getAnalyticsAdvanced,
   getAnalyticsDaily,
   getAnalyticsPatterns,
   getAnalyticsCategories,
+  getAnalyticsStacked,
+  getAnalyticsCategoryMonthly,
+  getAnalyticsSankey,
 } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 
@@ -110,33 +112,76 @@ export function selectableDailyMonths() {
   return out
 }
 
+/** Selectable months for Sankey diagram: current month back 11 months (12 total). */
+export function selectableSankeyMonths() {
+  const now = new Date()
+  const out = []
+  for (let i = 0; i <= 11; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    out.push({ year: d.getFullYear(), month: d.getMonth() + 1 })
+  }
+  return out
+}
+
 export function allTimeRangeStart() {
   return { start_date: '2000-01-01', end_date: ymd(new Date()) }
 }
 
-/** Date range for pattern charts: null = all time, else last N calendar months. */
-export function patternDateRange(months) {
-  if (months == null) return allTimeRangeStart()
-  return lastNMonthsRange(months)
-}
-
-export const PATTERN_PERIOD_OPTIONS = [
-  { months: null, label: 'All Time' },
-  { months: 6, label: 'Last 6 Months' },
-  { months: 12, label: 'Last 12 Months' },
-]
-
-export const CATEGORY_DONUT_PERIOD_OPTIONS = [
+/** Shared period picker: 1=this month, 0=last calendar month, 3|6|12=rolling through current month. */
+export const STANDARD_PERIOD_OPTIONS = [
   { months: 1, label: 'This Month' },
+  { months: 0, label: 'Last Month' },
   { months: 3, label: 'Last 3 Months' },
   { months: 6, label: 'Last 6 Months' },
   { months: 12, label: 'Last 12 Months' },
 ]
 
-/** Rolling calendar months through end of current month (1 = this month only). */
-export function categoryDonutDateRange(months) {
+export function chartPeriodLabel(months, fallback = 'Last 6 Months') {
+  const opt = STANDARD_PERIOD_OPTIONS.find((p) => p.months === months)
+  return opt?.label || fallback
+}
+
+/** Date range for chart period pickers (months: 0 = previous calendar month). */
+export function chartPeriodDateRange(months) {
+  if (months === 0) return previousCalendarMonthRange()
   return lastNMonthsRange(months)
 }
+
+/** Slice chronologically ordered monthly rows for a period picker value. */
+export function sliceMonthlyByPeriod(rows, periodMonths) {
+  const list = rows || []
+  if (!list.length) return []
+  if (periodMonths === 0) {
+    return list.length >= 2 ? list.slice(-2, -1) : list.slice(-1)
+  }
+  const n = Math.max(1, Number(periodMonths) || 1)
+  return list.slice(-Math.min(n, list.length))
+}
+
+/** Date range for pattern charts: null = all time, else chart period. */
+export function patternDateRange(months) {
+  if (months == null) return allTimeRangeStart()
+  return chartPeriodDateRange(months)
+}
+
+export const PATTERN_PERIOD_OPTIONS = [
+  { months: null, label: 'All Time' },
+  ...STANDARD_PERIOD_OPTIONS,
+]
+
+export const CATEGORY_DONUT_PERIOD_OPTIONS = STANDARD_PERIOD_OPTIONS
+
+export function categoryDonutDateRange(months) {
+  return chartPeriodDateRange(months)
+}
+
+export const STACKED_PERIOD_OPTIONS = STANDARD_PERIOD_OPTIONS
+
+export function stackedDateRange(months) {
+  return chartPeriodDateRange(months)
+}
+
+export const TREEMAP_PERIOD_OPTIONS = STANDARD_PERIOD_OPTIONS
 
 /** @param {Array<{weekday:number,expense:number}>} rows */
 export function expensesByWeekday(rows) {
@@ -178,6 +223,19 @@ export function enumerateMonthsInclusive(startYmd, endYmd) {
   return out
 }
 
+/** @param {Array<{year:number,month:number,amount:number}>} rows */
+function rowsToMonthlyAmountSeries(rows, startYmd, endYmd) {
+  const byKey = new Map()
+  for (const r of rows || []) {
+    byKey.set(`${r.year}-${r.month}`, Number(r.amount) || 0)
+  }
+  return enumerateMonthsInclusive(startYmd, endYmd).map(({ year, month }) => {
+    const label = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'short' })
+    const amount = byKey.get(`${year}-${month}`) || 0
+    return { label, amount }
+  })
+}
+
 /** @param {Array<{year:number,month:number,category_name?:string,amount:number}>} rows */
 function rowsToStackedMonthSlices(rows, startYmd, endYmd) {
   const byMonth = new Map()
@@ -213,9 +271,7 @@ export function useAnalyticsCharts() {
   /** @type {import('vue').Ref<Array<{year:number,month:number,income:number,expense:number}>>} */
   const monthlyLast12 = ref([])
   const categoryLeafAllTime = ref([])
-  const categoryLeafLast6 = ref([])
   const categoryParentAllTime = ref([])
-  const categoryParentLast6 = ref([])
   const categoryDonutPeriodMonths = ref(1)
   const categoryDonutParentRows = ref([])
   const categoryDonutLeafRows = ref([])
@@ -230,10 +286,28 @@ export function useAnalyticsCharts() {
   /** @type {Map<string, Array<{date:string,income:number,expense:number}>>} */
   const dailyMonthCache = new Map()
   const stackedMonthSlices = ref([])
+  const stackedPeriodMonths = ref(6)
+  const stackedLoading = ref(false)
+  /** @type {Map<string, Array<{label:string,parents:Array<{name:string,amount:number}>}>>} */
+  const stackedCache = new Map()
   const categoryMonthlyBars = ref({ labels: [], values: [], categoryName: '' })
+  const categoryAnalysisId = ref(null)
+  const categoryAnalysisExpandedIds = ref([])
+  const categoryAnalysisLoading = ref(false)
+  /** @type {Map<string, { labels: string[], values: number[], categoryName: string }>} */
+  const categoryAnalysisCache = new Map()
+  const treemapParentRows = ref([])
+  const treemapPeriodMonths = ref(12)
+  const treemapLoading = ref(false)
+  /** @type {Map<string, unknown[]>} */
+  const treemapCache = new Map()
+  const sankeyFlow = ref({ income: [], expense: [], totals: { income: 0, expense: 0 } })
+  /** @type {import('vue').Ref<{year:number,month:number}>} */
+  const selectedSankeyMonth = ref(defaultDailyAnalysisMonth())
+  const sankeyLoading = ref(false)
+  /** @type {Map<string, { income: unknown[], expense: unknown[], totals: { income: number, expense: number } }>} */
+  const sankeyCache = new Map()
 
-  const advancedCategoryLoaded = ref(false)
-  const advancedCategoryLoading = ref(false)
   const patternPeriodMonths = ref(null)
   const weekdayRows = ref([])
   const dayOfMonthRows = ref([])
@@ -309,10 +383,13 @@ export function useAnalyticsCharts() {
     selectedIslandScope.value = scopeKeyToValue(key)
     persistScope(selectedIslandScope.value)
     updateHeaderLabel()
-    advancedCategoryLoaded.value = false
     patternChartsLoaded.value = false
     patternCache.clear()
     categoryDonutCache.clear()
+    stackedCache.clear()
+    categoryAnalysisCache.clear()
+    treemapCache.clear()
+    sankeyCache.clear()
     dailyMonthCache.clear()
     await refresh()
   }
@@ -320,8 +397,6 @@ export function useAnalyticsCharts() {
   function clearChartState() {
     monthlyLast12.value = []
     categoryLeafAllTime.value = []
-    categoryLeafLast6.value = []
-    categoryParentLast6.value = []
     categoryParentAllTime.value = []
     categoryDonutParentRows.value = []
     categoryDonutLeafRows.value = []
@@ -329,30 +404,112 @@ export function useAnalyticsCharts() {
     dailyMonthRows.value = []
     stackedMonthSlices.value = []
     categoryMonthlyBars.value = { labels: [], values: [], categoryName: '' }
+    categoryAnalysisId.value = null
+    categoryAnalysisExpandedIds.value = []
+    treemapParentRows.value = []
+    sankeyFlow.value = { income: [], expense: [], totals: { income: 0, expense: 0 } }
     budgetRadar.value = null
-    advancedCategoryLoaded.value = false
     weekdayRows.value = []
     dayOfMonthRows.value = []
     patternChartsLoaded.value = false
   }
 
-  function applyCategoryMonthlyBars(monthlyRows, catLeaf12) {
-    const leafRows = catLeaf12 || []
-    const sumLeaf = leafRows.reduce((s, r) => s + Number(r.amount || 0), 0)
-    const topLeaf = leafRows[0]
-    if (!topLeaf || sumLeaf <= 0) {
-      categoryMonthlyBars.value = { labels: [], values: [], categoryName: '', heuristic: false }
+  function defaultCategoryAnalysisId() {
+    const top = categoryLeafAllTime.value?.[0]
+    const id = Number(top?.category_id)
+    return Number.isFinite(id) && id > 0 ? id : null
+  }
+
+  function categoryAnalysisCacheKey(expandedIds, labels) {
+    const labelKey = (labels || []).join('|')
+    return `${scopeValueToKey(selectedIslandScope.value)}:${expandedIds.join(',')}:${labelKey}`
+  }
+
+  async function loadCategoryAnalysisChart(
+    categoryId,
+    expandedIds,
+    categoryName,
+    categoryLabels = [],
+    force = false
+  ) {
+    const ids = (expandedIds || []).map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+    const labels = (categoryLabels || []).map((s) => String(s)).filter((s) => s.length > 0)
+    if (!ids.length && !labels.length) {
+      categoryMonthlyBars.value = { labels: [], values: [], categoryName: categoryName || '' }
       return
     }
-    const ratio = Number(topLeaf.amount) / sumLeaf
-    categoryMonthlyBars.value = {
-      labels: monthlyRows.map((r) =>
-        new Date(r.year, r.month - 1, 1).toLocaleDateString('en-US', { month: 'short' })
-      ),
-      values: monthlyRows.map((r) => (Number(r.expense) || 0) * ratio),
-      categoryName: topLeaf.category_name || 'Category',
-      heuristic: true,
+
+    const cacheKey = categoryAnalysisCacheKey(ids, labels)
+    const cached = categoryAnalysisCache.get(cacheKey)
+    if (!force && cached) {
+      categoryAnalysisId.value = categoryId
+      categoryMonthlyBars.value = cached
+      return
     }
+
+    categoryAnalysisLoading.value = true
+    error.value = null
+    try {
+      const { start_date, end_date } = lastNMonthsRange(12)
+      const res = await getAnalyticsCategoryMonthly(
+        selectedIslandScope.value,
+        start_date,
+        end_date,
+        ids,
+        labels
+      )
+      const rows = Array.isArray(res?.data) ? res.data : []
+      const series = rowsToMonthlyAmountSeries(rows, start_date, end_date)
+      const payload = {
+        labels: series.map((s) => s.label),
+        values: series.map((s) => s.amount),
+        categoryName: categoryName || 'Category',
+      }
+      categoryAnalysisCache.set(cacheKey, payload)
+      categoryAnalysisId.value = categoryId
+      categoryAnalysisExpandedIds.value = ids
+      categoryMonthlyBars.value = payload
+    } catch (e) {
+      error.value = e?.message || String(e)
+      categoryMonthlyBars.value = { labels: [], values: [], categoryName: categoryName || '' }
+      throw e
+    } finally {
+      categoryAnalysisLoading.value = false
+    }
+  }
+
+  async function setCategoryAnalysisCategory(
+    categoryId,
+    expandedIds,
+    categoryName,
+    categoryLabels = []
+  ) {
+    const id = Number(categoryId)
+    if (!Number.isFinite(id) || id <= 0) return
+    await loadCategoryAnalysisChart(id, expandedIds, categoryName, categoryLabels)
+  }
+
+  async function ensureCategoryAnalysisChart(resolveCategoryQuery) {
+    const id = categoryAnalysisId.value ?? defaultCategoryAnalysisId()
+    if (!id) {
+      categoryMonthlyBars.value = { labels: [], values: [], categoryName: '' }
+      return
+    }
+    let expanded = [id]
+    let labels = []
+    if (typeof resolveCategoryQuery === 'function') {
+      const resolved = resolveCategoryQuery(id)
+      expanded = resolved?.ids?.length ? resolved.ids : [id]
+      labels = resolved?.labels || []
+    } else if (categoryAnalysisExpandedIds.value.length) {
+      expanded = categoryAnalysisExpandedIds.value
+    }
+    const name =
+      categoryLeafAllTime.value.find((r) => Number(r.category_id) === id)?.category_name ||
+      categoryParentAllTime.value.find((r) => Number(r.category_id) === id)?.category_name ||
+      'Category'
+    if (!labels.length && name) labels = [name]
+    await loadCategoryAnalysisChart(id, expanded, name, labels)
   }
 
   function dailyCacheKey(year, month) {
@@ -392,13 +549,16 @@ export function useAnalyticsCharts() {
     error.value = null
     try {
       updateHeaderLabel()
-      advancedCategoryLoaded.value = false
-    patternChartsLoaded.value = false
-    patternCache.clear()
-    categoryDonutCache.clear()
-    stackedMonthSlices.value = []
-      categoryLeafLast6.value = []
-      categoryParentLast6.value = []
+      patternChartsLoaded.value = false
+      patternCache.clear()
+      categoryDonutCache.clear()
+      stackedCache.clear()
+      categoryAnalysisCache.clear()
+      treemapCache.clear()
+      sankeyCache.clear()
+      stackedMonthSlices.value = []
+      categoryAnalysisId.value = null
+      categoryAnalysisExpandedIds.value = []
       dailyMonthCache.clear()
 
       const res = await getAnalyticsOverview(selectedIslandScope.value)
@@ -408,10 +568,14 @@ export function useAnalyticsCharts() {
       monthlyLast12.value = Array.isArray(data?.monthly_last_12) ? data.monthly_last_12 : []
       categoryLeafAllTime.value = Array.isArray(data?.category_leaf_12) ? data.category_leaf_12 : []
       categoryParentAllTime.value = Array.isArray(data?.category_parent_12) ? data.category_parent_12 : []
+      if (treemapPeriodMonths.value === 12 && categoryParentAllTime.value.length) {
+        treemapParentRows.value = categoryParentAllTime.value
+        treemapCache.set(treemapCacheKey(12), categoryParentAllTime.value)
+      } else {
+        treemapParentRows.value = []
+      }
       dailyLastMonth.value = Array.isArray(data?.daily_last_month) ? data.daily_last_month : []
       budgetRadar.value = data?.budget_radar ?? null
-
-      applyCategoryMonthlyBars(monthlyLast12.value, categoryLeafAllTime.value)
 
       const { year, month } = selectedDailyMonth.value
       try {
@@ -481,31 +645,43 @@ export function useAnalyticsCharts() {
     await loadPatternCharts()
   }
 
-  async function loadAdvancedCategoryCharts() {
-    if (advancedCategoryLoaded.value) return
-    advancedCategoryLoading.value = true
+  function stackedCacheKey(months) {
+    return `${scopeValueToKey(selectedIslandScope.value)}:${months}`
+  }
+
+  async function loadStackedChart(force = false) {
+    const months = stackedPeriodMonths.value
+    const cacheKey = stackedCacheKey(months)
+    const cached = stackedCache.get(cacheKey)
+    if (!force && cached) {
+      stackedMonthSlices.value = cached
+      return
+    }
+
+    stackedLoading.value = true
     error.value = null
     try {
-      const last6 = lastNMonthsRange(6)
-      const res = await getAnalyticsAdvanced(selectedIslandScope.value)
-      const data = res?.data
-
-      categoryLeafLast6.value = Array.isArray(data?.category_leaf_6) ? data.category_leaf_6 : []
-      categoryParentLast6.value = Array.isArray(data?.category_parent_6) ? data.category_parent_6 : []
-      stackedMonthSlices.value = rowsToStackedMonthSlices(
-        data?.category_parent_monthly_6,
-        last6.start_date,
-        last6.end_date
-      )
-      advancedCategoryLoaded.value = true
+      const { start_date, end_date } = stackedDateRange(months)
+      const res = await getAnalyticsStacked(selectedIslandScope.value, start_date, end_date)
+      const rows = Array.isArray(res?.data?.category_parent_monthly)
+        ? res.data.category_parent_monthly
+        : []
+      const slices = rowsToStackedMonthSlices(rows, start_date, end_date)
+      stackedCache.set(cacheKey, slices)
+      stackedMonthSlices.value = slices
     } catch (e) {
       error.value = e?.message || String(e)
-      categoryLeafLast6.value = []
-      categoryParentLast6.value = []
       stackedMonthSlices.value = []
+      throw e
     } finally {
-      advancedCategoryLoading.value = false
+      stackedLoading.value = false
     }
+  }
+
+  async function setStackedPeriod(months) {
+    if (stackedPeriodMonths.value === months) return
+    stackedPeriodMonths.value = months
+    await loadStackedChart()
   }
 
   function categoryDonutCacheKey(months) {
@@ -549,6 +725,88 @@ export function useAnalyticsCharts() {
     await loadCategoryDonutCharts()
   }
 
+  function treemapCacheKey(months) {
+    return `${scopeValueToKey(selectedIslandScope.value)}:${months}`
+  }
+
+  async function loadTreemapChart(force = false) {
+    const months = treemapPeriodMonths.value
+    const cacheKey = treemapCacheKey(months)
+    const cached = treemapCache.get(cacheKey)
+    if (!force && cached) {
+      treemapParentRows.value = cached
+      return
+    }
+
+    treemapLoading.value = true
+    error.value = null
+    try {
+      const { start_date, end_date } = chartPeriodDateRange(months)
+      const res = await getAnalyticsCategories(selectedIslandScope.value, start_date, end_date)
+      const parent = Array.isArray(res?.data?.category_parent) ? res.data.category_parent : []
+      treemapCache.set(cacheKey, parent)
+      treemapParentRows.value = parent
+    } catch (e) {
+      error.value = e?.message || String(e)
+      treemapParentRows.value = []
+      throw e
+    } finally {
+      treemapLoading.value = false
+    }
+  }
+
+  async function setTreemapPeriod(months) {
+    if (treemapPeriodMonths.value === months) return
+    treemapPeriodMonths.value = months
+    await loadTreemapChart()
+  }
+
+  function sankeyCacheKey(year, month) {
+    return `${scopeValueToKey(selectedIslandScope.value)}:${year}-${String(month).padStart(2, '0')}`
+  }
+
+  async function loadSankeyChart(year, month, force = false) {
+    const cacheKey = sankeyCacheKey(year, month)
+    const cached = sankeyCache.get(cacheKey)
+    if (!force && cached) {
+      selectedSankeyMonth.value = { year, month }
+      sankeyFlow.value = cached
+      return
+    }
+
+    const prev = { ...selectedSankeyMonth.value }
+    selectedSankeyMonth.value = { year, month }
+    sankeyLoading.value = true
+    error.value = null
+    try {
+      const { start_date, end_date } = calendarMonthRange(year, month)
+      const res = await getAnalyticsSankey(selectedIslandScope.value, start_date, end_date)
+      const data = res?.data
+      const payload = {
+        income: Array.isArray(data?.income) ? data.income : [],
+        expense: Array.isArray(data?.expense) ? data.expense : [],
+        totals: {
+          income: Number(data?.totals?.income) || 0,
+          expense: Number(data?.totals?.expense) || 0,
+        },
+      }
+      sankeyCache.set(cacheKey, payload)
+      sankeyFlow.value = payload
+    } catch (e) {
+      error.value = e?.message || String(e)
+      selectedSankeyMonth.value = prev
+      sankeyFlow.value = { income: [], expense: [], totals: { income: 0, expense: 0 } }
+      throw e
+    } finally {
+      sankeyLoading.value = false
+    }
+  }
+
+  async function ensureSankeyChart() {
+    const { year, month } = selectedSankeyMonth.value
+    await loadSankeyChart(year, month)
+  }
+
   const categoryParentRowsForDonut = computed(() => categoryDonutParentRows.value)
 
   const categoryLeafRowsForDonut = computed(() => categoryDonutLeafRows.value)
@@ -562,22 +820,29 @@ export function useAnalyticsCharts() {
     islandOptions,
     monthlyLast12,
     categoryLeafAllTime,
-    categoryLeafLast6,
     categoryParentAllTime,
-    categoryParentLast6,
     categoryDonutPeriodMonths,
     categoryDonutLoading,
     categoryParentRowsForDonut,
     categoryLeafRowsForDonut,
+    treemapParentRows,
+    treemapPeriodMonths,
+    treemapLoading,
+    sankeyFlow,
+    selectedSankeyMonth,
+    sankeyLoading,
     dailyLastMonth,
     selectedDailyMonth,
     dailyMonthRows,
     dailyMonthLoading,
     stackedMonthSlices,
+    stackedPeriodMonths,
+    stackedLoading,
     categoryMonthlyBars,
+    categoryAnalysisId,
+    categoryAnalysisExpandedIds,
+    categoryAnalysisLoading,
     budgetRadar,
-    advancedCategoryLoaded,
-    advancedCategoryLoading,
     patternPeriodMonths,
     weekdayRows,
     dayOfMonthRows,
@@ -591,6 +856,14 @@ export function useAnalyticsCharts() {
     setPatternPeriod,
     setCategoryDonutPeriod,
     loadCategoryDonutCharts,
-    loadAdvancedCategoryCharts,
+    loadTreemapChart,
+    setTreemapPeriod,
+    loadSankeyChart,
+    ensureSankeyChart,
+    loadStackedChart,
+    setStackedPeriod,
+    loadCategoryAnalysisChart,
+    setCategoryAnalysisCategory,
+    ensureCategoryAnalysisChart,
   })
 }

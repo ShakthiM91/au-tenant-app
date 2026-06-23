@@ -33,7 +33,7 @@ import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { ONBOARDING_ROUTE } from '@/utils/onboardingSurvey/constants'
 
-const DURATION_MS = 5000
+const DURATION_MS = 10000
 const RADIUS = 68
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
