@@ -459,6 +459,45 @@ export function dailyExpenseAnalysisOption(daysInMonth, expenseByDayIndex) {
   }
 }
 
+export function weekdayExpenseAnalysisOption(labels, expenseByWeekdayIndex) {
+  const vals = labels.map((_, i) => Number(expenseByWeekdayIndex[i] || 0))
+  const maxVal = Math.max(1, ...vals)
+  const yMax = niceCeilMax(vals)
+  return {
+    grid: gridStd(),
+    tooltip: { show: false },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLine: { show: true, lineStyle: { color: 'rgba(0,0,0,0.12)', width: 0.5 } },
+      axisTick: { show: false },
+      axisLabel: { color: D.axis, fontSize: 7 },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: yMax,
+      splitNumber: 5,
+      splitLine: { lineStyle: { type: 'dashed', color: D.grid, width: 0.5 } },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: {
+        color: D.axis,
+        fontSize: 7,
+        formatter: (v) => `${Math.round(v / 1000)}k`,
+      },
+    },
+    series: [
+      {
+        type: 'bar',
+        data: vals.map((v) => ({ value: v, itemStyle: tierGradientForExpense(v, maxVal) })),
+        barWidth: '36%',
+        barCategoryGap: '40%',
+      },
+    ],
+  }
+}
+
 export function cumulativeExpenseLineOption(dayLabels, cumulative) {
   const yMax = niceCeilMax(cumulative)
   return {

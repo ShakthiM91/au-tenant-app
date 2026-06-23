@@ -129,26 +129,32 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Day-of-Week Analysis</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Time range">
-                <span>All Time</span>
+              <button type="button" class="period-chip period-chip--narrow" aria-label="Select period" @click="showPatternPeriodSheet">
+                <span>{{ patternPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h130 chart-card__body--deferred">
-              <p class="chart-deferred-msg">Coming soon — needs weekday aggregation in reporting.</p>
+            <div class="chart-card__body chart-card__body--h130 chart-card__body--chart-loading">
+              <div v-if="analytics.patternLoading" class="chart-inline-loading">
+                <ion-spinner name="crescent" />
+              </div>
+              <VChart v-else class="echart" :option="weekdayAnalysisOption" autoresize />
             </div>
           </section>
 
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Day-of-Month Analysis</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Time range">
-                <span>All Time</span>
+              <button type="button" class="period-chip period-chip--narrow" aria-label="Select period" @click="showPatternPeriodSheet">
+                <span>{{ patternPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h130 chart-card__body--deferred">
-              <p class="chart-deferred-msg">Coming soon — needs cross-month day-of-month aggregation.</p>
+            <div class="chart-card__body chart-card__body--h130 chart-card__body--chart-loading">
+              <div v-if="analytics.patternLoading" class="chart-inline-loading">
+                <ion-spinner name="crescent" />
+              </div>
+              <VChart v-else class="echart" :option="dayOfMonthAnalysisOption" autoresize />
             </div>
           </section>
 
@@ -359,7 +365,15 @@ import {
 } from '@ionic/vue'
 import { ellipsisVertical, chevronDown } from 'ionicons/icons'
 import { showToast } from '@/utils/ionicFeedback'
-import { useAnalyticsCharts, previousCalendarMonthRange, selectableDailyMonths } from '@/composables/useAnalyticsCharts'
+import {
+  useAnalyticsCharts,
+  previousCalendarMonthRange,
+  selectableDailyMonths,
+  PATTERN_PERIOD_OPTIONS,
+  expensesByWeekday,
+  expensesByDayOfMonthPattern,
+  WEEKDAY_LABELS,
+} from '@/composables/useAnalyticsCharts'
 import {
   monthlyExpenseBarOption as buildMonthlyExpenseBarOption,
   incomeExpenseBarOption as buildIncomeExpenseBarOption,
@@ -368,6 +382,7 @@ import {
   ieWaterfallOption as buildIeWaterfallOption,
   categoryDonutFromRows,
   dailyExpenseAnalysisOption as buildDailyExpenseAnalysisOption,
+  weekdayExpenseAnalysisOption as buildWeekdayExpenseAnalysisOption,
   cumulativeExpenseLineOption as buildCumulativeExpenseLineOption,
   ieProgressionDualAreaOption as buildIeProgressionDualAreaOption,
   stackedCategoryPercentOption as buildStackedCategoryPercentOption,
@@ -386,6 +401,21 @@ const MONTHLY_ANALYSIS_PERIODS = [
   { months: 12, label: 'Last 12 Months' },
 ]
 const monthlyAnalysisMonths = ref(6)
+
+const patternPeriodLabel = computed(() => {
+  const opt = PATTERN_PERIOD_OPTIONS.find((p) => p.months === analytics.patternPeriodMonths)
+  return opt?.label || 'All Time'
+})
+
+const weekdayAnalysisOption = computed(() => {
+  const expenses = expensesByWeekday(analytics.weekdayRows)
+  return buildWeekdayExpenseAnalysisOption(WEEKDAY_LABELS, expenses)
+})
+
+const dayOfMonthAnalysisOption = computed(() => {
+  const expenses = expensesByDayOfMonthPattern(analytics.dayOfMonthRows)
+  return buildDailyExpenseAnalysisOption(31, expenses)
+})
 
 function cumSum(arr) {
   let s = 0
@@ -600,6 +630,30 @@ const balanceDisplay = computed(() => {
   }
 })
 
+async function showPatternPeriodSheet() {
+  const selected = analytics.patternPeriodMonths
+  const buttons = PATTERN_PERIOD_OPTIONS.map(({ months, label }) => ({
+    text: months === selected ? `${label} ✓` : label,
+    handler: () => {
+      void (async () => {
+        if (months === selected) return
+        try {
+          await analytics.setPatternPeriod(months)
+          if (analytics.error) showToast(analytics.error)
+        } catch {
+          if (analytics.error) showToast(analytics.error)
+        }
+      })()
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Time range',
+    buttons,
+  })
+  await sheet.present()
+}
+
 async function showMonthlyAnalysisPeriodSheet() {
   const selected = monthlyAnalysisMonths.value
   const buttons = MONTHLY_ANALYSIS_PERIODS.map(({ months, label }) => ({
@@ -659,7 +713,10 @@ async function showIslandScopeSheet() {
           return
         }
         if (viewMode.value === 'advanced') {
-          await analytics.loadAdvancedCategoryCharts()
+          await Promise.all([
+            analytics.loadAdvancedCategoryCharts(),
+            analytics.loadPatternCharts(),
+          ])
           if (analytics.error) showToast(analytics.error)
         }
       })()
@@ -680,14 +737,20 @@ onIonViewDidEnter(async () => {
     showToast(analytics.error)
   }
   if (viewMode.value === 'advanced') {
-    await analytics.loadAdvancedCategoryCharts()
+    await Promise.all([
+      analytics.loadAdvancedCategoryCharts(),
+      analytics.loadPatternCharts(),
+    ])
     if (analytics.error) showToast(analytics.error)
   }
 })
 
 watch(viewMode, async (mode) => {
   if (mode !== 'advanced') return
-  await analytics.loadAdvancedCategoryCharts()
+  await Promise.all([
+    analytics.loadAdvancedCategoryCharts(),
+    analytics.loadPatternCharts(),
+  ])
   if (analytics.error) showToast(analytics.error)
 })
 </script>

@@ -189,6 +189,21 @@ export function getAnalyticsDaily(islandScope = 'all', startDate, endDate) {
   })
 }
 
+/** Weekday or day-of-month expense aggregation (au-tenant-app analytics). */
+export function getAnalyticsPatterns(islandScope = 'all', pattern, startDate, endDate) {
+  const island_scope =
+    islandScope === 'all'
+      ? 'all'
+      : islandScope === 'null'
+        ? 'null'
+        : String(islandScope)
+  return request({
+    url: '/api/accounting/analytics/patterns',
+    method: 'get',
+    params: { island_scope, pattern, start_date: startDate, end_date: endDate }
+  })
+}
+
 export function getCategoryBreakdown(params) {
   return request({
     url: '/api/accounting/category-breakdown',

@@ -1,5 +1,11 @@
 import { ref, reactive } from 'vue'
-import { getAccounts, getAnalyticsOverview, getAnalyticsAdvanced, getAnalyticsDaily } from '@/api/accounting'
+import {
+  getAccounts,
+  getAnalyticsOverview,
+  getAnalyticsAdvanced,
+  getAnalyticsDaily,
+  getAnalyticsPatterns,
+} from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 
 const ALL_ISLANDS_KEY = 'all'
@@ -107,6 +113,40 @@ export function allTimeRangeStart() {
   return { start_date: '2000-01-01', end_date: ymd(new Date()) }
 }
 
+/** Date range for pattern charts: null = all time, else last N calendar months. */
+export function patternDateRange(months) {
+  if (months == null) return allTimeRangeStart()
+  return lastNMonthsRange(months)
+}
+
+export const PATTERN_PERIOD_OPTIONS = [
+  { months: null, label: 'All Time' },
+  { months: 6, label: 'Last 6 Months' },
+  { months: 12, label: 'Last 12 Months' },
+]
+
+/** @param {Array<{weekday:number,expense:number}>} rows */
+export function expensesByWeekday(rows) {
+  const arr = Array(7).fill(0)
+  for (const r of rows || []) {
+    const idx = Number(r.weekday)
+    if (idx >= 0 && idx < 7) arr[idx] = Number(r.expense) || 0
+  }
+  return arr
+}
+
+/** @param {Array<{day:number,expense:number}>} rows */
+export function expensesByDayOfMonthPattern(rows) {
+  const arr = Array(31).fill(0)
+  for (const r of rows || []) {
+    const day = Number(r.day)
+    if (day >= 1 && day <= 31) arr[day - 1] = Number(r.expense) || 0
+  }
+  return arr
+}
+
+export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 /** @param {string} startYmd @param {string} endYmd */
 export function enumerateMonthsInclusive(startYmd, endYmd) {
   const [sy, sm] = startYmd.split('-').map(Number)
@@ -174,6 +214,13 @@ export function useAnalyticsCharts() {
 
   const advancedCategoryLoaded = ref(false)
   const advancedCategoryLoading = ref(false)
+  const patternPeriodMonths = ref(null)
+  const weekdayRows = ref([])
+  const dayOfMonthRows = ref([])
+  const patternLoading = ref(false)
+  const patternChartsLoaded = ref(false)
+  /** @type {Map<string, { weekday: unknown[], dayOfMonth: unknown[] }>} */
+  const patternCache = new Map()
   const budgetRadar = ref(null)
 
   function updateHeaderLabel() {
@@ -243,6 +290,8 @@ export function useAnalyticsCharts() {
     persistScope(selectedIslandScope.value)
     updateHeaderLabel()
     advancedCategoryLoaded.value = false
+    patternChartsLoaded.value = false
+    patternCache.clear()
     dailyMonthCache.clear()
     await refresh()
   }
@@ -258,6 +307,9 @@ export function useAnalyticsCharts() {
     categoryMonthlyBars.value = { labels: [], values: [], categoryName: '' }
     budgetRadar.value = null
     advancedCategoryLoaded.value = false
+    weekdayRows.value = []
+    dayOfMonthRows.value = []
+    patternChartsLoaded.value = false
   }
 
   function applyCategoryMonthlyBars(monthlyRows, catLeaf12) {
@@ -317,6 +369,8 @@ export function useAnalyticsCharts() {
     try {
       updateHeaderLabel()
       advancedCategoryLoaded.value = false
+      patternChartsLoaded.value = false
+      patternCache.clear()
       stackedMonthSlices.value = []
       categoryLeafLast6.value = []
       dailyMonthCache.clear()
@@ -346,6 +400,53 @@ export function useAnalyticsCharts() {
     } finally {
       loading.value = false
     }
+  }
+
+  function patternCacheKey(months) {
+    const period = months == null ? 'all' : String(months)
+    return `${scopeValueToKey(selectedIslandScope.value)}:${period}`
+  }
+
+  async function loadPatternCharts(force = false) {
+    const months = patternPeriodMonths.value
+    const cacheKey = patternCacheKey(months)
+    const cached = patternCache.get(cacheKey)
+    if (!force && cached) {
+      weekdayRows.value = cached.weekday
+      dayOfMonthRows.value = cached.dayOfMonth
+      patternChartsLoaded.value = true
+      return
+    }
+
+    patternLoading.value = true
+    error.value = null
+    try {
+      const { start_date, end_date } = patternDateRange(months)
+      const scope = selectedIslandScope.value
+      const [weekdayRes, dayOfMonthRes] = await Promise.all([
+        getAnalyticsPatterns(scope, 'weekday', start_date, end_date),
+        getAnalyticsPatterns(scope, 'day_of_month', start_date, end_date),
+      ])
+      const weekday = Array.isArray(weekdayRes?.data) ? weekdayRes.data : []
+      const dayOfMonth = Array.isArray(dayOfMonthRes?.data) ? dayOfMonthRes.data : []
+      patternCache.set(cacheKey, { weekday, dayOfMonth })
+      weekdayRows.value = weekday
+      dayOfMonthRows.value = dayOfMonth
+      patternChartsLoaded.value = true
+    } catch (e) {
+      error.value = e?.message || String(e)
+      weekdayRows.value = []
+      dayOfMonthRows.value = []
+      throw e
+    } finally {
+      patternLoading.value = false
+    }
+  }
+
+  async function setPatternPeriod(months) {
+    if (patternPeriodMonths.value === months) return
+    patternPeriodMonths.value = months
+    await loadPatternCharts()
   }
 
   async function loadAdvancedCategoryCharts() {
@@ -392,10 +493,17 @@ export function useAnalyticsCharts() {
     budgetRadar,
     advancedCategoryLoaded,
     advancedCategoryLoading,
+    patternPeriodMonths,
+    weekdayRows,
+    dayOfMonthRows,
+    patternLoading,
+    patternChartsLoaded,
     loadIslandOptions,
     setIslandScope,
     refresh,
     loadDailyMonth,
+    loadPatternCharts,
+    setPatternPeriod,
     loadAdvancedCategoryCharts,
   })
 }
