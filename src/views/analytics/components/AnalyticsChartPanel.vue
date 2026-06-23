@@ -97,7 +97,7 @@ function onOpen() {
 }
 
 .echart--donut-tall {
-  min-height: 280px;
+  min-height: 300px;
 }
 
 .echart--pareto {

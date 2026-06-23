@@ -1,4 +1,4 @@
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import {
   getAccounts,
   getAnalyticsOverview,
@@ -202,6 +202,8 @@ export function useAnalyticsCharts() {
   const categoryLeafAllTime = ref([])
   const categoryLeafLast6 = ref([])
   const categoryParentAllTime = ref([])
+  const categoryParentLast6 = ref([])
+  const categoryDonutPeriodMonths = ref(6)
   const dailyLastMonth = ref([])
   /** @type {import('vue').Ref<{year:number,month:number}>} */
   const selectedDailyMonth = ref(defaultDailyAnalysisMonth())
@@ -300,6 +302,7 @@ export function useAnalyticsCharts() {
     monthlyLast12.value = []
     categoryLeafAllTime.value = []
     categoryLeafLast6.value = []
+    categoryParentLast6.value = []
     categoryParentAllTime.value = []
     dailyLastMonth.value = []
     dailyMonthRows.value = []
@@ -373,6 +376,7 @@ export function useAnalyticsCharts() {
       patternCache.clear()
       stackedMonthSlices.value = []
       categoryLeafLast6.value = []
+      categoryParentLast6.value = []
       dailyMonthCache.clear()
 
       const res = await getAnalyticsOverview(selectedIslandScope.value)
@@ -392,6 +396,14 @@ export function useAnalyticsCharts() {
         await loadDailyMonth(year, month)
       } catch {
         /* error surfaced via analytics.error */
+      }
+
+      if (categoryDonutPeriodMonths.value === 6) {
+        try {
+          await loadAdvancedCategoryCharts()
+        } catch {
+          /* error surfaced via analytics.error */
+        }
       }
     } catch (e) {
       error.value = e?.message || String(e)
@@ -459,6 +471,7 @@ export function useAnalyticsCharts() {
       const data = res?.data
 
       categoryLeafLast6.value = Array.isArray(data?.category_leaf_6) ? data.category_leaf_6 : []
+      categoryParentLast6.value = Array.isArray(data?.category_parent_6) ? data.category_parent_6 : []
       stackedMonthSlices.value = rowsToStackedMonthSlices(
         data?.category_parent_monthly_6,
         last6.start_date,
@@ -467,11 +480,29 @@ export function useAnalyticsCharts() {
       advancedCategoryLoaded.value = true
     } catch (e) {
       error.value = e?.message || String(e)
+      categoryLeafLast6.value = []
+      categoryParentLast6.value = []
       stackedMonthSlices.value = []
     } finally {
       advancedCategoryLoading.value = false
     }
   }
+
+  async function setCategoryDonutPeriod(months) {
+    if (categoryDonutPeriodMonths.value === months) return
+    categoryDonutPeriodMonths.value = months
+    if (months === 6) {
+      await loadAdvancedCategoryCharts()
+    }
+  }
+
+  const categoryParentRowsForDonut = computed(() =>
+    categoryDonutPeriodMonths.value === 6 ? categoryParentLast6.value : categoryParentAllTime.value
+  )
+
+  const categoryLeafRowsForDonut = computed(() =>
+    categoryDonutPeriodMonths.value === 6 ? categoryLeafLast6.value : categoryLeafAllTime.value
+  )
 
   return reactive({
     loading,
@@ -484,6 +515,10 @@ export function useAnalyticsCharts() {
     categoryLeafAllTime,
     categoryLeafLast6,
     categoryParentAllTime,
+    categoryParentLast6,
+    categoryDonutPeriodMonths,
+    categoryParentRowsForDonut,
+    categoryLeafRowsForDonut,
     dailyLastMonth,
     selectedDailyMonth,
     dailyMonthRows,
@@ -504,6 +539,7 @@ export function useAnalyticsCharts() {
     loadDailyMonth,
     loadPatternCharts,
     setPatternPeriod,
+    setCategoryDonutPeriod,
     loadAdvancedCategoryCharts,
   })
 }

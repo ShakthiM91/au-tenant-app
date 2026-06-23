@@ -71,8 +71,8 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Sub-category-wise</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Time range">
-                <span>Last 12 months</span>
+              <button type="button" class="period-chip period-chip--narrow" aria-label="Select period" @click="showCategoryDonutPeriodSheet">
+                <span>{{ categoryDonutPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
@@ -80,8 +80,9 @@
               body-class="chart-card__body--donut chart-card__body--donut-tall"
               chart-class="echart--donut-tall"
               title="Sub-category-wise"
-              subtitle="Last 12 months"
-              :option="subcategoryDonutAllTimeOption"
+              :subtitle="categoryDonutPeriodLabel"
+              :option="subcategoryDonutOption"
+              :loading="categoryDonutLoading"
               @open="openChartFocus"
             />
           </section>
@@ -201,8 +202,8 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Category-wise</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Time range">
-                <span>Last 12 months</span>
+              <button type="button" class="period-chip period-chip--narrow" aria-label="Select period" @click="showCategoryDonutPeriodSheet">
+                <span>{{ categoryDonutPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
@@ -210,8 +211,9 @@
               body-class="chart-card__body--donut"
               chart-class="echart--donut"
               title="Category-wise"
-              subtitle="Last 12 months"
+              :subtitle="categoryDonutPeriodLabel"
               :option="categoryWiseDonutOption"
+              :loading="categoryDonutLoading"
               @open="openChartFocus"
             />
           </section>
@@ -219,8 +221,8 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Sub-category-wise</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 6 Months</span>
+              <button type="button" class="period-chip" aria-label="Select period" @click="showCategoryDonutPeriodSheet">
+                <span>{{ categoryDonutPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
@@ -228,9 +230,9 @@
               body-class="chart-card__body--donut chart-card__body--donut-tall"
               chart-class="echart--donut-tall"
               title="Sub-category-wise"
-              subtitle="Last 6 Months"
-              :option="subcategoryDonutLast6Option"
-              :loading="analytics.advancedCategoryLoading"
+              :subtitle="categoryDonutPeriodLabel"
+              :option="subcategoryDonutOption"
+              :loading="categoryDonutLoading"
               @open="openChartFocus"
             />
           </section>
@@ -479,12 +481,25 @@ const MONTHLY_ANALYSIS_PERIODS = [
   { months: 6, label: 'Last 6 Months' },
   { months: 12, label: 'Last 12 Months' },
 ]
+const CATEGORY_DONUT_PERIODS = [
+  { months: 6, label: 'Last 6 Months' },
+  { months: 12, label: 'Last 12 Months' },
+]
 const monthlyAnalysisMonths = ref(6)
 
 const patternPeriodLabel = computed(() => {
   const opt = PATTERN_PERIOD_OPTIONS.find((p) => p.months === analytics.patternPeriodMonths)
   return opt?.label || 'All Time'
 })
+
+const categoryDonutPeriodLabel = computed(() => {
+  const opt = CATEGORY_DONUT_PERIODS.find((p) => p.months === analytics.categoryDonutPeriodMonths)
+  return opt?.label || 'Last 6 Months'
+})
+
+const categoryDonutLoading = computed(
+  () => analytics.categoryDonutPeriodMonths === 6 && analytics.advancedCategoryLoading
+)
 
 const weekdayAnalysisOption = computed(() => {
   const expenses = expensesByWeekday(analytics.weekdayRows)
@@ -625,16 +640,12 @@ const ieWaterfall12Option = computed(() =>
   )
 )
 
-const subcategoryDonutAllTimeOption = computed(() =>
-  categoryDonutFromRows(analytics.categoryLeafAllTime, { tall: true })
-)
-
-const subcategoryDonutLast6Option = computed(() =>
-  categoryDonutFromRows(analytics.categoryLeafLast6, { tall: true })
+const subcategoryDonutOption = computed(() =>
+  categoryDonutFromRows(analytics.categoryLeafRowsForDonut, { tall: true })
 )
 
 const categoryWiseDonutOption = computed(() =>
-  categoryDonutFromRows(analytics.categoryParentAllTime, { tall: false })
+  categoryDonutFromRows(analytics.categoryParentRowsForDonut, { tall: false })
 )
 
 const dailyExpenseSeries = computed(() => {
@@ -720,6 +731,30 @@ function openChartFocus(payload) {
 
 function closeChartFocus() {
   chartFocus.value = null
+}
+
+async function showCategoryDonutPeriodSheet() {
+  const selected = analytics.categoryDonutPeriodMonths
+  const buttons = CATEGORY_DONUT_PERIODS.map(({ months, label }) => ({
+    text: months === selected ? `${label} ✓` : label,
+    handler: () => {
+      void (async () => {
+        if (months === selected) return
+        try {
+          await analytics.setCategoryDonutPeriod(months)
+          if (analytics.error) showToast(analytics.error)
+        } catch {
+          if (analytics.error) showToast(analytics.error)
+        }
+      })()
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Time range',
+    buttons,
+  })
+  await sheet.present()
 }
 
 async function showPatternPeriodSheet() {
@@ -1129,8 +1164,8 @@ watch(viewMode, async (mode) => {
 }
 
 .chart-card__body--donut-tall {
-  height: 280px;
-  min-height: 280px;
+  height: 300px;
+  min-height: 300px;
 }
 
 .echart {
@@ -1143,7 +1178,7 @@ watch(viewMode, async (mode) => {
 }
 
 .echart--donut-tall {
-  min-height: 280px;
+  min-height: 300px;
 }
 
 .chart-card__body--pareto {

@@ -320,9 +320,22 @@ export function ieWaterfallOption(monthLabels, income, expense) {
   }
 }
 
-function buildDonutOption(rows, { tall = false } = {}) {
+function formatChartAmount(n) {
+  try {
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(Number(n) || 0)
+  } catch {
+    return String(Math.round((Number(n) || 0) * 100) / 100)
+  }
+}
+
+function donutRadius(tall, expanded = false) {
+  if (expanded) return tall ? ['30%', '62%'] : ['32%', '66%']
+  return tall ? ['32%', '60%'] : ['34%', '64%']
+}
+
+function buildDonutOption(rows, { tall = false, expanded = false } = {}) {
   const total = rows.reduce((s, r) => s + r.value, 0)
-  const sliceCap = tall ? 14 : 10
+  const sliceCap = expanded ? 24 : tall ? 14 : 10
   const sorted = [...rows].sort((a, b) => b.value - a.value)
   const top = sorted.slice(0, sliceCap - 1)
   const rest = sorted.slice(sliceCap - 1)
@@ -330,11 +343,13 @@ function buildDonutOption(rows, { tall = false } = {}) {
   const slices =
     otherVal > 0 ? [...top, { name: 'Other', value: otherVal }] : top
 
+  const nameFont = expanded ? 9 : 7
+  const pctFont = expanded ? 10 : 8
   const subLabelRich = {}
   slices.forEach((s, i) => {
     const c = s.color || DONUT_COLORS[i % DONUT_COLORS.length]
-    subLabelRich[`sn${i}`] = { color: c, fontSize: 6, lineHeight: 10, align: 'left' }
-    subLabelRich[`sp${i}`] = { color: c, fontSize: 7, fontWeight: 600, lineHeight: 10, align: 'left' }
+    subLabelRich[`sn${i}`] = { color: c, fontSize: nameFont, lineHeight: expanded ? 13 : 10, align: 'left' }
+    subLabelRich[`sp${i}`] = { color: c, fontSize: pctFont, fontWeight: 600, lineHeight: expanded ? 13 : 10, align: 'left' }
   })
 
   const scTop = (hex) => (hex.length === 7 ? `${hex}E0` : hex)
@@ -346,7 +361,7 @@ function buildDonutOption(rows, { tall = false } = {}) {
       itemStyle: {
         color: lg(scTop(c), c),
         borderColor: '#fff',
-        borderWidth: 2,
+        borderWidth: 3,
       },
     }
   })
@@ -354,18 +369,19 @@ function buildDonutOption(rows, { tall = false } = {}) {
   return {
     tooltip: { show: false },
     legend: { show: false },
+    __donutTall: tall,
     series: [
       {
         type: 'pie',
-        padAngle: 1.2,
+        padAngle: 3.5,
         minShowLabelAngle: 0.2,
-        radius: tall ? ['40%', '58%'] : ['40%', '62%'],
+        radius: donutRadius(tall, expanded),
         center: ['50%', '50%'],
         data: pieData,
         label: {
           show: true,
           minMargin: 1,
-          edgeDistance: 3,
+          edgeDistance: expanded ? 5 : 3,
           formatter: (p) => {
             const pct = total > 0 ? ((p.value / total) * 100).toFixed(2) : '0'
             return p.dataIndex == null ? '' : `{sn${p.dataIndex}|${p.name}}\n{sp${p.dataIndex}|${pct}%}`
@@ -375,13 +391,14 @@ function buildDonutOption(rows, { tall = false } = {}) {
         labelLine: {
           show: true,
           lineStyle: { color: '#C8C8C8', width: 0.75, type: [3, 3] },
-          length: 6,
-          length2: 10,
+          length: expanded ? 10 : 8,
+          length2: expanded ? 16 : 14,
           smooth: 0.2,
         },
         emphasis: { disabled: true },
       },
     ],
+    __donutTotal: total,
   }
 }
 
@@ -401,7 +418,7 @@ export function categoryDonutFromRows(rows, opts) {
       series: [
         {
           type: 'pie',
-          radius: opts?.tall ? ['40%', '58%'] : ['40%', '62%'],
+          radius: donutRadius(!!opts?.tall, !!opts?.expanded),
           center: ['50%', '50%'],
           data: [{ name: 'No data', value: 1, itemStyle: { color: '#EEEEEE' } }],
           label: { show: false },
@@ -969,6 +986,10 @@ function hasPieSeries(option) {
   return list.some((s) => s?.type === 'pie')
 }
 
+export function isPieChartOption(option) {
+  return hasPieSeries(option)
+}
+
 /** Drop compact-view formatters that hide x-axis ticks (e.g. day 1,6,12 only). */
 function expandedCategoryAxisLabel(axisLabel, catLen) {
   const base = { color: D.axis, ...(axisLabel || {}) }
@@ -1017,7 +1038,7 @@ function initialDataZoomRange(catLen) {
 }
 
 /** Enable tooltip, zoom/pan, and slightly larger labels for the expanded chart modal. */
-export function expandChartOption(option) {
+export function expandChartOption(option, { selectedIndex = null } = {}) {
   if (!option || typeof option !== 'object') return option
 
   const next = { ...option }
@@ -1025,11 +1046,44 @@ export function expandChartOption(option) {
   const radar = !!option.radar
   const catLen = hasCategoryXAxis(option) ? getPrimaryXAxis(option).data.length : 0
 
+  if (pie) {
+    const tall = !!option.__donutTall
+    const pieSeries = (Array.isArray(option.series) ? option.series : [option.series]).find(
+      (s) => s?.type === 'pie'
+    )
+    const rows = (pieSeries?.data || [])
+      .filter((d) => d.name !== 'No data')
+      .map((d, i) => ({
+        name: d.name,
+        value: d.value,
+        color:
+          d.itemStyle?.color?.colorStops?.[1]?.color ||
+          d.itemStyle?.color?.colorStops?.[0]?.color ||
+          DONUT_COLORS[i % DONUT_COLORS.length],
+      }))
+    if (rows.length) {
+      const expanded = buildDonutOption(rows, { tall, expanded: true })
+      next.series = expanded.series
+      next.__donutTotal = expanded.__donutTotal
+      next.__donutTall = tall
+    }
+  }
+
   next.tooltip = {
     ...(option.tooltip || {}),
     show: true,
     trigger: pie || radar ? 'item' : 'axis',
     confine: true,
+    ...(pie
+      ? {
+          formatter: (params) => {
+            const name = params?.name || ''
+            const value = formatChartAmount(params?.value)
+            const pct = params?.percent != null ? params.percent.toFixed(2) : '0'
+            return `${name}<br/>${value} (${pct}%)`
+          },
+        }
+      : {}),
     ...(pie || radar ? {} : { axisPointer: { type: 'shadow' } }),
   }
 
@@ -1083,12 +1137,27 @@ export function expandChartOption(option) {
 
   if (option.series) {
     const seriesList = Array.isArray(option.series) ? option.series : [option.series]
-    next.series = seriesList.map((s) => {
+    next.series = (Array.isArray(next.series) ? next.series : seriesList).map((s, si) => {
       if (s?.type === 'treemap') {
         return { ...s, roam: true, scaleLimit: { min: 0.6, max: 3 } }
       }
-      if (s?.type === 'pie' && s.label) {
-        return { ...s, label: { ...s.label, fontSize: Math.max(10, Number(s.label.fontSize) || 7) + 2 } }
+      if (s?.type === 'pie') {
+        const src = (Array.isArray(next.series) ? next.series : seriesList)[si] || s
+        const data = (src.data || []).map((d, i) => ({
+          ...d,
+          selected: selectedIndex === i,
+        }))
+        return {
+          ...src,
+          data,
+          selectedMode: 'single',
+          selectedOffset: 10,
+          emphasis: {
+            scale: true,
+            scaleSize: 14,
+            label: { show: true, fontSize: 12 },
+          },
+        }
       }
       if (s?.type === 'bar' && zoomRange) {
         return { ...s, barMaxWidth: 28, barWidth: '55%' }
