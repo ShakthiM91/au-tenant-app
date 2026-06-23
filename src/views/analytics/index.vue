@@ -59,9 +59,13 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h120">
-              <VChart class="echart" :option="monthlyBarOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h120"
+              title="Monthly Analysis"
+              :subtitle="monthlyAnalysisPeriodLabel"
+              :option="monthlyBarOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -72,9 +76,14 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--donut chart-card__body--donut-tall">
-              <VChart class="echart echart--donut-tall" :option="subcategoryDonutAllTimeOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--donut chart-card__body--donut-tall"
+              chart-class="echart--donut-tall"
+              title="Sub-category-wise"
+              subtitle="Last 12 months"
+              :option="subcategoryDonutAllTimeOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -85,9 +94,13 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h120">
-              <VChart class="echart" :option="incomeExpenseBarOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h120"
+              title="I/E Monthly Analysis"
+              subtitle="Last 12 Months"
+              :option="incomeExpenseBarOption"
+              @open="openChartFocus"
+            />
           </section>
         </div>
 
@@ -102,12 +115,14 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h130 chart-card__body--chart-loading">
-              <div v-if="analytics.dailyMonthLoading" class="chart-inline-loading">
-                <ion-spinner name="crescent" />
-              </div>
-              <VChart v-else class="echart" :option="dailyAnalysisOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h130"
+              title="Daily Analysis"
+              :subtitle="dailyMonthLabel"
+              :option="dailyAnalysisOption"
+              :loading="analytics.dailyMonthLoading"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -118,12 +133,14 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h150 chart-card__body--chart-loading">
-              <div v-if="analytics.dailyMonthLoading" class="chart-inline-loading">
-                <ion-spinner name="crescent" />
-              </div>
-              <VChart v-else class="echart" :option="monthlyProgressionStepOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h150"
+              title="Monthly Progression"
+              :subtitle="dailyMonthLabel"
+              :option="monthlyProgressionStepOption"
+              :loading="analytics.dailyMonthLoading"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -134,12 +151,14 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h130 chart-card__body--chart-loading">
-              <div v-if="analytics.patternLoading" class="chart-inline-loading">
-                <ion-spinner name="crescent" />
-              </div>
-              <VChart v-else class="echart" :option="weekdayAnalysisOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h130"
+              title="Day-of-Week Analysis"
+              :subtitle="patternPeriodLabel"
+              :option="weekdayAnalysisOption"
+              :loading="analytics.patternLoading"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -150,12 +169,14 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h130 chart-card__body--chart-loading">
-              <div v-if="analytics.patternLoading" class="chart-inline-loading">
-                <ion-spinner name="crescent" />
-              </div>
-              <VChart v-else class="echart" :option="dayOfMonthAnalysisOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h130"
+              title="Day-of-Month Analysis"
+              :subtitle="patternPeriodLabel"
+              :option="dayOfMonthAnalysisOption"
+              :loading="analytics.patternLoading"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -166,9 +187,13 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h120">
-              <VChart class="echart" :option="monthlyBarOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h120"
+              title="Monthly Analysis"
+              :subtitle="monthlyAnalysisPeriodLabel"
+              :option="monthlyBarOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <h3 class="section-title section-title--category">Categorical Analysis</h3>
@@ -181,9 +206,14 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--donut">
-              <VChart class="echart echart--donut" :option="categoryWiseDonutOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--donut"
+              chart-class="echart--donut"
+              title="Category-wise"
+              subtitle="Last 12 months"
+              :option="categoryWiseDonutOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -194,12 +224,15 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--donut chart-card__body--donut-tall chart-card__body--chart-loading">
-              <div v-if="analytics.advancedCategoryLoading" class="chart-inline-loading">
-                <ion-spinner name="crescent" />
-              </div>
-              <VChart v-else class="echart echart--donut-tall" :option="subcategoryDonutLast6Option" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--donut chart-card__body--donut-tall"
+              chart-class="echart--donut-tall"
+              title="Sub-category-wise"
+              subtitle="Last 6 Months"
+              :option="subcategoryDonutLast6Option"
+              :loading="analytics.advancedCategoryLoading"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -210,12 +243,14 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h150 chart-card__body--chart-loading">
-              <div v-if="analytics.advancedCategoryLoading" class="chart-inline-loading">
-                <ion-spinner name="crescent" />
-              </div>
-              <VChart v-else class="echart" :option="stackedCategoryOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h150"
+              title="Stacked Analysis"
+              subtitle="Last 6 Months"
+              :option="stackedCategoryOption"
+              :loading="analytics.advancedCategoryLoading"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -229,9 +264,13 @@
             <p v-if="analytics.categoryMonthlyBars?.heuristic" class="chart-hint">
               Approximate monthly amounts (same share as top sub-category over 12 months).
             </p>
-            <div class="chart-card__body chart-card__body--h120">
-              <VChart class="echart" :option="categoryAnalysisBarOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h120"
+              title="Category Analysis"
+              :subtitle="categoryAnalysisTitle"
+              :option="categoryAnalysisBarOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -242,9 +281,13 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h220">
-              <VChart class="echart" :option="treemapRsOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h220"
+              title="Category Treemap"
+              subtitle="Last 12 months"
+              :option="treemapRsOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <h3 class="section-title section-title--category">Flow &amp; distribution</h3>
@@ -270,9 +313,14 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--pareto chart-card__body--pareto-dynamic">
-              <VChart class="echart echart--pareto" :option="pareto12kOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              :body-class="['chart-card__body--pareto', 'chart-card__body--pareto-dynamic']"
+              chart-class="echart--pareto"
+              title="Pareto Analysis"
+              subtitle="Last 12 months"
+              :option="pareto12kOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -283,9 +331,13 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h220">
-              <VChart class="echart" :option="radarPlannedActualOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h220"
+              title="Radar Spider Analysis"
+              subtitle="Current budget period"
+              :option="radarPlannedActualOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <h3 class="section-title section-title--category">I/E Analysis</h3>
@@ -298,9 +350,13 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h150">
-              <VChart class="echart" :option="ieProgressionDualAreaOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h150"
+              title="I/E Monthly Progression"
+              :subtitle="progressionMonthLabel"
+              :option="ieProgressionDualAreaOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -311,9 +367,13 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h120">
-              <VChart class="echart" :option="incomeExpenseHighlightOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h120"
+              title="I/E Monthly Analysis"
+              subtitle="Last 12 Months"
+              :option="incomeExpenseHighlightOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -324,9 +384,13 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h130">
-              <VChart class="echart" :option="ieGapMonthlyOption" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h130"
+              title="I/E Gap Monthly Analysis"
+              subtitle="Last 12 Months"
+              :option="ieGapMonthlyOption"
+              @open="openChartFocus"
+            />
           </section>
 
           <section class="chart-card">
@@ -337,14 +401,26 @@
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
-            <div class="chart-card__body chart-card__body--h150">
-              <VChart class="echart" :option="ieWaterfall12Option" autoresize />
-            </div>
+            <AnalyticsChartPanel
+              body-class="chart-card__body--h150"
+              title="I/E Waterfall Analysis"
+              subtitle="Last 12 Months"
+              :option="ieWaterfall12Option"
+              @open="openChartFocus"
+            />
           </section>
         </div>
       </div>
       <div class="tab-spacer" />
     </ion-content>
+
+    <AnalyticsChartFocusModal
+      :open="!!chartFocus"
+      :title="chartFocus?.title || ''"
+      :subtitle="chartFocus?.subtitle || ''"
+      :option="chartFocus?.option || {}"
+      @close="closeChartFocus"
+    />
   </ion-page>
 </template>
 
@@ -392,9 +468,12 @@ import {
   radarBudgetOption as buildRadarBudgetOption,
   emptyRadarPlaceholder as buildEmptyRadarPlaceholder,
 } from '@/views/analytics/chartOptions'
+import AnalyticsChartPanel from '@/views/analytics/components/AnalyticsChartPanel.vue'
+import AnalyticsChartFocusModal from '@/views/analytics/components/AnalyticsChartFocusModal.vue'
 
 const analytics = useAnalyticsCharts()
 const viewMode = ref('basic')
+const chartFocus = ref(null)
 
 const MONTHLY_ANALYSIS_PERIODS = [
   { months: 6, label: 'Last 6 Months' },
@@ -629,6 +708,19 @@ const balanceDisplay = computed(() => {
     return String(Math.round(n * 100) / 100)
   }
 })
+
+function openChartFocus(payload) {
+  if (!payload?.option) return
+  chartFocus.value = {
+    title: payload.title || 'Chart',
+    subtitle: payload.subtitle || '',
+    option: payload.option,
+  }
+}
+
+function closeChartFocus() {
+  chartFocus.value = null
+}
 
 async function showPatternPeriodSheet() {
   const selected = analytics.patternPeriodMonths

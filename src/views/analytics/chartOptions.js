@@ -951,3 +951,163 @@ export function emptyRadarPlaceholder() {
     series: [{ type: 'radar', data: [{ value: [0], name: '—' }] }],
   }
 }
+
+function getPrimaryXAxis(option) {
+  if (!option?.xAxis) return null
+  return Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis
+}
+
+function hasCategoryXAxis(option) {
+  const xa = getPrimaryXAxis(option)
+  return xa?.type === 'category' && Array.isArray(xa.data) && xa.data.length > 0
+}
+
+function hasPieSeries(option) {
+  const series = option?.series
+  if (!series) return false
+  const list = Array.isArray(series) ? series : [series]
+  return list.some((s) => s?.type === 'pie')
+}
+
+/** Drop compact-view formatters that hide x-axis ticks (e.g. day 1,6,12 only). */
+function expandedCategoryAxisLabel(axisLabel, catLen) {
+  const base = { color: D.axis, ...(axisLabel || {}) }
+  if (typeof base.formatter === 'function') {
+    delete base.formatter
+  }
+  const dense = catLen > 12
+  const medium = catLen > 7
+  return {
+    ...base,
+    show: true,
+    interval: 0,
+    hideOverlap: false,
+    fontSize: Math.max(9, Number(base.fontSize) || 8) + (dense ? 0 : 1),
+    rotate: dense ? 45 : medium ? 30 : 0,
+    margin: dense ? 12 : 8,
+  }
+}
+
+function expandedXAxis(xAxis, catLen) {
+  const patch = (a) => ({
+    ...a,
+    axisLabel: expandedCategoryAxisLabel(a.axisLabel, catLen),
+  })
+  return Array.isArray(xAxis) ? xAxis.map(patch) : patch(xAxis)
+}
+
+function expandedYAxis(yAxis) {
+  const patch = (a) => ({
+    ...a,
+    axisLabel: {
+      ...(a.axisLabel || {}),
+      show: true,
+      fontSize: Math.max(9, Number(a.axisLabel?.fontSize) || 8) + 2,
+    },
+  })
+  if (!yAxis) return yAxis
+  return Array.isArray(yAxis) ? yAxis.map(patch) : patch(yAxis)
+}
+
+function initialDataZoomRange(catLen) {
+  if (catLen <= 12) return null
+  const windowSize = 10
+  const end = Math.min(100, Math.round((windowSize / catLen) * 100))
+  return { start: 0, end }
+}
+
+/** Enable tooltip, zoom/pan, and slightly larger labels for the expanded chart modal. */
+export function expandChartOption(option) {
+  if (!option || typeof option !== 'object') return option
+
+  const next = { ...option }
+  const pie = hasPieSeries(option)
+  const radar = !!option.radar
+  const catLen = hasCategoryXAxis(option) ? getPrimaryXAxis(option).data.length : 0
+
+  next.tooltip = {
+    ...(option.tooltip || {}),
+    show: true,
+    trigger: pie || radar ? 'item' : 'axis',
+    confine: true,
+    ...(pie || radar ? {} : { axisPointer: { type: 'shadow' } }),
+  }
+
+  const baseGrid = option.grid && typeof option.grid === 'object' ? { ...option.grid } : gridStd()
+  const zoomRange = initialDataZoomRange(catLen)
+
+  if (hasCategoryXAxis(option)) {
+    next.xAxis = expandedXAxis(option.xAxis, catLen)
+
+    if (zoomRange) {
+      const bottom = typeof baseGrid.bottom === 'number' ? baseGrid.bottom : 20
+      next.grid = { ...baseGrid, containLabel: true, bottom: bottom + 40 }
+      const zoomOpts = { xAxisIndex: 0, filterMode: 'none', ...zoomRange }
+      next.dataZoom = [
+        {
+          type: 'inside',
+          ...zoomOpts,
+          zoomOnMouseWheel: true,
+          moveOnMouseMove: true,
+          moveOnMouseWheel: true,
+        },
+        {
+          type: 'slider',
+          ...zoomOpts,
+          height: 22,
+          bottom: 4,
+        },
+      ]
+    } else if (catLen > 5) {
+      next.grid = { ...baseGrid, containLabel: true }
+      next.dataZoom = [
+        {
+          type: 'inside',
+          xAxisIndex: 0,
+          filterMode: 'none',
+          zoomOnMouseWheel: true,
+          moveOnMouseMove: true,
+          moveOnMouseWheel: true,
+        },
+      ]
+    } else {
+      next.grid = { ...baseGrid, containLabel: true }
+    }
+  } else {
+    next.grid = { ...baseGrid, containLabel: true }
+  }
+
+  if (option.yAxis) {
+    next.yAxis = expandedYAxis(option.yAxis)
+  }
+
+  if (option.series) {
+    const seriesList = Array.isArray(option.series) ? option.series : [option.series]
+    next.series = seriesList.map((s) => {
+      if (s?.type === 'treemap') {
+        return { ...s, roam: true, scaleLimit: { min: 0.6, max: 3 } }
+      }
+      if (s?.type === 'pie' && s.label) {
+        return { ...s, label: { ...s.label, fontSize: Math.max(10, Number(s.label.fontSize) || 7) + 2 } }
+      }
+      if (s?.type === 'bar' && zoomRange) {
+        return { ...s, barMaxWidth: 28, barWidth: '55%' }
+      }
+      return s
+    })
+  }
+
+  if (option.radar) {
+    next.radar = {
+      ...option.radar,
+      axisName: option.radar.axisName
+        ? {
+            ...option.radar.axisName,
+            fontSize: Math.max(9, Number(option.radar.axisName.fontSize) || 6) + 3,
+          }
+        : option.radar.axisName,
+    }
+  }
+
+  return next
+}

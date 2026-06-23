@@ -8,7 +8,7 @@ import {
   RadarChart,
   TreemapChart,
 } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent, RadarComponent } from 'echarts/components'
+import { GridComponent, LegendComponent, TooltipComponent, RadarComponent, DataZoomComponent } from 'echarts/components'
 
 use([
   CanvasRenderer,
@@ -22,4 +22,5 @@ use([
   TooltipComponent,
   LegendComponent,
   RadarComponent,
+  DataZoomComponent,
 ])
