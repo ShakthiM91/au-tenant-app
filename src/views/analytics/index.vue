@@ -448,6 +448,7 @@ import {
   previousCalendarMonthRange,
   selectableDailyMonths,
   PATTERN_PERIOD_OPTIONS,
+  CATEGORY_DONUT_PERIOD_OPTIONS,
   expensesByWeekday,
   expensesByDayOfMonthPattern,
   WEEKDAY_LABELS,
@@ -481,10 +482,6 @@ const MONTHLY_ANALYSIS_PERIODS = [
   { months: 6, label: 'Last 6 Months' },
   { months: 12, label: 'Last 12 Months' },
 ]
-const CATEGORY_DONUT_PERIODS = [
-  { months: 6, label: 'Last 6 Months' },
-  { months: 12, label: 'Last 12 Months' },
-]
 const monthlyAnalysisMonths = ref(6)
 
 const patternPeriodLabel = computed(() => {
@@ -493,13 +490,11 @@ const patternPeriodLabel = computed(() => {
 })
 
 const categoryDonutPeriodLabel = computed(() => {
-  const opt = CATEGORY_DONUT_PERIODS.find((p) => p.months === analytics.categoryDonutPeriodMonths)
-  return opt?.label || 'Last 6 Months'
+  const opt = CATEGORY_DONUT_PERIOD_OPTIONS.find((p) => p.months === analytics.categoryDonutPeriodMonths)
+  return opt?.label || 'This Month'
 })
 
-const categoryDonutLoading = computed(
-  () => analytics.categoryDonutPeriodMonths === 6 && analytics.advancedCategoryLoading
-)
+const categoryDonutLoading = computed(() => analytics.categoryDonutLoading)
 
 const weekdayAnalysisOption = computed(() => {
   const expenses = expensesByWeekday(analytics.weekdayRows)
@@ -735,7 +730,7 @@ function closeChartFocus() {
 
 async function showCategoryDonutPeriodSheet() {
   const selected = analytics.categoryDonutPeriodMonths
-  const buttons = CATEGORY_DONUT_PERIODS.map(({ months, label }) => ({
+  const buttons = CATEGORY_DONUT_PERIOD_OPTIONS.map(({ months, label }) => ({
     text: months === selected ? `${label} ✓` : label,
     handler: () => {
       void (async () => {

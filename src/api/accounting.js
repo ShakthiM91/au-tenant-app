@@ -204,6 +204,21 @@ export function getAnalyticsPatterns(islandScope = 'all', pattern, startDate, en
   })
 }
 
+/** Parent and leaf category expense totals for a date range (au-tenant-app donut charts). */
+export function getAnalyticsCategories(islandScope = 'all', startDate, endDate) {
+  const island_scope =
+    islandScope === 'all'
+      ? 'all'
+      : islandScope === 'null'
+        ? 'null'
+        : String(islandScope)
+  return request({
+    url: '/api/accounting/analytics/categories',
+    method: 'get',
+    params: { island_scope, start_date: startDate, end_date: endDate }
+  })
+}
+
 export function getCategoryBreakdown(params) {
   return request({
     url: '/api/accounting/category-breakdown',

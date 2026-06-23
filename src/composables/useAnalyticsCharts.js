@@ -5,6 +5,7 @@ import {
   getAnalyticsAdvanced,
   getAnalyticsDaily,
   getAnalyticsPatterns,
+  getAnalyticsCategories,
 } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 
@@ -125,6 +126,18 @@ export const PATTERN_PERIOD_OPTIONS = [
   { months: 12, label: 'Last 12 Months' },
 ]
 
+export const CATEGORY_DONUT_PERIOD_OPTIONS = [
+  { months: 1, label: 'This Month' },
+  { months: 3, label: 'Last 3 Months' },
+  { months: 6, label: 'Last 6 Months' },
+  { months: 12, label: 'Last 12 Months' },
+]
+
+/** Rolling calendar months through end of current month (1 = this month only). */
+export function categoryDonutDateRange(months) {
+  return lastNMonthsRange(months)
+}
+
 /** @param {Array<{weekday:number,expense:number}>} rows */
 export function expensesByWeekday(rows) {
   const arr = Array(7).fill(0)
@@ -203,7 +216,12 @@ export function useAnalyticsCharts() {
   const categoryLeafLast6 = ref([])
   const categoryParentAllTime = ref([])
   const categoryParentLast6 = ref([])
-  const categoryDonutPeriodMonths = ref(6)
+  const categoryDonutPeriodMonths = ref(1)
+  const categoryDonutParentRows = ref([])
+  const categoryDonutLeafRows = ref([])
+  const categoryDonutLoading = ref(false)
+  /** @type {Map<string, { parent: unknown[], leaf: unknown[] }>} */
+  const categoryDonutCache = new Map()
   const dailyLastMonth = ref([])
   /** @type {import('vue').Ref<{year:number,month:number}>} */
   const selectedDailyMonth = ref(defaultDailyAnalysisMonth())
@@ -294,6 +312,7 @@ export function useAnalyticsCharts() {
     advancedCategoryLoaded.value = false
     patternChartsLoaded.value = false
     patternCache.clear()
+    categoryDonutCache.clear()
     dailyMonthCache.clear()
     await refresh()
   }
@@ -304,6 +323,8 @@ export function useAnalyticsCharts() {
     categoryLeafLast6.value = []
     categoryParentLast6.value = []
     categoryParentAllTime.value = []
+    categoryDonutParentRows.value = []
+    categoryDonutLeafRows.value = []
     dailyLastMonth.value = []
     dailyMonthRows.value = []
     stackedMonthSlices.value = []
@@ -372,9 +393,10 @@ export function useAnalyticsCharts() {
     try {
       updateHeaderLabel()
       advancedCategoryLoaded.value = false
-      patternChartsLoaded.value = false
-      patternCache.clear()
-      stackedMonthSlices.value = []
+    patternChartsLoaded.value = false
+    patternCache.clear()
+    categoryDonutCache.clear()
+    stackedMonthSlices.value = []
       categoryLeafLast6.value = []
       categoryParentLast6.value = []
       dailyMonthCache.clear()
@@ -398,12 +420,10 @@ export function useAnalyticsCharts() {
         /* error surfaced via analytics.error */
       }
 
-      if (categoryDonutPeriodMonths.value === 6) {
-        try {
-          await loadAdvancedCategoryCharts()
-        } catch {
-          /* error surfaced via analytics.error */
-        }
+      try {
+        await loadCategoryDonutCharts(true)
+      } catch {
+        /* error surfaced via analytics.error */
       }
     } catch (e) {
       error.value = e?.message || String(e)
@@ -488,21 +508,50 @@ export function useAnalyticsCharts() {
     }
   }
 
-  async function setCategoryDonutPeriod(months) {
-    if (categoryDonutPeriodMonths.value === months) return
-    categoryDonutPeriodMonths.value = months
-    if (months === 6) {
-      await loadAdvancedCategoryCharts()
+  function categoryDonutCacheKey(months) {
+    return `${scopeValueToKey(selectedIslandScope.value)}:${months}`
+  }
+
+  async function loadCategoryDonutCharts(force = false) {
+    const months = categoryDonutPeriodMonths.value
+    const cacheKey = categoryDonutCacheKey(months)
+    const cached = categoryDonutCache.get(cacheKey)
+    if (!force && cached) {
+      categoryDonutParentRows.value = cached.parent
+      categoryDonutLeafRows.value = cached.leaf
+      return
+    }
+
+    categoryDonutLoading.value = true
+    error.value = null
+    try {
+      const { start_date, end_date } = categoryDonutDateRange(months)
+      const res = await getAnalyticsCategories(selectedIslandScope.value, start_date, end_date)
+      const data = res?.data
+      const parent = Array.isArray(data?.category_parent) ? data.category_parent : []
+      const leaf = Array.isArray(data?.category_leaf) ? data.category_leaf : []
+      categoryDonutCache.set(cacheKey, { parent, leaf })
+      categoryDonutParentRows.value = parent
+      categoryDonutLeafRows.value = leaf
+    } catch (e) {
+      error.value = e?.message || String(e)
+      categoryDonutParentRows.value = []
+      categoryDonutLeafRows.value = []
+      throw e
+    } finally {
+      categoryDonutLoading.value = false
     }
   }
 
-  const categoryParentRowsForDonut = computed(() =>
-    categoryDonutPeriodMonths.value === 6 ? categoryParentLast6.value : categoryParentAllTime.value
-  )
+  async function setCategoryDonutPeriod(months) {
+    if (categoryDonutPeriodMonths.value === months) return
+    categoryDonutPeriodMonths.value = months
+    await loadCategoryDonutCharts()
+  }
 
-  const categoryLeafRowsForDonut = computed(() =>
-    categoryDonutPeriodMonths.value === 6 ? categoryLeafLast6.value : categoryLeafAllTime.value
-  )
+  const categoryParentRowsForDonut = computed(() => categoryDonutParentRows.value)
+
+  const categoryLeafRowsForDonut = computed(() => categoryDonutLeafRows.value)
 
   return reactive({
     loading,
@@ -517,6 +566,7 @@ export function useAnalyticsCharts() {
     categoryParentAllTime,
     categoryParentLast6,
     categoryDonutPeriodMonths,
+    categoryDonutLoading,
     categoryParentRowsForDonut,
     categoryLeafRowsForDonut,
     dailyLastMonth,
@@ -540,6 +590,7 @@ export function useAnalyticsCharts() {
     loadPatternCharts,
     setPatternPeriod,
     setCategoryDonutPeriod,
+    loadCategoryDonutCharts,
     loadAdvancedCategoryCharts,
   })
 }
