@@ -8,7 +8,7 @@ import {
   getAnalyticsStacked,
   getAnalyticsCategoryMonthly,
   getAnalyticsSankey,
-  getOngoingBudget,
+  getBudgets,
   getBudgetPeriods,
   getBudgetPeriodReport,
 } from '@/api/accounting'
@@ -348,9 +348,14 @@ export function useAnalyticsCharts() {
   const patternCache = new Map()
   const budgetRadar = ref(null)
   const budgetPlanMeta = ref(null)
+  const budgetRadarPlans = ref([])
+  /** @type {import('vue').Ref<{ planId: number, periodIndex: number } | null>} */
+  const budgetRadarSelection = ref(null)
   const budgetRadarPeriods = ref([])
-  const budgetRadarPeriodIndex = ref(0)
+  const budgetRadarPickerOptions = ref([])
   const budgetRadarLoading = ref(false)
+  /** @type {Map<number, unknown[]>} */
+  const budgetRadarPeriodsCache = new Map()
   /** @type {Map<string, { items: unknown[], periodLabel: string, periodIndex: number }>} */
   const budgetRadarCache = new Map()
 
@@ -428,6 +433,7 @@ export function useAnalyticsCharts() {
     treemapCache.clear()
     paretoCache.clear()
     budgetRadarCache.clear()
+    budgetRadarPeriodsCache.clear()
     sankeyCache.clear()
     dailyMonthCache.clear()
     await refresh()
@@ -451,8 +457,11 @@ export function useAnalyticsCharts() {
     sankeyFlow.value = { income: [], expense: [], totals: { income: 0, expense: 0 } }
     budgetRadar.value = null
     budgetPlanMeta.value = null
+    budgetRadarPlans.value = []
+    budgetRadarSelection.value = null
     budgetRadarPeriods.value = []
-    budgetRadarPeriodIndex.value = 0
+    budgetRadarPickerOptions.value = []
+    budgetRadarPeriodsCache.clear()
     weekdayRows.value = []
     dayOfMonthRows.value = []
     patternChartsLoaded.value = false
@@ -662,8 +671,11 @@ export function useAnalyticsCharts() {
       dailyLastMonth.value = Array.isArray(data?.daily_last_month) ? data.daily_last_month : []
       budgetRadar.value = null
       budgetPlanMeta.value = null
+      budgetRadarPlans.value = []
+      budgetRadarSelection.value = null
       budgetRadarPeriods.value = []
-      budgetRadarPeriodIndex.value = 0
+      budgetRadarPickerOptions.value = []
+      budgetRadarPeriodsCache.clear()
       budgetRadarCache.clear()
 
       const { year, month } = selectedDailyMonth.value
@@ -905,6 +917,90 @@ export function useAnalyticsCharts() {
     return idx >= 0 ? idx : periods.length - 1
   }
 
+  async function loadBudgetPlansForRadar(wsParams) {
+    const params = {}
+    if (wsParams.workspace_id !== 'null' && wsParams.workspace_id != null) {
+      params.workspace_id = wsParams.workspace_id
+    }
+    const res = await getBudgets(params)
+    let plans = Array.isArray(res?.data) ? res.data : []
+    plans = plans.filter((p) => p.status === 'active' || p.status === 'completed')
+    if (wsParams.workspace_id === 'null') {
+      plans = plans.filter((p) => p.workspace_id == null)
+    }
+    plans.sort((a, b) => {
+      if (a.status === 'active' && b.status !== 'active') return -1
+      if (b.status === 'active' && a.status !== 'active') return 1
+      return String(b.start_date || '').localeCompare(String(a.start_date || ''))
+    })
+    return plans
+  }
+
+  async function loadPeriodsForPlan(planId) {
+    const cached = budgetRadarPeriodsCache.get(planId)
+    if (cached) return cached
+    const perRes = await getBudgetPeriods(planId)
+    const periods = Array.isArray(perRes?.data) ? perRes.data : []
+    budgetRadarPeriodsCache.set(planId, periods)
+    return periods
+  }
+
+  function pickDefaultBudgetRadarSelection(plans, periodsByPlan) {
+    const activePlan = plans.find((p) => p.status === 'active')
+    if (activePlan) {
+      const periods = periodsByPlan.get(activePlan.id) || []
+      if (!periods.length) return null
+      return {
+        planId: activePlan.id,
+        periodIndex: pickDefaultBudgetPeriodIndex(periods),
+      }
+    }
+    const completed = plans.find((p) => p.status === 'completed')
+    if (completed) {
+      const periods = periodsByPlan.get(completed.id) || []
+      if (!periods.length) return null
+      return { planId: completed.id, periodIndex: periods.length - 1 }
+    }
+    return null
+  }
+
+  function budgetRadarOptionLabel(plan, periodType, period) {
+    const periodLabel = formatBudgetPeriodLabel(periodType, period)
+    const name = plan?.name || 'Budget'
+    return `${name} · ${periodLabel}`
+  }
+
+  async function ensureBudgetRadarPickerOptions() {
+    const plans = budgetRadarPlans.value
+    if (!plans.length) {
+      budgetRadarPickerOptions.value = []
+      return
+    }
+    const options = []
+    await Promise.all(
+      plans.map(async (plan) => {
+        const periods = await loadPeriodsForPlan(plan.id)
+        periods.forEach((period, periodIndex) => {
+          options.push({
+            planId: plan.id,
+            periodIndex,
+            planName: plan.name,
+            periodType: plan.period_type,
+            period,
+            status: plan.status,
+            label: budgetRadarOptionLabel(plan, plan.period_type, period),
+          })
+        })
+      })
+    )
+    options.sort((a, b) => {
+      const endCmp = String(b.period?.periodEnd || '').localeCompare(String(a.period?.periodEnd || ''))
+      if (endCmp !== 0) return endCmp
+      return a.periodIndex - b.periodIndex
+    })
+    budgetRadarPickerOptions.value = options
+  }
+
   function budgetRadarCacheKey(planId, periodIndex) {
     return `${scopeValueToKey(selectedIslandScope.value)}:${planId}:${periodIndex}`
   }
@@ -915,47 +1011,71 @@ export function useAnalyticsCharts() {
     if (!wsParams) {
       budgetRadar.value = null
       budgetPlanMeta.value = null
+      budgetRadarPlans.value = []
+      budgetRadarSelection.value = null
       budgetRadarPeriods.value = []
+      budgetRadarPickerOptions.value = []
       return
     }
 
     budgetRadarLoading.value = true
     error.value = null
     try {
-      let planId = budgetPlanMeta.value?.id
-      let periods = budgetRadarPeriods.value
-      let periodType = budgetPlanMeta.value?.period_type
-
-      if (!planId || force) {
-        const ongoingRes = await getOngoingBudget(wsParams)
-        const plan = ongoingRes?.data
-        if (!plan?.id) {
-          budgetRadar.value = null
-          budgetPlanMeta.value = null
-          budgetRadarPeriods.value = []
-          return
-        }
-        planId = plan.id
-        periodType = plan.period_type
-        budgetPlanMeta.value = { id: plan.id, period_type: plan.period_type }
-        const perRes = await getBudgetPeriods(planId)
-        periods = Array.isArray(perRes?.data) ? perRes.data : []
-        budgetRadarPeriods.value = periods
-        if (
-          force ||
-          budgetRadarPeriodIndex.value < 0 ||
-          budgetRadarPeriodIndex.value >= periods.length
-        ) {
-          budgetRadarPeriodIndex.value = pickDefaultBudgetPeriodIndex(periods)
-        }
+      if (!budgetRadarPlans.value.length || force) {
+        budgetRadarPlans.value = await loadBudgetPlansForRadar(wsParams)
+        budgetRadarPeriodsCache.clear()
+        budgetRadarPickerOptions.value = []
+        budgetRadarSelection.value = null
       }
 
-      if (!periods.length) {
+      if (!budgetRadarPlans.value.length) {
+        budgetRadar.value = null
+        budgetPlanMeta.value = null
+        budgetRadarPeriods.value = []
+        return
+      }
+
+      if (!budgetRadarSelection.value || force) {
+        const periodsByPlan = new Map()
+        await Promise.all(
+          budgetRadarPlans.value.map(async (plan) => {
+            const periods = await loadPeriodsForPlan(plan.id)
+            periodsByPlan.set(plan.id, periods)
+          })
+        )
+        budgetRadarSelection.value = pickDefaultBudgetRadarSelection(
+          budgetRadarPlans.value,
+          periodsByPlan
+        )
+      }
+
+      const selection = budgetRadarSelection.value
+      if (!selection) {
         budgetRadar.value = null
         return
       }
 
-      const periodIndex = budgetRadarPeriodIndex.value
+      const plan = budgetRadarPlans.value.find((p) => p.id === selection.planId)
+      if (!plan) {
+        budgetRadar.value = null
+        return
+      }
+
+      const periods = await loadPeriodsForPlan(plan.id)
+      budgetRadarPeriods.value = periods
+      budgetPlanMeta.value = {
+        id: plan.id,
+        name: plan.name,
+        period_type: plan.period_type,
+        status: plan.status,
+      }
+
+      if (!periods.length || selection.periodIndex < 0 || selection.periodIndex >= periods.length) {
+        budgetRadar.value = null
+        return
+      }
+
+      const { planId, periodIndex } = selection
       const cacheKey = budgetRadarCacheKey(planId, periodIndex)
       const cached = budgetRadarCache.get(cacheKey)
       if (!force && cached) {
@@ -968,7 +1088,7 @@ export function useAnalyticsCharts() {
       const period = periods[periodIndex]
       const payload = {
         items: Array.isArray(report?.items) ? report.items : [],
-        periodLabel: formatBudgetPeriodLabel(periodType, period),
+        periodLabel: formatBudgetPeriodLabel(plan.period_type, period),
         periodIndex,
       }
       budgetRadarCache.set(cacheKey, payload)
@@ -982,20 +1102,31 @@ export function useAnalyticsCharts() {
     }
   }
 
-  async function setBudgetRadarPeriod(periodIndex) {
+  async function setBudgetRadarSelection(planId, periodIndex) {
+    const pid = Number(planId)
     const idx = Number(periodIndex)
-    if (!Number.isFinite(idx) || idx < 0) return
-    if (budgetRadarPeriodIndex.value === idx) return
-    budgetRadarPeriodIndex.value = idx
+    if (!Number.isFinite(pid) || pid <= 0 || !Number.isFinite(idx) || idx < 0) return
+    const current = budgetRadarSelection.value
+    if (current?.planId === pid && current?.periodIndex === idx) return
+    budgetRadarSelection.value = { planId: pid, periodIndex: idx }
     await loadBudgetRadarChart()
   }
 
   const budgetRadarPeriodLabel = computed(() => {
     const scope = selectedIslandScope.value
     if (scope === 'all') return 'Select an island'
-    if (!budgetRadarPeriods.value.length) return 'No ongoing budget'
-    const period = budgetRadarPeriods.value[budgetRadarPeriodIndex.value]
-    return formatBudgetPeriodLabel(budgetPlanMeta.value?.period_type, period)
+    if (!budgetRadarPlans.value.length) return 'No budgets'
+    const selection = budgetRadarSelection.value
+    if (!selection) return 'Select period'
+    const plan = budgetRadarPlans.value.find((p) => p.id === selection.planId)
+    const periods = budgetRadarPeriodsCache.get(selection.planId) || budgetRadarPeriods.value
+    const period = periods[selection.periodIndex]
+    if (!plan || !period) return 'Budget period'
+    const periodLabel = formatBudgetPeriodLabel(plan.period_type, period)
+    if (budgetRadarPlans.value.length > 1) {
+      return `${plan.name} · ${periodLabel}`
+    }
+    return periodLabel
   })
 
   function sankeyCacheKey(year, month) {
@@ -1087,8 +1218,10 @@ export function useAnalyticsCharts() {
     categoryAnalysisLoading,
     budgetRadar,
     budgetPlanMeta,
+    budgetRadarPlans,
+    budgetRadarSelection,
     budgetRadarPeriods,
-    budgetRadarPeriodIndex,
+    budgetRadarPickerOptions,
     budgetRadarPeriodLabel,
     budgetRadarLoading,
     patternPeriodMonths,
@@ -1111,7 +1244,8 @@ export function useAnalyticsCharts() {
     loadParetoChart,
     setParetoPeriod,
     loadBudgetRadarChart,
-    setBudgetRadarPeriod,
+    ensureBudgetRadarPickerOptions,
+    setBudgetRadarSelection,
     loadSankeyChart,
     ensureSankeyChart,
     loadStackedChart,

@@ -487,7 +487,6 @@ import {
   sliceMonthlyByPeriod,
   expensesByWeekday,
   expensesByDayOfMonthPattern,
-  formatBudgetPeriodLabel,
   WEEKDAY_LABELS,
 } from '@/composables/useAnalyticsCharts'
 import {
@@ -921,22 +920,28 @@ async function showBudgetRadarPeriodSheet() {
     showToast('Select a specific island to view budget periods')
     return
   }
-  const periods = analytics.budgetRadarPeriods
-  if (!periods?.length) {
-    showToast('No ongoing budget for this island')
+  try {
+    await analytics.ensureBudgetRadarPickerOptions()
+  } catch {
+    if (analytics.error) showToast(analytics.error)
     return
   }
-  const selected = analytics.budgetRadarPeriodIndex
-  const periodType = analytics.budgetPlanMeta?.period_type
-  const buttons = periods.map((period, index) => {
-    const label = formatBudgetPeriodLabel(periodType, period)
+  const options = analytics.budgetRadarPickerOptions
+  if (!options?.length) {
+    showToast('No budgets for this island')
+    return
+  }
+  const selected = analytics.budgetRadarSelection
+  const buttons = options.map((opt) => {
+    const isSelected =
+      selected?.planId === opt.planId && selected?.periodIndex === opt.periodIndex
     return {
-      text: index === selected ? `${label} ✓` : label,
+      text: isSelected ? `${opt.label} ✓` : opt.label,
       handler: () => {
         void (async () => {
-          if (index === selected) return
+          if (isSelected) return
           try {
-            await analytics.setBudgetRadarPeriod(index)
+            await analytics.setBudgetRadarSelection(opt.planId, opt.periodIndex)
             if (analytics.error) showToast(analytics.error)
           } catch {
             if (analytics.error) showToast(analytics.error)

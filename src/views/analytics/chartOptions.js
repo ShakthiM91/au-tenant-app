@@ -1232,7 +1232,7 @@ export function emptyRadarPlaceholder() {
   return {
     tooltip: { show: false },
     radar: {
-      indicator: [{ name: 'No ongoing budget', max: 100 }],
+      indicator: [{ name: 'No budget data', max: 100 }],
       splitLine: { lineStyle: { type: 'dashed', color: D.grid, width: 0.5 } },
     },
     series: [{ type: 'radar', data: [{ value: [0], name: '—' }] }],
