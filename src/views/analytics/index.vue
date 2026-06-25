@@ -90,15 +90,15 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">I/E Monthly Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 12 Months</span>
+              <button type="button" class="period-chip" aria-label="Time range" @click="showIeMonthlyPeriodSheet">
+                <span>{{ ieMonthlyPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
             <AnalyticsChartPanel
               body-class="chart-card__body--h120"
               title="I/E Monthly Analysis"
-              subtitle="Last 12 Months"
+              :subtitle="ieMonthlyPeriodLabel"
               :option="incomeExpenseBarOption"
               @open="openChartFocus"
             />
@@ -326,8 +326,8 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Pareto Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 12 months</span>
+              <button type="button" class="period-chip" aria-label="Select period" @click="showParetoPeriodSheet">
+                <span>{{ paretoPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
@@ -335,8 +335,9 @@
               :body-class="['chart-card__body--pareto', 'chart-card__body--pareto-dynamic']"
               chart-class="echart--pareto"
               title="Pareto Analysis"
-              subtitle="Last 12 months"
+              :subtitle="paretoPeriodLabel"
               :option="pareto12kOption"
+              :loading="analytics.paretoLoading"
               @open="openChartFocus"
             />
           </section>
@@ -344,16 +345,22 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">Radar Spider Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Current budget period</span>
+              <button
+                type="button"
+                class="period-chip period-chip--narrow"
+                aria-label="Select budget period"
+                @click="showBudgetRadarPeriodSheet"
+              >
+                <span>{{ analytics.budgetRadarPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
             <AnalyticsChartPanel
               body-class="chart-card__body--h220"
               title="Radar Spider Analysis"
-              subtitle="Current budget period"
+              :subtitle="analytics.budgetRadarPeriodLabel"
               :option="radarPlannedActualOption"
+              :loading="analytics.budgetRadarLoading"
               @open="openChartFocus"
             />
           </section>
@@ -363,7 +370,12 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">I/E Monthly Progression</h2>
-              <button type="button" class="period-chip period-chip--narrow" aria-label="Time range">
+              <button
+                type="button"
+                class="period-chip period-chip--narrow"
+                aria-label="Select month"
+                @click="showIeProgressionMonthSheet"
+              >
                 <span>{{ progressionMonthLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
@@ -373,6 +385,7 @@
               title="I/E Monthly Progression"
               :subtitle="progressionMonthLabel"
               :option="ieProgressionDualAreaOption"
+              :loading="analytics.ieProgressionMonthLoading"
               @open="openChartFocus"
             />
           </section>
@@ -380,15 +393,15 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">I/E Monthly Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 12 Months</span>
+              <button type="button" class="period-chip" aria-label="Time range" @click="showIeMonthlyPeriodSheet">
+                <span>{{ ieMonthlyPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
             <AnalyticsChartPanel
               body-class="chart-card__body--h120"
               title="I/E Monthly Analysis"
-              subtitle="Last 12 Months"
+              :subtitle="ieMonthlyPeriodLabel"
               :option="incomeExpenseHighlightOption"
               @open="openChartFocus"
             />
@@ -397,15 +410,15 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">I/E Gap Monthly Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 12 Months</span>
+              <button type="button" class="period-chip" aria-label="Time range" @click="showIeMonthlyPeriodSheet">
+                <span>{{ ieMonthlyPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
             <AnalyticsChartPanel
               body-class="chart-card__body--h130"
               title="I/E Gap Monthly Analysis"
-              subtitle="Last 12 Months"
+              :subtitle="ieMonthlyPeriodLabel"
               :option="ieGapMonthlyOption"
               @open="openChartFocus"
             />
@@ -414,15 +427,15 @@
           <section class="chart-card">
             <div class="chart-card__head">
               <h2 class="chart-card__title">I/E Waterfall Analysis</h2>
-              <button type="button" class="period-chip" aria-label="Time range">
-                <span>Last 12 Months</span>
+              <button type="button" class="period-chip" aria-label="Time range" @click="showIeMonthlyPeriodSheet">
+                <span>{{ ieMonthlyPeriodLabel }}</span>
                 <ion-icon :icon="chevronDown" class="period-chip__icon" />
               </button>
             </div>
             <AnalyticsChartPanel
               body-class="chart-card__body--h150"
               title="I/E Waterfall Analysis"
-              subtitle="Last 12 Months"
+              :subtitle="ieMonthlyPeriodLabel"
               :option="ieWaterfall12Option"
               @open="openChartFocus"
             />
@@ -461,18 +474,20 @@ import { ellipsisVertical, chevronDown } from 'ionicons/icons'
 import { showToast } from '@/utils/ionicFeedback'
 import {
   useAnalyticsCharts,
-  previousCalendarMonthRange,
   selectableDailyMonths,
   selectableSankeyMonths,
+  selectableIeProgressionMonths,
   PATTERN_PERIOD_OPTIONS,
   CATEGORY_DONUT_PERIOD_OPTIONS,
   STACKED_PERIOD_OPTIONS,
   TREEMAP_PERIOD_OPTIONS,
+  PARETO_PERIOD_OPTIONS,
   STANDARD_PERIOD_OPTIONS,
   chartPeriodLabel,
   sliceMonthlyByPeriod,
   expensesByWeekday,
   expensesByDayOfMonthPattern,
+  formatBudgetPeriodLabel,
   WEEKDAY_LABELS,
 } from '@/composables/useAnalyticsCharts'
 import {
@@ -486,6 +501,7 @@ import {
   weekdayExpenseAnalysisOption as buildWeekdayExpenseAnalysisOption,
   cumulativeExpenseLineOption as buildCumulativeExpenseLineOption,
   ieProgressionDualAreaOption as buildIeProgressionDualAreaOption,
+  ieProgressionDayLabels,
   stackedCategoryPercentOption as buildStackedCategoryPercentOption,
   categoryMonthlyBarsOption as buildCategoryMonthlyBarsOption,
   treemapFromCategories,
@@ -519,6 +535,9 @@ const categoryPickerWorkspaceId = computed(() => {
 const MONTHLY_ANALYSIS_PERIODS = STANDARD_PERIOD_OPTIONS
 const monthlyAnalysisMonths = ref(6)
 
+const IE_MONTHLY_PERIOD_OPTIONS = STANDARD_PERIOD_OPTIONS.filter((p) => p.months === 6 || p.months === 12)
+const ieMonthlyAnalysisMonths = ref(6)
+
 const patternPeriodLabel = computed(() => {
   const opt = PATTERN_PERIOD_OPTIONS.find((p) => p.months === analytics.patternPeriodMonths)
   return opt?.label || 'All Time'
@@ -536,6 +555,10 @@ const stackedPeriodLabel = computed(() =>
 
 const treemapPeriodLabel = computed(() =>
   chartPeriodLabel(analytics.treemapPeriodMonths, 'Last 12 Months')
+)
+
+const paretoPeriodLabel = computed(() =>
+  chartPeriodLabel(analytics.paretoPeriodMonths, 'Last 12 Months')
 )
 
 const weekdayAnalysisOption = computed(() => {
@@ -587,15 +610,9 @@ function incomeByDayOfMonth(dailyRows, year, month) {
   return arr
 }
 
-const progressionYm = computed(() => {
-  const { start_date } = previousCalendarMonthRange()
-  const [y, m] = start_date.split('-').map(Number)
-  return { year: y, month: m }
-})
-
 const progressionMonthLabel = computed(() => {
-  const { year, month } = progressionYm.value
-  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long' })
+  const { year, month } = analytics.selectedIeProgressionMonth
+  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 })
 
 const dailyMonthLabel = computed(() => {
@@ -608,8 +625,12 @@ const sankeyMonthLabel = computed(() => {
   return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 })
 
-const monthlySeries = computed(() => {
-  const rows = analytics.monthlyLast12
+const ieMonthlyPeriodLabel = computed(() =>
+  chartPeriodLabel(ieMonthlyAnalysisMonths.value, 'Last 6 Months')
+)
+
+const ieMonthlySeries = computed(() => {
+  const rows = sliceMonthlyByPeriod(analytics.monthlyLast12, ieMonthlyAnalysisMonths.value)
   const labels = rows.map((r) =>
     new Date(r.year, r.month - 1, 1).toLocaleDateString('en-US', { month: 'short' })
   )
@@ -633,7 +654,7 @@ const monthlyAnalysisSeries = computed(() => {
 })
 
 const highlightMonthLabel = computed(() => {
-  const { labels, expense } = monthlySeries.value
+  const { labels, expense } = ieMonthlySeries.value
   if (!labels.length) return ''
   let maxIdx = 0
   let maxV = -1
@@ -652,32 +673,32 @@ const monthlyBarOption = computed(() =>
 
 const incomeExpenseBarOption = computed(() =>
   buildIncomeExpenseBarOption(
-    monthlySeries.value.labels,
-    monthlySeries.value.income,
-    monthlySeries.value.expense
+    ieMonthlySeries.value.labels,
+    ieMonthlySeries.value.income,
+    ieMonthlySeries.value.expense
   )
 )
 
 const incomeExpenseHighlightOption = computed(() =>
   buildIncomeExpenseHighlightOption(
-    monthlySeries.value.labels,
-    monthlySeries.value.income,
-    monthlySeries.value.expense,
+    ieMonthlySeries.value.labels,
+    ieMonthlySeries.value.income,
+    ieMonthlySeries.value.expense,
     highlightMonthLabel.value
   )
 )
 
 const ieGapMonthlyOption = computed(() => {
-  const { labels, income, expense } = monthlySeries.value
+  const { labels, income, expense } = ieMonthlySeries.value
   const gaps = income.map((inc, i) => inc - (expense[i] || 0))
   return buildIeGapMonthlyOption(labels, gaps)
 })
 
 const ieWaterfall12Option = computed(() =>
   buildIeWaterfallOption(
-    monthlySeries.value.labels,
-    monthlySeries.value.income,
-    monthlySeries.value.expense
+    ieMonthlySeries.value.labels,
+    ieMonthlySeries.value.income,
+    ieMonthlySeries.value.expense
   )
 )
 
@@ -705,16 +726,12 @@ const monthlyProgressionStepOption = computed(() => {
   return buildCumulativeExpenseLineOption(labels, cumSum(exp))
 })
 
-const ieDailyIncome = computed(() => {
-  const { year, month } = progressionYm.value
-  return incomeByDayOfMonth(analytics.dailyLastMonth, year, month)
-})
-
 const ieProgressionDualAreaOption = computed(() => {
-  const exp = dailyExpenseSeries.value
-  const inc = ieDailyIncome.value
+  const { year, month } = analytics.selectedIeProgressionMonth
+  const exp = expenseByDayOfMonth(analytics.ieProgressionMonthRows, year, month)
+  const inc = incomeByDayOfMonth(analytics.ieProgressionMonthRows, year, month)
   const n = Math.max(exp.length, inc.length)
-  const labels = Array.from({ length: n }, (_, i) => String(i + 1))
+  const labels = ieProgressionDayLabels(year, month, n)
   const pad = (a) => {
     const out = [...a]
     while (out.length < n) out.push(0)
@@ -797,7 +814,9 @@ const sankeyBodyStyle = computed(() => {
 })
 
 const pareto12kOption = computed(() => {
-  const rows = analytics.categoryParentAllTime
+  const rows = [...analytics.paretoParentRows].sort(
+    (a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0)
+  )
   const cats = rows.map((r) => r.category_name || 'Uncategorized')
   const amounts = rows.map((r) => Number(r.amount) || 0)
   return buildParetoOption(cats, amounts)
@@ -840,7 +859,10 @@ async function loadAdvancedCharts() {
     analytics.loadStackedChart(),
     analytics.loadPatternCharts(),
     analytics.loadTreemapChart(),
+    analytics.loadParetoChart(),
+    analytics.loadBudgetRadarChart(),
     analytics.ensureSankeyChart(),
+    analytics.ensureIeProgressionMonth(),
     analytics.ensureCategoryAnalysisChart((id) => categoryAnalysisQueryForId(id)),
   ])
   if (analytics.error) showToast(analytics.error)
@@ -865,6 +887,67 @@ async function showTreemapPeriodSheet() {
   buttons.push({ text: 'Cancel', role: 'cancel' })
   const sheet = await actionSheetController.create({
     header: 'Time range',
+    buttons,
+  })
+  await sheet.present()
+}
+
+async function showParetoPeriodSheet() {
+  const selected = analytics.paretoPeriodMonths
+  const buttons = PARETO_PERIOD_OPTIONS.map(({ months, label }) => ({
+    text: months === selected ? `${label} ✓` : label,
+    handler: () => {
+      void (async () => {
+        if (months === selected) return
+        try {
+          await analytics.setParetoPeriod(months)
+          if (analytics.error) showToast(analytics.error)
+        } catch {
+          if (analytics.error) showToast(analytics.error)
+        }
+      })()
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Time range',
+    buttons,
+  })
+  await sheet.present()
+}
+
+async function showBudgetRadarPeriodSheet() {
+  if (analytics.selectedIslandScope === 'all') {
+    showToast('Select a specific island to view budget periods')
+    return
+  }
+  const periods = analytics.budgetRadarPeriods
+  if (!periods?.length) {
+    showToast('No ongoing budget for this island')
+    return
+  }
+  const selected = analytics.budgetRadarPeriodIndex
+  const periodType = analytics.budgetPlanMeta?.period_type
+  const buttons = periods.map((period, index) => {
+    const label = formatBudgetPeriodLabel(periodType, period)
+    return {
+      text: index === selected ? `${label} ✓` : label,
+      handler: () => {
+        void (async () => {
+          if (index === selected) return
+          try {
+            await analytics.setBudgetRadarPeriod(index)
+            if (analytics.error) showToast(analytics.error)
+          } catch {
+            if (analytics.error) showToast(analytics.error)
+          }
+        })()
+      },
+    }
+  })
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Budget period',
     buttons,
   })
   await sheet.present()
@@ -942,6 +1025,22 @@ async function showPatternPeriodSheet() {
   await sheet.present()
 }
 
+async function showIeMonthlyPeriodSheet() {
+  const selected = ieMonthlyAnalysisMonths.value
+  const buttons = IE_MONTHLY_PERIOD_OPTIONS.map(({ months, label }) => ({
+    text: months === selected ? `${label} ✓` : label,
+    handler: () => {
+      ieMonthlyAnalysisMonths.value = months
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Time range',
+    buttons,
+  })
+  await sheet.present()
+}
+
 async function showMonthlyAnalysisPeriodSheet() {
   const selected = monthlyAnalysisMonths.value
   const buttons = MONTHLY_ANALYSIS_PERIODS.map(({ months, label }) => ({
@@ -973,6 +1072,37 @@ async function showSankeyMonthSheet() {
           if (isSelected) return
           try {
             await analytics.loadSankeyChart(year, month)
+            if (analytics.error) showToast(analytics.error)
+          } catch {
+            if (analytics.error) showToast(analytics.error)
+          }
+        })()
+      },
+    }
+  })
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Select month',
+    buttons,
+  })
+  await sheet.present()
+}
+
+async function showIeProgressionMonthSheet() {
+  const selected = analytics.selectedIeProgressionMonth
+  const buttons = selectableIeProgressionMonths().map(({ year, month }) => {
+    const label = new Date(year, month - 1, 1).toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    })
+    const isSelected = year === selected.year && month === selected.month
+    return {
+      text: isSelected ? `${label} ✓` : label,
+      handler: () => {
+        void (async () => {
+          if (isSelected) return
+          try {
+            await analytics.loadIeProgressionMonth(year, month)
             if (analytics.error) showToast(analytics.error)
           } catch {
             if (analytics.error) showToast(analytics.error)
@@ -1112,7 +1242,7 @@ watch(viewMode, async (mode) => {
 }
 
 .chart-card__body--pareto-dynamic {
-  min-height: 160px;
+  min-height: 176px;
 }
 
 .analytics-toolbar {
@@ -1365,13 +1495,13 @@ watch(viewMode, async (mode) => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-height: 188px;
+  min-height: 200px;
 }
 
 .echart--pareto {
-  flex: 0 0 132px;
-  height: 132px;
-  min-height: 132px;
+  flex: 0 0 156px;
+  height: 156px;
+  min-height: 156px;
 }
 
 .tab-spacer {

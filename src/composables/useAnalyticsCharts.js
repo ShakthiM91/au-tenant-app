@@ -8,6 +8,9 @@ import {
   getAnalyticsStacked,
   getAnalyticsCategoryMonthly,
   getAnalyticsSankey,
+  getOngoingBudget,
+  getBudgetPeriods,
+  getBudgetPeriodReport,
 } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 
@@ -123,6 +126,11 @@ export function selectableSankeyMonths() {
   return out
 }
 
+/** Selectable months for I/E Monthly Progression: current month back 11 months (12 total). */
+export function selectableIeProgressionMonths() {
+  return selectableSankeyMonths()
+}
+
 export function allTimeRangeStart() {
   return { start_date: '2000-01-01', end_date: ymd(new Date()) }
 }
@@ -182,6 +190,8 @@ export function stackedDateRange(months) {
 }
 
 export const TREEMAP_PERIOD_OPTIONS = STANDARD_PERIOD_OPTIONS
+
+export const PARETO_PERIOD_OPTIONS = STANDARD_PERIOD_OPTIONS
 
 /** @param {Array<{weekday:number,expense:number}>} rows */
 export function expensesByWeekday(rows) {
@@ -257,6 +267,18 @@ function rowsToStackedMonthSlices(rows, startYmd, endYmd) {
 
 export { resolveAccessibleAccounts } from '@/composables/useAnalyticsChartsCore'
 
+export function formatBudgetPeriodLabel(periodType, period) {
+  if (!period?.periodStart) return 'Budget period'
+  const start = new Date(`${period.periodStart}T12:00:00`)
+  if (periodType === 'month') {
+    return start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  }
+  if (periodType === 'year') {
+    return String(start.getFullYear())
+  }
+  return `${period.periodStart} – ${period.periodEnd}`
+}
+
 export function useAnalyticsCharts() {
   const loading = ref(false)
   const error = ref(null)
@@ -283,6 +305,10 @@ export function useAnalyticsCharts() {
   const selectedDailyMonth = ref(defaultDailyAnalysisMonth())
   const dailyMonthRows = ref([])
   const dailyMonthLoading = ref(false)
+  /** @type {import('vue').Ref<{year:number,month:number}>} */
+  const selectedIeProgressionMonth = ref(defaultDailyAnalysisMonth())
+  const ieProgressionMonthRows = ref([])
+  const ieProgressionMonthLoading = ref(false)
   /** @type {Map<string, Array<{date:string,income:number,expense:number}>>} */
   const dailyMonthCache = new Map()
   const stackedMonthSlices = ref([])
@@ -301,6 +327,11 @@ export function useAnalyticsCharts() {
   const treemapLoading = ref(false)
   /** @type {Map<string, unknown[]>} */
   const treemapCache = new Map()
+  const paretoParentRows = ref([])
+  const paretoPeriodMonths = ref(12)
+  const paretoLoading = ref(false)
+  /** @type {Map<string, unknown[]>} */
+  const paretoCache = new Map()
   const sankeyFlow = ref({ income: [], expense: [], totals: { income: 0, expense: 0 } })
   /** @type {import('vue').Ref<{year:number,month:number}>} */
   const selectedSankeyMonth = ref(defaultDailyAnalysisMonth())
@@ -316,6 +347,12 @@ export function useAnalyticsCharts() {
   /** @type {Map<string, { weekday: unknown[], dayOfMonth: unknown[] }>} */
   const patternCache = new Map()
   const budgetRadar = ref(null)
+  const budgetPlanMeta = ref(null)
+  const budgetRadarPeriods = ref([])
+  const budgetRadarPeriodIndex = ref(0)
+  const budgetRadarLoading = ref(false)
+  /** @type {Map<string, { items: unknown[], periodLabel: string, periodIndex: number }>} */
+  const budgetRadarCache = new Map()
 
   function updateHeaderLabel() {
     const key = scopeValueToKey(selectedIslandScope.value)
@@ -389,6 +426,8 @@ export function useAnalyticsCharts() {
     stackedCache.clear()
     categoryAnalysisCache.clear()
     treemapCache.clear()
+    paretoCache.clear()
+    budgetRadarCache.clear()
     sankeyCache.clear()
     dailyMonthCache.clear()
     await refresh()
@@ -402,13 +441,18 @@ export function useAnalyticsCharts() {
     categoryDonutLeafRows.value = []
     dailyLastMonth.value = []
     dailyMonthRows.value = []
+    ieProgressionMonthRows.value = []
     stackedMonthSlices.value = []
     categoryMonthlyBars.value = { labels: [], values: [], categoryName: '' }
     categoryAnalysisId.value = null
     categoryAnalysisExpandedIds.value = []
     treemapParentRows.value = []
+    paretoParentRows.value = []
     sankeyFlow.value = { income: [], expense: [], totals: { income: 0, expense: 0 } }
     budgetRadar.value = null
+    budgetPlanMeta.value = null
+    budgetRadarPeriods.value = []
+    budgetRadarPeriodIndex.value = 0
     weekdayRows.value = []
     dayOfMonthRows.value = []
     patternChartsLoaded.value = false
@@ -544,6 +588,39 @@ export function useAnalyticsCharts() {
     }
   }
 
+  async function loadIeProgressionMonth(year, month) {
+    const cacheKey = dailyCacheKey(year, month)
+    const cached = dailyMonthCache.get(cacheKey)
+    if (cached) {
+      selectedIeProgressionMonth.value = { year, month }
+      ieProgressionMonthRows.value = cached
+      return
+    }
+
+    const prev = { ...selectedIeProgressionMonth.value }
+    selectedIeProgressionMonth.value = { year, month }
+    ieProgressionMonthLoading.value = true
+    error.value = null
+    try {
+      const { start_date, end_date } = calendarMonthRange(year, month)
+      const res = await getAnalyticsDaily(selectedIslandScope.value, start_date, end_date)
+      const rows = Array.isArray(res?.data) ? res.data : []
+      dailyMonthCache.set(cacheKey, rows)
+      ieProgressionMonthRows.value = rows
+    } catch (e) {
+      error.value = e?.message || String(e)
+      selectedIeProgressionMonth.value = prev
+      throw e
+    } finally {
+      ieProgressionMonthLoading.value = false
+    }
+  }
+
+  async function ensureIeProgressionMonth() {
+    const { year, month } = selectedIeProgressionMonth.value
+    await loadIeProgressionMonth(year, month)
+  }
+
   async function refresh() {
     loading.value = true
     error.value = null
@@ -555,6 +632,8 @@ export function useAnalyticsCharts() {
       stackedCache.clear()
       categoryAnalysisCache.clear()
       treemapCache.clear()
+      paretoCache.clear()
+      budgetRadarCache.clear()
       sankeyCache.clear()
       stackedMonthSlices.value = []
       categoryAnalysisId.value = null
@@ -574,12 +653,28 @@ export function useAnalyticsCharts() {
       } else {
         treemapParentRows.value = []
       }
+      if (paretoPeriodMonths.value === 12 && categoryParentAllTime.value.length) {
+        paretoParentRows.value = categoryParentAllTime.value
+        paretoCache.set(paretoCacheKey(12), categoryParentAllTime.value)
+      } else {
+        paretoParentRows.value = []
+      }
       dailyLastMonth.value = Array.isArray(data?.daily_last_month) ? data.daily_last_month : []
-      budgetRadar.value = data?.budget_radar ?? null
+      budgetRadar.value = null
+      budgetPlanMeta.value = null
+      budgetRadarPeriods.value = []
+      budgetRadarPeriodIndex.value = 0
+      budgetRadarCache.clear()
 
       const { year, month } = selectedDailyMonth.value
       try {
         await loadDailyMonth(year, month)
+      } catch {
+        /* daily month optional on refresh */
+      }
+      const ieProg = selectedIeProgressionMonth.value
+      try {
+        await loadIeProgressionMonth(ieProg.year, ieProg.month)
       } catch {
         /* error surfaced via analytics.error */
       }
@@ -761,6 +856,148 @@ export function useAnalyticsCharts() {
     await loadTreemapChart()
   }
 
+  function paretoCacheKey(months) {
+    return `${scopeValueToKey(selectedIslandScope.value)}:${months}`
+  }
+
+  async function loadParetoChart(force = false) {
+    const months = paretoPeriodMonths.value
+    const cacheKey = paretoCacheKey(months)
+    const cached = paretoCache.get(cacheKey)
+    if (!force && cached) {
+      paretoParentRows.value = cached
+      return
+    }
+
+    paretoLoading.value = true
+    error.value = null
+    try {
+      const { start_date, end_date } = chartPeriodDateRange(months)
+      const res = await getAnalyticsCategories(selectedIslandScope.value, start_date, end_date)
+      const parent = Array.isArray(res?.data?.category_parent) ? res.data.category_parent : []
+      paretoCache.set(cacheKey, parent)
+      paretoParentRows.value = parent
+    } catch (e) {
+      error.value = e?.message || String(e)
+      paretoParentRows.value = []
+      throw e
+    } finally {
+      paretoLoading.value = false
+    }
+  }
+
+  async function setParetoPeriod(months) {
+    if (paretoPeriodMonths.value === months) return
+    paretoPeriodMonths.value = months
+    await loadParetoChart()
+  }
+
+  function workspaceParamsForOngoingBudget(scope) {
+    if (typeof scope === 'number') return { workspace_id: scope }
+    if (scope === 'null') return { workspace_id: 'null' }
+    return null
+  }
+
+  function pickDefaultBudgetPeriodIndex(periods) {
+    if (!periods?.length) return 0
+    const today = new Date().toISOString().slice(0, 10)
+    const idx = periods.findIndex((p) => today >= p.periodStart && today <= p.periodEnd)
+    return idx >= 0 ? idx : periods.length - 1
+  }
+
+  function budgetRadarCacheKey(planId, periodIndex) {
+    return `${scopeValueToKey(selectedIslandScope.value)}:${planId}:${periodIndex}`
+  }
+
+  async function loadBudgetRadarChart(force = false) {
+    const scope = selectedIslandScope.value
+    const wsParams = workspaceParamsForOngoingBudget(scope)
+    if (!wsParams) {
+      budgetRadar.value = null
+      budgetPlanMeta.value = null
+      budgetRadarPeriods.value = []
+      return
+    }
+
+    budgetRadarLoading.value = true
+    error.value = null
+    try {
+      let planId = budgetPlanMeta.value?.id
+      let periods = budgetRadarPeriods.value
+      let periodType = budgetPlanMeta.value?.period_type
+
+      if (!planId || force) {
+        const ongoingRes = await getOngoingBudget(wsParams)
+        const plan = ongoingRes?.data
+        if (!plan?.id) {
+          budgetRadar.value = null
+          budgetPlanMeta.value = null
+          budgetRadarPeriods.value = []
+          return
+        }
+        planId = plan.id
+        periodType = plan.period_type
+        budgetPlanMeta.value = { id: plan.id, period_type: plan.period_type }
+        const perRes = await getBudgetPeriods(planId)
+        periods = Array.isArray(perRes?.data) ? perRes.data : []
+        budgetRadarPeriods.value = periods
+        if (
+          force ||
+          budgetRadarPeriodIndex.value < 0 ||
+          budgetRadarPeriodIndex.value >= periods.length
+        ) {
+          budgetRadarPeriodIndex.value = pickDefaultBudgetPeriodIndex(periods)
+        }
+      }
+
+      if (!periods.length) {
+        budgetRadar.value = null
+        return
+      }
+
+      const periodIndex = budgetRadarPeriodIndex.value
+      const cacheKey = budgetRadarCacheKey(planId, periodIndex)
+      const cached = budgetRadarCache.get(cacheKey)
+      if (!force && cached) {
+        budgetRadar.value = cached
+        return
+      }
+
+      const repRes = await getBudgetPeriodReport(planId, periodIndex)
+      const report = repRes?.data
+      const period = periods[periodIndex]
+      const payload = {
+        items: Array.isArray(report?.items) ? report.items : [],
+        periodLabel: formatBudgetPeriodLabel(periodType, period),
+        periodIndex,
+      }
+      budgetRadarCache.set(cacheKey, payload)
+      budgetRadar.value = payload
+    } catch (e) {
+      error.value = e?.message || String(e)
+      budgetRadar.value = null
+      throw e
+    } finally {
+      budgetRadarLoading.value = false
+    }
+  }
+
+  async function setBudgetRadarPeriod(periodIndex) {
+    const idx = Number(periodIndex)
+    if (!Number.isFinite(idx) || idx < 0) return
+    if (budgetRadarPeriodIndex.value === idx) return
+    budgetRadarPeriodIndex.value = idx
+    await loadBudgetRadarChart()
+  }
+
+  const budgetRadarPeriodLabel = computed(() => {
+    const scope = selectedIslandScope.value
+    if (scope === 'all') return 'Select an island'
+    if (!budgetRadarPeriods.value.length) return 'No ongoing budget'
+    const period = budgetRadarPeriods.value[budgetRadarPeriodIndex.value]
+    return formatBudgetPeriodLabel(budgetPlanMeta.value?.period_type, period)
+  })
+
   function sankeyCacheKey(year, month) {
     return `${scopeValueToKey(selectedIslandScope.value)}:${year}-${String(month).padStart(2, '0')}`
   }
@@ -828,6 +1065,9 @@ export function useAnalyticsCharts() {
     treemapParentRows,
     treemapPeriodMonths,
     treemapLoading,
+    paretoParentRows,
+    paretoPeriodMonths,
+    paretoLoading,
     sankeyFlow,
     selectedSankeyMonth,
     sankeyLoading,
@@ -835,6 +1075,9 @@ export function useAnalyticsCharts() {
     selectedDailyMonth,
     dailyMonthRows,
     dailyMonthLoading,
+    selectedIeProgressionMonth,
+    ieProgressionMonthRows,
+    ieProgressionMonthLoading,
     stackedMonthSlices,
     stackedPeriodMonths,
     stackedLoading,
@@ -843,6 +1086,11 @@ export function useAnalyticsCharts() {
     categoryAnalysisExpandedIds,
     categoryAnalysisLoading,
     budgetRadar,
+    budgetPlanMeta,
+    budgetRadarPeriods,
+    budgetRadarPeriodIndex,
+    budgetRadarPeriodLabel,
+    budgetRadarLoading,
     patternPeriodMonths,
     weekdayRows,
     dayOfMonthRows,
@@ -852,12 +1100,18 @@ export function useAnalyticsCharts() {
     setIslandScope,
     refresh,
     loadDailyMonth,
+    loadIeProgressionMonth,
+    ensureIeProgressionMonth,
     loadPatternCharts,
     setPatternPeriod,
     setCategoryDonutPeriod,
     loadCategoryDonutCharts,
     loadTreemapChart,
     setTreemapPeriod,
+    loadParetoChart,
+    setParetoPeriod,
+    loadBudgetRadarChart,
+    setBudgetRadarPeriod,
     loadSankeyChart,
     ensureSankeyChart,
     loadStackedChart,

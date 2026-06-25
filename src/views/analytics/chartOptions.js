@@ -119,13 +119,16 @@ export function monthlyExpenseBarOption(monthLabels, expenses) {
   }
 }
 
+const IE_MONTHLY_GREEN = '#52bf90'
+const gIeMonthly = () => lg('#9ad9be', IE_MONTHLY_GREEN)
+
 export function incomeExpenseBarOption(monthLabels, income, expense) {
   const n = Math.max(monthLabels?.length || 0, income?.length || 0, expense?.length || 0, 1)
   const labels = monthLabels?.length ? monthLabels : Array.from({ length: n }, () => '—')
   const inc = (income?.length ? income : Array(n).fill(0)).map((v) => Number(v) || 0)
   const exp = (expense?.length ? expense : Array(n).fill(0)).map((v) => Number(v) || 0)
   const yMax = niceCeilMax([...inc, ...exp])
-  const gIn = lg('#8FD99A', '#4CA658')
+  const gIn = gIeMonthly()
   const gEx = lg('#F9A8A3', '#E04E4A')
   return {
     grid: gridStd(),
@@ -183,7 +186,7 @@ export function incomeExpenseHighlightOption(monthLabels, income, expense, highl
       : labels.length
         ? [[{ xAxis: labels[0] }, { xAxis: labels[0] }]]
         : []
-  base.series[0].itemStyle = { color: lg('#8FD99A', '#4CA658'), borderRadius: [9, 9, 0, 0] }
+  base.series[0].itemStyle = { color: gIeMonthly(), borderRadius: [9, 9, 0, 0] }
   base.series[0].barMaxWidth = 6
   base.series[0].barGap = '20%'
   base.series[0].barCategoryGap = '35%'
@@ -205,7 +208,7 @@ export function incomeExpenseHighlightOption(monthLabels, income, expense, highl
 
 export function ieGapMonthlyOption(monthLabels, gaps) {
   const g = gaps.map((v) => Number(v) || 0)
-  const pos = lg('#C8E6C9', '#1B5E20')
+  const pos = gIeMonthly()
   const neg = lg('#FFCDD2', '#B71C1C')
   const ymax = niceCeilMax(g.map(Math.abs))
   return {
@@ -267,7 +270,7 @@ export function ieWaterfallOption(monthLabels, income, expense) {
       cum = next
     }
   }
-  const gWfP = lg('#A5D6A7', '#1B5E20')
+  const gWfP = gIeMonthly()
   const gWfN = lg('#FFCDD2', '#B71C1C')
   const ymax = niceCeilMax([cum, ...val])
   return {
@@ -432,6 +435,34 @@ export function categoryDonutFromRows(rows, opts) {
 
 const xLab136182430 = (i) => [0, 5, 11, 17, 23, 29].includes(i)
 
+/** Day labels for I/E progression, e.g. "Jun 1". */
+export function ieProgressionDayLabels(year, month, daysInMonth) {
+  return Array.from({ length: daysInMonth }, (_, i) => {
+    const d = new Date(year, month - 1, i + 1)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  })
+}
+
+function ieProgressionAxisLabelStep(catLen) {
+  return catLen > 15 ? 2 : 1
+}
+
+function ieProgressionAxisLabel(catLen) {
+  const step = ieProgressionAxisLabelStep(catLen)
+  const rotate = catLen > 15 ? 42 : 0
+  return {
+    color: D.axis,
+    fontSize: 7,
+    rotate,
+    margin: rotate ? 10 : 6,
+    formatter: (v, i) => (i % step === 0 ? v : ''),
+  }
+}
+
+function ieProgressionGridBottom(catLen) {
+  return catLen > 15 ? 40 : 28
+}
+
 export function dailyExpenseAnalysisOption(daysInMonth, expenseByDayIndex) {
   const labels = Array.from({ length: daysInMonth }, (_, i) => String(i + 1))
   const vals = labels.map((_, i) => Number(expenseByDayIndex[i] || 0))
@@ -560,21 +591,19 @@ export function cumulativeExpenseLineOption(dayLabels, cumulative) {
 }
 
 export function ieProgressionDualAreaOption(dayLabels, cumIncome, cumExpense) {
+  const cats = dayLabels || []
   const yMax = niceCeilMax([...cumIncome, ...cumExpense])
   return {
-    grid: gridStd(),
+    __ieProgression: true,
+    grid: { left: 4, right: 32, top: 8, bottom: ieProgressionGridBottom(cats.length), containLabel: true },
     tooltip: { show: false },
     xAxis: {
       type: 'category',
-      data: dayLabels,
+      data: cats,
       splitLine: xSplit,
       axisLine: { show: true, lineStyle: { color: 'rgba(0,0,0,0.1)', width: 0.5 } },
       axisTick: { show: false },
-      axisLabel: {
-        color: D.axis,
-        fontSize: 7,
-        formatter: (v, i) => ([0, 5, 11, 17, 23, 29].includes(i) ? v : ''),
-      },
+      axisLabel: ieProgressionAxisLabel(cats.length),
     },
     yAxis: {
       type: 'value',
@@ -1029,6 +1058,31 @@ export function sankeyChartHeight(option) {
   return Math.min(480, Math.max(300, n * 34))
 }
 
+function compactCategoryAxisLabel(catLen) {
+  const dense = catLen > 7
+  const medium = catLen > 4
+  return {
+    show: true,
+    color: D.axis,
+    fontSize: 7,
+    interval: 0,
+    hideOverlap: false,
+    rotate: dense ? 45 : medium ? 30 : 0,
+    margin: dense ? 10 : 6,
+    formatter: (name) => {
+      const s = String(name || '')
+      const max = dense ? 8 : medium ? 10 : 14
+      return s.length > max ? `${s.slice(0, max - 1)}…` : s
+    },
+  }
+}
+
+function paretoGridBottom(catLen) {
+  if (catLen > 7) return 34
+  if (catLen > 4) return 24
+  return 18
+}
+
 export function paretoOption(sortedCategories, amounts) {
   if (!sortedCategories?.length || !amounts?.length) {
     return {
@@ -1052,16 +1106,17 @@ export function paretoOption(sortedCategories, amounts) {
   })
   const ymaxBar = niceCeilMax(vals)
   return {
-    grid: { left: 4, right: 32, top: 8, bottom: 4, containLabel: true },
+    grid: { left: 4, right: 32, top: 8, bottom: paretoGridBottom(cats.length), containLabel: true },
     tooltip: { show: false },
     legend: { show: false },
+    __pareto: true,
     xAxis: {
       type: 'category',
       data: cats,
       axisLine: { show: true, lineStyle: { color: D.grid, width: 0.5 } },
       axisTick: { show: false },
       splitLine: xSplit,
-      axisLabel: { show: false },
+      axisLabel: compactCategoryAxisLabel(cats.length),
     },
     yAxis: [
       {
@@ -1151,16 +1206,19 @@ export function radarBudgetOption(items) {
     series: [
       {
         type: 'radar',
+        symbol: 'none',
         data: [
           {
             name: 'Planned',
             value: radarP,
+            symbol: 'none',
             areaStyle: { color: 'rgba(38, 166, 154, 0.18)' },
             lineStyle: { color: '#26A69A', width: 1.2 },
           },
           {
             name: 'Actual',
             value: radarA,
+            symbol: 'none',
             areaStyle: { color: 'rgba(25, 118, 210, 0.22)' },
             lineStyle: { color: '#1976D2', width: 1.2 },
           },
@@ -1248,28 +1306,66 @@ export function interactiveChartOption(option, { selectedIndex = null } = {}) {
 }
 
 /** Drop compact-view formatters that hide x-axis ticks (e.g. day 1,6,12 only). */
-function expandedCategoryAxisLabel(axisLabel, catLen) {
+function maxCategoryLabelLen(labels) {
+  return (labels || []).reduce((m, l) => Math.max(m, String(l || '').length), 0)
+}
+
+function categoryAxisRotation(catLen, maxLen) {
+  if (catLen > 10 || maxLen > 20) return { rotate: 50, margin: 14, fontSize: 10 }
+  if (catLen > 6 || maxLen > 14) return { rotate: 42, margin: 12, fontSize: 10 }
+  if (catLen > 3 || maxLen > 10) return { rotate: 35, margin: 10, fontSize: 10 }
+  return { rotate: 0, margin: 8, fontSize: 11 }
+}
+
+function expandedCategoryGridBottom(baseGrid, catLen, labels = []) {
+  const maxLen = maxCategoryLabelLen(labels)
+  const base = typeof baseGrid?.bottom === 'number' ? baseGrid.bottom : 16
+  if (catLen > 10 || maxLen > 20) return Math.max(base, 68)
+  if (catLen > 6 || maxLen > 14) return Math.max(base, 56)
+  if (catLen > 3 || maxLen > 10) return Math.max(base, 44)
+  return Math.max(base, 28)
+}
+
+function expandedCategoryAxisLabel(axisLabel, catLen, labels = []) {
   const base = { color: D.axis, ...(axisLabel || {}) }
   if (typeof base.formatter === 'function') {
     delete base.formatter
   }
-  const dense = catLen > 12
-  const medium = catLen > 7
+  const maxLen = maxCategoryLabelLen(labels)
+  const { rotate, margin, fontSize } = categoryAxisRotation(catLen, maxLen)
   return {
     ...base,
     show: true,
     interval: 0,
     hideOverlap: false,
-    fontSize: Math.max(9, Number(base.fontSize) || 8) + (dense ? 0 : 1),
-    rotate: dense ? 45 : medium ? 30 : 0,
-    margin: dense ? 12 : 8,
+    fontSize,
+    rotate,
+    margin,
   }
 }
 
 function expandedXAxis(xAxis, catLen) {
   const patch = (a) => ({
     ...a,
-    axisLabel: expandedCategoryAxisLabel(a.axisLabel, catLen),
+    axisLabel: expandedCategoryAxisLabel(a.axisLabel, catLen, a.data),
+  })
+  return Array.isArray(xAxis) ? xAxis.map(patch) : patch(xAxis)
+}
+
+function expandedIeProgressionXAxis(xAxis, catLen) {
+  const step = ieProgressionAxisLabelStep(catLen)
+  const { rotate, margin, fontSize } = categoryAxisRotation(catLen, 8)
+  const patch = (a) => ({
+    ...a,
+    axisLabel: {
+      color: D.axis,
+      show: true,
+      fontSize,
+      rotate,
+      margin,
+      interval: step === 2 ? 1 : 0,
+      hideOverlap: true,
+    },
   })
   return Array.isArray(xAxis) ? xAxis.map(patch) : patch(xAxis)
 }
@@ -1346,13 +1442,35 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
 
   const baseGrid = option.grid && typeof option.grid === 'object' ? { ...option.grid } : gridStd()
   const zoomRange = initialDataZoomRange(catLen)
+  const categoryLabels = hasCategoryXAxis(option) ? getPrimaryXAxis(option).data || [] : []
+
+  if (option.__pareto) {
+    next.tooltip = {
+      ...(next.tooltip || {}),
+      formatter: (params) => {
+        const rows = Array.isArray(params) ? params : [params]
+        const bar = rows.find((p) => p.seriesName === 'Amount')
+        const line = rows.find((p) => p.seriesName === 'Cumulative %')
+        if (!bar) return ''
+        const name = bar.name || bar.axisValue || ''
+        const raw = bar.value?.value ?? bar.value
+        const amount = formatChartAmount(raw)
+        const cum = line != null ? `${line.value}%` : ''
+        return cum
+          ? `${name}<br/>Amount: ${amount}<br/>Cumulative: ${cum}`
+          : `${name}<br/>Amount: ${amount}`
+      },
+    }
+  }
 
   if (hasCategoryXAxis(option)) {
-    next.xAxis = expandedXAxis(option.xAxis, catLen)
+    next.xAxis = option.__ieProgression
+      ? expandedIeProgressionXAxis(option.xAxis, catLen)
+      : expandedXAxis(option.xAxis, catLen)
 
     if (zoomRange) {
-      const bottom = typeof baseGrid.bottom === 'number' ? baseGrid.bottom : 20
-      next.grid = { ...baseGrid, containLabel: true, bottom: bottom + 40 }
+      const bottom = expandedCategoryGridBottom(baseGrid, catLen, categoryLabels) + 40
+      next.grid = { ...baseGrid, containLabel: true, bottom }
       const zoomOpts = { xAxisIndex: 0, filterMode: 'none', ...zoomRange }
       next.dataZoom = [
         {
@@ -1370,7 +1488,11 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
         },
       ]
     } else if (catLen > 5) {
-      next.grid = { ...baseGrid, containLabel: true }
+      next.grid = {
+        ...baseGrid,
+        containLabel: true,
+        bottom: expandedCategoryGridBottom(baseGrid, catLen, categoryLabels),
+      }
       next.dataZoom = [
         {
           type: 'inside',
@@ -1382,7 +1504,11 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
         },
       ]
     } else {
-      next.grid = { ...baseGrid, containLabel: true }
+      next.grid = {
+        ...baseGrid,
+        containLabel: true,
+        bottom: expandedCategoryGridBottom(baseGrid, catLen, categoryLabels),
+      }
     }
   } else {
     next.grid = { ...baseGrid, containLabel: true }
@@ -1448,8 +1574,8 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
           },
         }
       }
-      if (s?.type === 'bar' && zoomRange) {
-        return { ...s, barMaxWidth: 28, barWidth: '55%' }
+      if (s?.type === 'bar' && (zoomRange || option.__pareto)) {
+        return { ...s, barMaxWidth: option.__pareto ? 36 : 28, barWidth: '55%' }
       }
       return s
     })

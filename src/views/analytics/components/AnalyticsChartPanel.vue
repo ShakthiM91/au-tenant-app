@@ -128,7 +128,7 @@ function onOpen() {
 
 .echart--pareto {
   flex: 1;
-  min-height: 140px;
+  min-height: 156px;
 }
 
 .echart--sankey {
