@@ -768,6 +768,7 @@ function buildIslandMenuItems(group) {
   }
   if (showCategories) {
     items.push({ role: 'manage-categories', label: 'Manage Categories', destructive: false })
+    items.push({ role: 'manage-budget', label: 'Manage Budget', destructive: false })
   }
   if (!hideRename) items.push({ role: 'rename', label: 'Rename Island', destructive: false })
   if (!hideShare) items.push({ role: 'share-access', label: 'Share Access', destructive: false })
@@ -854,6 +855,8 @@ function handleIslandMenuAction(role, group) {
     router.push(`/transactions?workspace_id=${island?.id ?? ''}&workspace_name=${encodeURIComponent(islandName)}`)
   } else if (role === 'manage-categories') {
     router.push(`/accounting/categories?workspace_id=${island?.id ?? ''}&workspace_name=${encodeURIComponent(islandName)}`)
+  } else if (role === 'manage-budget') {
+    goManageBudgetForIsland(island, islandName)
   } else if (role === 'rename') {
     islandFormWorkspace.value = island
     islandFormOpen.value = true
@@ -863,6 +866,21 @@ function handleIslandMenuAction(role, group) {
   } else if (role === 'destructive') {
     onDeleteWorkspace(group)
   }
+}
+
+function goManageBudgetForIsland(island, islandName) {
+  const wsId = island?.id != null && island.id !== '' ? Number(island.id) : null
+  if (wsId == null) {
+    showToast('Budget setup requires an island with a workspace')
+    return
+  }
+  router.push({
+    name: 'BudgetManagement',
+    query: {
+      workspace_id: String(wsId),
+      workspace_name: encodeURIComponent(islandName || '')
+    }
+  })
 }
 
 function formatCurrency(v, code) {

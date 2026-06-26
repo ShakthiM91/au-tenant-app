@@ -461,6 +461,19 @@ export function updateBudget(id, data) {
 export function abandonBudget(id) {
   return request({ url: `/api/accounting/budgets/${id}/abandon`, method: 'patch' })
 }
+export function activateBudget(id) {
+  return request({
+    url: `/api/accounting/budgets/${id}/activate`,
+    method: 'patch',
+    skipErrorToast: true
+  })
+}
+export function generateBudgetNext(id) {
+  return request({ url: `/api/accounting/budgets/${id}/generate-next`, method: 'post' })
+}
+export function getBudgetLog(id) {
+  return request({ url: `/api/accounting/budgets/${id}/log`, method: 'get' })
+}
 export function deleteBudget(id) {
   return request({ url: `/api/accounting/budgets/${id}`, method: 'delete' })
 }

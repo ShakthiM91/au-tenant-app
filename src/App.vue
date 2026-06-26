@@ -32,6 +32,7 @@ const TAB_BAR_ROUTES = [
   '/transactions',
   '/accounting',
   '/profile',
+  '/budgets',
 ]
 
 const showTabBar = computed(() =>

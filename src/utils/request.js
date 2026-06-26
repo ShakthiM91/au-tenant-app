@@ -121,12 +121,14 @@ service.interceptors.response.use(
         })
       }
     } else if (status === 500) {
-      showToast({
-        variant: 'error',
-        title: 'Server error',
-        message: 'Please try again later.'
-      })
-    } else {
+      if (!error.config?.skipErrorToast) {
+        showToast({
+          variant: 'error',
+          title: 'Server error',
+          message: 'Please try again later.'
+        })
+      }
+    } else if (!error.config?.skipErrorToast) {
       showToast({
         variant: 'error',
         message: message || 'Network error'

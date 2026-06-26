@@ -142,7 +142,7 @@
             class="header-more-item"
             @click="onHeaderMoreOption('setup-budget')"
           >
-            <ion-label class="header-more-label">Set up a Budget</ion-label>
+            <ion-label class="header-more-label">Manage Budget</ion-label>
           </ion-item>
           <ion-item
             button
@@ -156,15 +156,6 @@
         </ion-list>
       </ion-content>
     </ion-popover>
-
-    <BudgetSetupSheet
-      mode="create"
-      :is-open="budgetSetupOpen"
-      :workspace-id="workspaceId"
-      :workspace-name="workspaceName || ''"
-      @close="budgetSetupOpen = false"
-      @continue-create="onBudgetContinueCreate"
-    />
 
   </ion-page>
 </template>
@@ -183,12 +174,10 @@ import {
   IonLabel
 } from '@ionic/vue'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
-import { getCategoryTree, deleteCategory, toggleCategoryActive, getOngoingBudget } from '@/api/accounting'
+import { getCategoryTree, deleteCategory, toggleCategoryActive } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import CategoryItem from './components/CategoryItem.vue'
 import CategoryForm from './components/CategoryForm.vue'
-import BudgetSetupSheet from '@/views/budgets/components/BudgetSetupSheet.vue'
-import { budgetSetupDraft } from '@/views/budgets/draftStore'
 
 const route = useRoute()
 const router = useRouter()
@@ -209,7 +198,6 @@ const currentCategory = ref(null)
 const sortAlphabetically = ref(false)
 const showHeaderMore = ref(false)
 const headerMoreEvent = ref(undefined)
-const budgetSetupOpen = ref(false)
 /** Merged workspace scope when browsing /accounting/categories?workspace_id=… */
 const workspacePermissionScope = ref(null)
 
@@ -273,32 +261,15 @@ async function onHeaderMoreOption(key) {
       showToast('Open Categories from an island (Accounts → Manage Categories)')
       return
     }
-    try {
-      const res = await getOngoingBudget({ workspace_id: workspaceId.value })
-      const plan = res?.data
-      if (plan?.id) {
-        router.push({
-          name: 'BudgetOverview',
-          params: { id: String(plan.id) },
-          query: {
-            workspace_id: String(workspaceId.value),
-            workspace_name: workspaceName.value || ''
-          }
-        })
-      } else {
-        budgetSetupOpen.value = true
+    router.push({
+      name: 'BudgetManagement',
+      query: {
+        workspace_id: String(workspaceId.value),
+        workspace_name: workspaceName.value || ''
       }
-    } catch {
-      showToast('Could not load budget status')
-    }
+    })
     return
   }
-}
-
-function onBudgetContinueCreate(draft) {
-  budgetSetupDraft.value = draft
-  budgetSetupOpen.value = false
-  router.push({ name: 'BudgetPlan' })
 }
 
 async function load() {

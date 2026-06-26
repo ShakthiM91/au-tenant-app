@@ -104,6 +104,11 @@ const routes = [
     component: () => import('@/views/categories/index.vue'),
   },
   {
+    path: '/budgets/manage',
+    name: 'BudgetManagement',
+    component: () => import('@/views/budgets/BudgetManagement.vue'),
+  },
+  {
     path: '/budgets/plan',
     name: 'BudgetPlan',
     component: () => import('@/views/budgets/BudgetPlannedAmounts.vue'),

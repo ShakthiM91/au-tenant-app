@@ -4,11 +4,11 @@
       <div class="page-container">
         <div class="page-header">
           <button type="button" class="back-btn" aria-label="Cancel" @click="onCancel">Cancel</button>
-          <span class="page-title">Set planned amount</span>
+          <span class="page-title">{{ isEditMode ? 'Edit planned amount' : 'Set planned amount' }}</span>
           <button type="button" class="save-btn" :disabled="saving" @click="onSave">Save</button>
         </div>
 
-        <p v-if="draft?.name" class="plan-hint">{{ draft.name }} · {{ draft.workspace_label }}</p>
+        <p v-if="draft?.name" class="plan-hint">{{ draft.name }} · {{ planWorkspaceHint }}</p>
 
         <div v-if="loading" class="loading-state">
           <ion-spinner name="crescent" />
@@ -21,14 +21,32 @@
             <div class="card-head" :class="{ 'card-head--has-children': group.leaves.length }">
               <span class="card-title">{{ group.parent.name }}</span>
               <div class="card-head-aside">
-                <input
-                  v-model="budgetByCategoryId[group.parent.id].text"
-                  type="text"
-                  inputmode="decimal"
-                  class="amount-input amount-input--head"
-                  placeholder="0"
-                  @blur="normalizeAmount(group.parent.id)"
-                />
+                <div class="amount-stepper">
+                  <button
+                    type="button"
+                    class="amount-stepper__btn"
+                    aria-label="Decrease by 500"
+                    @click="adjustAmount(group.parent.id, -AMOUNT_STEP)"
+                  >
+                    −
+                  </button>
+                  <input
+                    v-model="budgetByCategoryId[group.parent.id].text"
+                    type="text"
+                    inputmode="decimal"
+                    class="amount-input amount-input--head"
+                    placeholder="0"
+                    @blur="normalizeAmount(group.parent.id)"
+                  />
+                  <button
+                    type="button"
+                    class="amount-stepper__btn"
+                    aria-label="Increase by 500"
+                    @click="adjustAmount(group.parent.id, AMOUNT_STEP)"
+                  >
+                    +
+                  </button>
+                </div>
                 <span v-if="group.leaves.length" class="card-sum-label">Σ {{ formatNum(groupSum(group)) }}</span>
               </div>
             </div>
@@ -42,14 +60,32 @@
                   </svg>
                 </span>
                 <span class="leaf-name">{{ leaf.name }}</span>
-                <input
-                  v-model="budgetByCategoryId[leaf.id].text"
-                  type="text"
-                  inputmode="decimal"
-                  class="amount-input"
-                  placeholder="0"
-                  @blur="normalizeAmount(leaf.id)"
-                />
+                <div class="amount-stepper">
+                  <button
+                    type="button"
+                    class="amount-stepper__btn"
+                    aria-label="Decrease by 500"
+                    @click="adjustAmount(leaf.id, -AMOUNT_STEP)"
+                  >
+                    −
+                  </button>
+                  <input
+                    v-model="budgetByCategoryId[leaf.id].text"
+                    type="text"
+                    inputmode="decimal"
+                    class="amount-input"
+                    placeholder="0"
+                    @blur="normalizeAmount(leaf.id)"
+                  />
+                  <button
+                    type="button"
+                    class="amount-stepper__btn"
+                    aria-label="Increase by 500"
+                    @click="adjustAmount(leaf.id, AMOUNT_STEP)"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -66,20 +102,42 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { IonPage, IonContent, IonSpinner } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
-import { getCategoryTree, createBudget } from '@/api/accounting'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { getCategoryTree, getBudgetById, createBudget, updateBudget } from '@/api/accounting'
 import { budgetSetupDraft, clearBudgetSetupDraft } from '@/views/budgets/draftStore'
 
+const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
 const saving = ref(false)
 const draft = ref(null)
+const editBudgetId = ref(null)
 const expenseTree = ref([])
 /** category id -> { text } */
 const budgetByCategoryId = reactive({})
+
+const AMOUNT_STEP = 500
+
+const isEditMode = computed(() => editBudgetId.value != null)
+
+const planWorkspaceHint = computed(() => formatWorkspaceIslandLabel(draft.value?.workspace_label))
+
+function formatWorkspaceIslandLabel(label) {
+  const text = String(label || '').trim()
+  if (!text) return 'island'
+  if (/island/i.test(text)) return text
+  return `${text} island`
+}
+
+function workspaceLabelFromQuery() {
+  const q = route.query.workspace_name
+  if (q == null || q === '') return ''
+  return typeof q === 'string' ? decodeURIComponent(q) : String(q)
+}
 
 function ensureRow(id) {
   const n = Number(id)
@@ -99,6 +157,12 @@ function normalizeAmount(id) {
   const row = ensureRow(id)
   const n = parseAmount(row.text)
   row.text = n > 0 ? String(n) : ''
+}
+
+function adjustAmount(id, delta) {
+  const row = ensureRow(id)
+  const next = Math.max(0, parseAmount(row.text) + delta)
+  row.text = next > 0 ? String(next) : ''
 }
 
 /** Collect deepest categories under a root (for budget lines). */
@@ -156,7 +220,16 @@ function initRowsFromTree(nodes) {
   }
 }
 
-onMounted(async () => {
+function initRowsFromItems(items) {
+  for (const item of items || []) {
+    if (item?.category_id == null) continue
+    const row = ensureRow(item.category_id)
+    const amt = parseFloat(item.amount) || 0
+    row.text = amt > 0 ? String(amt) : ''
+  }
+}
+
+async function loadCreateMode() {
   draft.value = budgetSetupDraft.value
   if (!draft.value?.workspace_id) {
     showToast('Start from Set up a Budget')
@@ -164,12 +237,42 @@ onMounted(async () => {
     router.replace({ name: 'Categories' })
     return
   }
+  const res = await getCategoryTree('expense', draft.value.workspace_id)
+  const data = res?.data ?? (res?.success ? res?.data : []) ?? []
+  expenseTree.value = Array.isArray(data) ? data : []
+  initRowsFromTree(expenseTree.value)
+}
+
+async function loadEditMode(budgetId) {
+  const res = await getBudgetById(budgetId)
+  const plan = res?.data
+  if (!plan?.workspace_id) {
+    showToast('Budget not found')
+    router.back()
+    return
+  }
+  editBudgetId.value = budgetId
+  draft.value = {
+    name: plan.name,
+    workspace_id: plan.workspace_id,
+    workspace_label: workspaceLabelFromQuery() || plan.name || ''
+  }
+  const treeRes = await getCategoryTree('expense', plan.workspace_id)
+  const data = treeRes?.data ?? (treeRes?.success ? treeRes?.data : []) ?? []
+  expenseTree.value = Array.isArray(data) ? data : []
+  initRowsFromTree(expenseTree.value)
+  initRowsFromItems(plan.items)
+}
+
+onMounted(async () => {
   loading.value = true
   try {
-    const res = await getCategoryTree('expense', draft.value.workspace_id)
-    const data = res?.data ?? (res?.success ? res?.data : []) ?? []
-    expenseTree.value = Array.isArray(data) ? data : []
-    initRowsFromTree(expenseTree.value)
+    const budgetId = route.query.budget_id
+    if (budgetId) {
+      await loadEditMode(budgetId)
+    } else {
+      await loadCreateMode()
+    }
   } catch {
     showToast('Failed to load categories')
     expenseTree.value = []
@@ -179,6 +282,10 @@ onMounted(async () => {
 })
 
 function onCancel() {
+  if (isEditMode.value) {
+    router.back()
+    return
+  }
   clearBudgetSetupDraft()
   router.back()
 }
@@ -213,6 +320,13 @@ async function onSave() {
   }
   saving.value = true
   try {
+    if (isEditMode.value) {
+      await updateBudget(editBudgetId.value, { items })
+      showToast('Planned amounts updated')
+      router.back()
+      return
+    }
+
     const payload = {
       workspace_id: draft.value.workspace_id,
       name: draft.value.name,
@@ -221,28 +335,30 @@ async function onSave() {
       end_date: draft.value.end_date,
       currency: draft.value.currency || 'USD',
       is_recurring: draft.value.is_recurring,
-      status: 'active',
+      status: 'draft',
       items
     }
     const res = await createBudget(payload)
     const id = res?.id ?? res?.data?.id ?? res?.data?.data?.id
+    const wsId = draft.value.workspace_id
+    const wsLabel = draft.value.workspace_label || ''
     clearBudgetSetupDraft()
     if (!id) {
-      showToast('Budget created')
-      router.replace({ name: 'Categories' })
+      showToast('Budget saved as draft')
+      router.replace({ name: 'BudgetManagement', query: { workspace_id: String(wsId), workspace_name: wsLabel } })
       return
     }
-    showToast('Budget created')
+    showToast('Budget saved as draft')
     router.replace({
       name: 'BudgetOverview',
       params: { id: String(id) },
       query: {
-        workspace_id: String(draft.value.workspace_id),
-        workspace_name: draft.value.workspace_label || ''
+        workspace_id: String(wsId),
+        workspace_name: wsLabel
       }
     })
   } catch (e) {
-    showToast(e?.message || 'Failed to save')
+    showToast(getApiErrorMessage(e, 'Failed to save'))
   } finally {
     saving.value = false
   }
@@ -358,7 +474,7 @@ async function onSave() {
 }
 
 .amount-input--head {
-  width: 112px;
+  width: 72px;
 }
 
 .card-rows {
@@ -384,19 +500,51 @@ async function onSave() {
 
 .leaf-name {
   flex: 1;
+  min-width: 0;
   font-size: 15px;
   color: #1a1a2e;
 }
 
+.amount-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.amount-stepper__btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid #ff8d28;
+  background: #fff;
+  color: #ff8d28;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.amount-stepper__btn:active {
+  background: rgba(255, 141, 40, 0.1);
+}
+
 .amount-input {
-  width: 112px;
+  width: 72px;
   text-align: right;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 8px 8px;
   font-size: 15px;
   font-weight: 500;
   color: #1a1a2e;
+  flex-shrink: 0;
 }
 
 .amount-input:focus {
