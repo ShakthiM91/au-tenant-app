@@ -513,6 +513,7 @@ import {
 import AnalyticsChartPanel from '@/views/analytics/components/AnalyticsChartPanel.vue'
 import AnalyticsChartFocusModal from '@/views/analytics/components/AnalyticsChartFocusModal.vue'
 import CategoryPickerFlyout from '@/components/CategoryPickerFlyout.vue'
+import { toYmdInLocalTime } from '@/utils/profileDisplay'
 import {
   categoryIdsForQuery,
   categoryLabelsForQuery,
@@ -583,7 +584,8 @@ function expenseByDayOfMonth(dailyRows, year, month) {
   const dim = new Date(year, month, 0).getDate()
   const arr = Array(dim).fill(0)
   for (const r of dailyRows) {
-    const ds = String(r.date).slice(0, 10)
+    const ds = toYmdInLocalTime(r.date)
+    if (!ds) continue
     const parts = ds.split('-').map(Number)
     const yy = parts[0]
     const mm = parts[1]
@@ -598,7 +600,8 @@ function incomeByDayOfMonth(dailyRows, year, month) {
   const dim = new Date(year, month, 0).getDate()
   const arr = Array(dim).fill(0)
   for (const r of dailyRows) {
-    const ds = String(r.date).slice(0, 10)
+    const ds = toYmdInLocalTime(r.date)
+    if (!ds) continue
     const parts = ds.split('-').map(Number)
     const yy = parts[0]
     const mm = parts[1]

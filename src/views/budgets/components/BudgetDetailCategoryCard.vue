@@ -71,7 +71,12 @@
           <span class="stat-value" :class="changePctClass">{{ formatSignedBudgetPct(stats.changePct) }}</span>
         </div>
       </div>
-      <div v-if="donutOption" ref="donutRoot" class="detail-donut">
+      <div
+        v-if="donutOption"
+        ref="donutRoot"
+        class="detail-donut"
+        :style="{ minHeight: `${donutAreaHeightPx}px` }"
+      >
         <svg v-if="leaderPaths.length" class="detail-donut__lines" aria-hidden="true">
           <path
             v-for="line in leaderPaths"
@@ -83,13 +88,13 @@
             stroke-dasharray="2 2"
           />
         </svg>
-        <div class="detail-donut__side detail-donut__side--left">
+        <div class="detail-donut__side detail-donut__side--left" :style="{ minHeight: `${donutAreaHeightPx}px` }">
           <div
             v-for="row in leftDonutLabels"
             :key="row.name"
             :ref="(el) => setLabelRef(el, row.index)"
             class="detail-donut__label detail-donut__label--left"
-            :style="{ top: `${row.yPct}%` }"
+            :style="{ top: `${labelYPctByIndex[row.index] ?? row.yPct}%` }"
           >
             <span class="detail-donut__label-name">
               <span
@@ -102,15 +107,15 @@
           </div>
         </div>
         <div class="detail-donut__pie">
-          <VChart class="detail-donut__chart" :option="donutOption" autoresize @finished="updateLeaderLines" />
+          <VChart class="detail-donut__chart" :option="donutOption" autoresize @finished="updateDonutLayout" />
         </div>
-        <div class="detail-donut__side detail-donut__side--right">
+        <div class="detail-donut__side detail-donut__side--right" :style="{ minHeight: `${donutAreaHeightPx}px` }">
           <div
             v-for="row in rightDonutLabels"
             :key="row.name"
             :ref="(el) => setLabelRef(el, row.index)"
             class="detail-donut__label detail-donut__label--right"
-            :style="{ top: `${row.yPct}%` }"
+            :style="{ top: `${labelYPctByIndex[row.index] ?? row.yPct}%` }"
           >
             <span class="detail-donut__label-name">
               <span
@@ -177,6 +182,8 @@ import {
   buildBudgetDetailDonutLabels,
   computeDonutSliceMidAngles,
   splitDonutLabelLines,
+  layoutDonutSideLabels,
+  estimateDonutSideHeight,
   barToneClass
 } from '@/utils/budgetManagement'
 
@@ -232,7 +239,56 @@ const rightDonutLabels = computed(() => positionedDonutLabels.value.filter((row)
 const donutRoot = ref(null)
 const labelEls = ref([])
 const leaderPaths = ref([])
+const labelYPctByIndex = ref({})
+const donutAreaHeightPx = ref(58)
 let resizeObserver = null
+
+function estimateLabelBlockPx(name) {
+  const lines = splitDonutLabelLines(name).length
+  return lines > 1 ? 30 : 22
+}
+
+function updateDonutLayout() {
+  const root = donutRoot.value
+  const rows = positionedDonutLabels.value
+  if (!root || !rows.length) {
+    labelYPctByIndex.value = {}
+    donutAreaHeightPx.value = 58
+    leaderPaths.value = []
+    return
+  }
+
+  const blockPxByIndex = {}
+  for (const row of rows) {
+    const el = labelEls.value[row.index]
+    blockPxByIndex[row.index] = el?.getBoundingClientRect().height || estimateLabelBlockPx(row.name)
+  }
+
+  const leftRaw = rows
+    .filter((row) => row.side === 'left')
+    .map((row) => ({ ...row, blockPx: blockPxByIndex[row.index] }))
+  const rightRaw = rows
+    .filter((row) => row.side === 'right')
+    .map((row) => ({ ...row, blockPx: blockPxByIndex[row.index] }))
+
+  const sideHeight = Math.max(
+    58,
+    estimateDonutSideHeight(leftRaw, blockPxByIndex),
+    estimateDonutSideHeight(rightRaw, blockPxByIndex)
+  )
+  donutAreaHeightPx.value = sideHeight
+
+  const next = {}
+  for (const row of layoutDonutSideLabels(leftRaw, sideHeight)) {
+    next[row.index] = row.yPct
+  }
+  for (const row of layoutDonutSideLabels(rightRaw, sideHeight)) {
+    next[row.index] = row.yPct
+  }
+  labelYPctByIndex.value = next
+
+  nextTick(updateLeaderLines)
+}
 
 function setLabelRef(el, index) {
   if (el) labelEls.value[index] = el
@@ -287,9 +343,12 @@ function updateLeaderLines() {
 }
 
 onMounted(() => {
-  nextTick(updateLeaderLines)
+  nextTick(() => {
+    updateDonutLayout()
+    nextTick(updateDonutLayout)
+  })
   if (typeof ResizeObserver !== 'undefined' && donutRoot.value) {
-    resizeObserver = new ResizeObserver(() => updateLeaderLines())
+    resizeObserver = new ResizeObserver(() => updateDonutLayout())
     resizeObserver.observe(donutRoot.value)
   }
 })
@@ -302,7 +361,11 @@ watch(
   [positionedDonutLabels, donutSlices, () => props.item],
   () => {
     labelEls.value = []
-    nextTick(updateLeaderLines)
+    labelYPctByIndex.value = {}
+    nextTick(() => {
+      updateDonutLayout()
+      nextTick(updateDonutLayout)
+    })
   },
   { deep: true }
 )

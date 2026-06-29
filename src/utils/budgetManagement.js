@@ -338,3 +338,57 @@ export function splitDonutLabelLines(name, maxLineLen = 10) {
 
   return [text.slice(0, maxLineLen), text.slice(maxLineLen)]
 }
+
+/** Spread donut labels on one side so they do not overlap (yPct is vertical center). */
+export function layoutDonutSideLabels(labels, containerHeightPx, { minGapPx = 3, paddingPx = 4 } = {}) {
+  if (!labels.length || containerHeightPx <= 0) return labels
+
+  const sorted = [...labels]
+    .map((row) => ({
+      ...row,
+      yPx: (row.yPct / 100) * containerHeightPx,
+      blockPx: row.blockPx || 24
+    }))
+    .sort((a, b) => a.yPx - b.yPx)
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]
+    const minY = prev.yPx + (prev.blockPx + sorted[i].blockPx) / 2 + minGapPx
+    if (sorted[i].yPx < minY) sorted[i].yPx = minY
+  }
+
+  const topLimit = sorted[0].blockPx / 2 + paddingPx
+  const bottomLimit = containerHeightPx - sorted[sorted.length - 1].blockPx / 2 - paddingPx
+  const span = sorted[sorted.length - 1].yPx - sorted[0].yPx
+  const allowedSpan = Math.max(0, bottomLimit - topLimit)
+
+  if (span > allowedSpan && span > 0) {
+    const scale = allowedSpan / span
+    const anchor = sorted[0].yPx
+    for (const item of sorted) {
+      item.yPx = topLimit + (item.yPx - anchor) * scale
+    }
+  } else {
+    const overflowBottom = sorted[sorted.length - 1].yPx - bottomLimit
+    if (overflowBottom > 0) {
+      for (const item of sorted) item.yPx -= overflowBottom
+    }
+    const overflowTop = topLimit - sorted[0].yPx
+    if (overflowTop > 0) {
+      for (const item of sorted) item.yPx += overflowTop
+    }
+  }
+
+  return sorted.map((row) => ({
+    ...row,
+    yPct: Math.min(99, Math.max(1, (row.yPx / containerHeightPx) * 100))
+  }))
+}
+
+export function estimateDonutSideHeight(labels, blockPxByIndex = {}) {
+  if (!labels.length) return 58
+  const blocks = labels.map((row) => blockPxByIndex[row.index] || row.blockPx || 24)
+  const gaps = Math.max(0, labels.length - 1) * 3
+  const padding = 8
+  return Math.max(58, blocks.reduce((sum, h) => sum + h, 0) + gaps + padding)
+}
