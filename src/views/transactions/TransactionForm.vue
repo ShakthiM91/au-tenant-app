@@ -313,7 +313,13 @@
       </ion-header>
       <ion-content>
         <div class="picker-adaptive-body">
-        <ion-searchbar v-model="workspaceSearchQuery" placeholder="Search..." debounce="150" />
+        <ion-searchbar
+          v-model="workspaceSearchQuery"
+          placeholder="Search..."
+          debounce="150"
+          type="text"
+          inputmode="search"
+        />
         <ion-list>
           <ion-item
             v-for="w in filteredWorkspaceOptions"
@@ -353,7 +359,13 @@
       </ion-header>
       <ion-content>
         <div class="picker-adaptive-body">
-        <ion-searchbar v-model="accountSearchQuery" placeholder="Search..." debounce="150" />
+        <ion-searchbar
+          v-model="accountSearchQuery"
+          placeholder="Search..."
+          debounce="150"
+          type="text"
+          inputmode="search"
+        />
         <ion-list>
           <ion-item v-for="a in filteredAccountCols" :key="a.value" button @click="selectAccount(a.value)">
             <ion-label>{{ a.text }}</ion-label>
@@ -385,7 +397,13 @@
       </ion-header>
       <ion-content>
         <div class="picker-adaptive-body">
-        <ion-searchbar v-model="toAccountSearchQuery" placeholder="Search..." debounce="150" />
+        <ion-searchbar
+          v-model="toAccountSearchQuery"
+          placeholder="Search..."
+          debounce="150"
+          type="text"
+          inputmode="search"
+        />
         <ion-list>
           <ion-item v-for="a in filteredToAccountCols" :key="a.value" button @click="selectToAccount(a.value)">
             <ion-label>{{ a.text }}</ion-label>
@@ -420,7 +438,13 @@
       </ion-header>
       <ion-content>
         <div class="picker-adaptive-body">
-        <ion-searchbar v-model="categorySearchQuery" placeholder="Search..." debounce="150" />
+        <ion-searchbar
+          v-model="categorySearchQuery"
+          placeholder="Search..."
+          debounce="150"
+          type="text"
+          inputmode="search"
+        />
         <ion-list>
           <ion-item v-for="c in filteredCategoryCols" :key="c.value" button @click="selectCategory(c.value); showCategoryPicker = false">
             <ion-label>{{ c.text }}</ion-label>

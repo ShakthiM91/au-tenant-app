@@ -3,7 +3,7 @@
     <ion-content :fullscreen="true" :scroll-y="true">
       <div class="page-container">
         <!-- Header (Accounts Ledger design style) -->
-        <div class="top-header">
+        <div class="top-header" :class="{ 'top-header--island-menu-open': showIslandOptionsMenu }">
           <button type="button" class="back-btn" @click="$router.back()">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="15 18 9 12 15 6"/>
@@ -13,7 +13,48 @@
             <span class="header-title">{{ workspaceName || 'All transactions' }}</span>
             <span class="header-subtitle">Transaction Log</span>
           </div>
+          <div v-if="showIslandOptionsButton" class="header-actions">
+            <div class="tx-island-menu-wrapper" @click.stop>
+              <button
+                type="button"
+                class="icon-btn"
+                aria-label="Island options"
+                @click.stop="toggleIslandOptionsMenu($event)"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8D28" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+                </svg>
+              </button>
+              <Transition name="popover-fade">
+                <div
+                  v-if="showIslandOptionsMenu"
+                  class="island-options-popover"
+                  :class="{ 'island-options-popover--up': islandOptionsPopoverOpenUp }"
+                  @click.stop
+                >
+                  <button
+                    v-for="item in islandMenuItems"
+                    :key="item.role"
+                    type="button"
+                    class="island-popover-option"
+                    :class="{ destructive: item.destructive }"
+                    @click="onIslandMenuSelect(item.role)"
+                  >
+                    {{ item.label }}
+                  </button>
+                </div>
+              </Transition>
+            </div>
+          </div>
         </div>
+
+        <Transition name="fade">
+          <div
+            v-if="showIslandOptionsMenu"
+            class="island-options-backdrop"
+            @click="closeIslandOptionsMenu"
+          />
+        </Transition>
 
         <!-- Summary Grid -->
         <div class="summary-grid">
@@ -287,6 +328,28 @@
 
     <FloatingAddButton v-if="transactionsFabVisible" @select="onFabSelect" />
 
+    <AccountForm
+      :is-open="accountFormOpen"
+      :account="null"
+      :preselected-workspace-id="accountFormWorkspaceId ?? null"
+      @close="onAccountFormClose"
+      @success="onAccountFormSuccess"
+    />
+
+    <IslandForm
+      :is-open="islandFormOpen"
+      :workspace="islandFormWorkspace"
+      @close="islandFormOpen = false; islandFormWorkspace = null"
+      @success="onIslandFormSuccess"
+    />
+
+    <ShareAccess
+      :is-open="showShareAccess"
+      :group="shareAccessGroup"
+      @close="showShareAccess = false; shareAccessGroup = null"
+      @success="onShareAccessSuccess"
+    />
+
     <!-- Transaction detail (same flow as Flow Log: preview then Edit) -->
     <ion-modal mode="ios"
       :is-open="detailVisible"
@@ -450,12 +513,21 @@ import {
 import { cloudOfflineOutline } from 'ionicons/icons'
 import { showToast, showActionSheet, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getTransactions, deleteTransaction, getSummary, getCategoryTree } from '@/api/accounting'
-import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
+import { getWorkspaces, getSharedWorkspaces, deleteWorkspace } from '@/api/workspace'
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { getPendingWrites, deleteEntry } from '@/db/pendingWrites'
+import { invalidateAccountingCache } from '@/db/readCache'
 import { useSyncStore } from '@/store/sync'
 import { useUserStore } from '@/store/user'
 import { refreshBootstrapCache } from '@/utils/bootstrapCache'
+import {
+  buildIslandMenuItems,
+  formatIslandDisplayName,
+  islandMenuPopoverOpensUpward,
+} from '@/utils/islandMenu.js'
+import AccountForm from '@/views/accounts/components/AccountForm.vue'
+import IslandForm from '@/views/accounts/components/IslandForm.vue'
+import ShareAccess from '@/views/accounts/components/ShareAccess.vue'
 import {
   formatTransactionAuthorLabel,
   formatTransactionEditorLabel,
@@ -506,6 +578,68 @@ const resolvedWorkspaceId = computed(() => {
 const transactionsFabVisible = ref(true)
 /** Merged permission_scope when `workspace_id` is in the route (island transaction log). */
 const listWorkspacePermissionScope = ref(null)
+const currentWorkspaceRow = ref(null)
+const currentWorkspaceIsShared = ref(false)
+
+const showIslandOptionsMenu = ref(false)
+const islandOptionsPopoverOpenUp = ref(false)
+const accountFormOpen = ref(false)
+const accountFormWorkspaceId = ref(null)
+const islandFormOpen = ref(false)
+const islandFormWorkspace = ref(null)
+const showShareAccess = ref(false)
+const shareAccessGroup = ref(null)
+
+const isIslandTransactionLog = computed(() => {
+  const q = route.query
+  if (q.default_island === '1') return true
+  if (q.workspace_name != null && String(q.workspace_name).trim() !== '') return true
+  if (q.workspace_id != null && String(q.workspace_id).trim() !== '') return true
+  if (Object.prototype.hasOwnProperty.call(q, 'workspace_id') && q.workspace_name) return true
+  return false
+})
+
+const currentIslandGroup = computed(() => {
+  if (!isIslandTransactionLog.value) return null
+
+  const row = currentWorkspaceRow.value
+  const nameFromRoute = workspaceName.value
+    ? String(workspaceName.value).replace(/\s+Island$/i, '').trim()
+    : 'Default'
+
+  if (row) {
+    return {
+      island: {
+        id: row.id ?? null,
+        name: row.name || nameFromRoute,
+        is_shared: currentWorkspaceIsShared.value,
+        permission_scope: row.permission_scope ?? listWorkspacePermissionScope.value,
+        can_share_workspace: row.can_share_workspace === true
+      },
+      accounts: []
+    }
+  }
+
+  const wid = workspaceId.value
+  return {
+    island: {
+      id: wid != null && wid !== '' ? (Number.isNaN(Number(wid)) ? wid : Number(wid)) : null,
+      name: nameFromRoute,
+      is_shared: false,
+      permission_scope: listWorkspacePermissionScope.value,
+      can_share_workspace: false
+    },
+    accounts: []
+  }
+})
+
+const islandMenuItems = computed(() => {
+  const group = currentIslandGroup.value
+  if (!group) return []
+  return buildIslandMenuItems(group).filter((item) => item.role !== 'transaction-log')
+})
+
+const showIslandOptionsButton = computed(() => islandMenuItems.value.length > 0)
 
 function listScopeAllowsTransactionEdit(scope) {
   if (!scope) return true
@@ -521,6 +655,8 @@ function listScopeAllowsTransactionDelete(scope) {
 async function refreshWorkspaceListPermissions() {
   const widRaw = workspaceId.value
   listWorkspacePermissionScope.value = null
+  currentWorkspaceRow.value = null
+  currentWorkspaceIsShared.value = false
   if (widRaw == null || widRaw === '') {
     transactionsFabVisible.value = true
     return
@@ -534,7 +670,11 @@ async function refreshWorkspaceListPermissions() {
     const [ownRes, sharedRes] = await Promise.all([getWorkspaces(), getSharedWorkspaces()])
     const own = Array.isArray(ownRes?.data) ? ownRes.data : []
     const shared = Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []
-    const row = own.find((w) => Number(w.id) === wid) || shared.find((w) => Number(w.id) === wid)
+    const ownRow = own.find((w) => Number(w.id) === wid)
+    const sharedRow = shared.find((w) => Number(w.id) === wid)
+    const row = ownRow || sharedRow
+    currentWorkspaceRow.value = row ?? null
+    currentWorkspaceIsShared.value = !!sharedRow && !ownRow
     const s = row?.permission_scope ?? null
     listWorkspacePermissionScope.value = s
     if (!s) {
@@ -544,6 +684,8 @@ async function refreshWorkspaceListPermissions() {
     transactionsFabVisible.value = !!(s.add_transaction || s.full_access || s.implicit_full)
   } catch {
     listWorkspacePermissionScope.value = null
+    currentWorkspaceRow.value = null
+    currentWorkspaceIsShared.value = false
     transactionsFabVisible.value = true
   }
 }
@@ -881,14 +1023,150 @@ function closeFilterMenus() {
   categoryMenuOpen.value = false
   categoryFilterSearch.value = ''
   typeMenuOpen.value = false
+  closeIslandOptionsMenu()
+}
+
+function closeIslandOptionsMenu() {
+  showIslandOptionsMenu.value = false
+  islandOptionsPopoverOpenUp.value = false
+}
+
+function toggleIslandOptionsMenu(event) {
+  categoryMenuOpen.value = false
+  categoryFilterSearch.value = ''
+  typeMenuOpen.value = false
+  if (showIslandOptionsMenu.value) {
+    closeIslandOptionsMenu()
+    return
+  }
+  const trigger = event?.currentTarget
+  showIslandOptionsMenu.value = true
+  nextTick(() => {
+    islandOptionsPopoverOpenUp.value = islandMenuPopoverOpensUpward(
+      trigger,
+      islandMenuItems.value.length
+    )
+  })
+}
+
+function onIslandMenuSelect(role) {
+  closeIslandOptionsMenu()
+  handleIslandMenuAction(role, currentIslandGroup.value)
+}
+
+function islandNavQuery(island, islandName) {
+  const q = new URLSearchParams()
+  if (island?.id != null && island.id !== '') {
+    q.set('workspace_id', String(island.id))
+  } else if (Object.prototype.hasOwnProperty.call(route.query, 'workspace_id') || route.query.default_island === '1') {
+    q.set('workspace_id', '')
+  }
+  if (islandName) q.set('workspace_name', encodeURIComponent(islandName))
+  return q.toString()
+}
+
+function handleIslandMenuAction(role, group) {
+  if (!group) return
+  const island = group.island
+  const islandName = formatIslandDisplayName(island)
+
+  if (role === 'add-entry') {
+    if (island?.id != null && island.id !== '') {
+      router.push(
+        `/transactions/create?workspace_id=${island.id}&workspace_name=${encodeURIComponent(islandName)}`
+      )
+    } else {
+      router.push(
+        `/transactions/create?default_island=1&workspace_name=${encodeURIComponent(islandName)}`
+      )
+    }
+  } else if (role === 'add-account') {
+    accountFormWorkspaceId.value = island?.id != null ? island.id : null
+    accountFormOpen.value = true
+  } else if (role === 'transaction-log') {
+    const qs = islandNavQuery(island, islandName)
+    router.replace(qs ? `/transactions?${qs}` : '/transactions')
+  } else if (role === 'manage-categories') {
+    const qs = islandNavQuery(island, islandName)
+    router.push(qs ? `/accounting/categories?${qs}` : '/accounting/categories')
+  } else if (role === 'manage-budget') {
+    goManageBudgetForIsland(island, islandName)
+  } else if (role === 'rename') {
+    islandFormWorkspace.value = island
+    islandFormOpen.value = true
+  } else if (role === 'share-access') {
+    shareAccessGroup.value = group
+    showShareAccess.value = true
+  } else if (role === 'destructive') {
+    onDeleteIsland(group)
+  }
+}
+
+function goManageBudgetForIsland(island, islandName) {
+  const wsId = island?.id != null && island.id !== '' ? Number(island.id) : null
+  if (wsId == null) {
+    showToast('Budget setup requires an island with a workspace')
+    return
+  }
+  router.push({
+    name: 'BudgetManagement',
+    query: {
+      workspace_id: String(wsId),
+      workspace_name: encodeURIComponent(islandName || '')
+    }
+  })
+}
+
+function onAccountFormClose() {
+  accountFormOpen.value = false
+  accountFormWorkspaceId.value = null
+}
+
+async function onAccountFormSuccess() {
+  onAccountFormClose()
+  await invalidateAccountingCache({ accounts: true })
+  await refreshBootstrapCache().catch(() => {})
+}
+
+async function onIslandFormSuccess() {
+  islandFormOpen.value = false
+  islandFormWorkspace.value = null
+  await invalidateAccountingCache({ accounts: true })
+  await refreshWorkspaceListPermissions()
+  await refreshData()
+}
+
+async function onShareAccessSuccess() {
+  showShareAccess.value = false
+  shareAccessGroup.value = null
+  await refreshWorkspaceListPermissions()
+}
+
+async function onDeleteIsland(group) {
+  const island = group?.island
+  if (!island?.id) return
+  const name = formatIslandDisplayName(island)
+  try {
+    await showConfirmDialog({
+      title: 'Delete Island',
+      message: `Are you sure you want to delete "${name}"? You will no longer have access to this island and all its accounts. This action cannot be undone.`
+    })
+    const res = await deleteWorkspace(island.id)
+    showToast(res?.queued ? 'Saved locally. Will sync when online.' : 'island deleted')
+    router.replace('/accounts')
+  } catch (e) {
+    if (e !== 'cancel') showToast(e?.message || 'Delete failed')
+  }
 }
 
 function openCategoryMenu() {
+  closeIslandOptionsMenu()
   typeMenuOpen.value = false
   categoryMenuOpen.value = !categoryMenuOpen.value
 }
 
 function openTypeMenu() {
+  closeIslandOptionsMenu()
   categoryMenuOpen.value = false
   typeMenuOpen.value = !typeMenuOpen.value
 }
@@ -1346,6 +1624,93 @@ onUnmounted(() => {
 .header-subtitle {
   font-size: 11px;
   color: #A7A7A7;
+}
+
+.top-header--island-menu-open {
+  position: relative;
+  z-index: 250;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tx-island-menu-wrapper {
+  position: relative;
+}
+
+.island-options-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  max-width: min(92vw, 280px);
+  max-height: min(65dvh, 360px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.14);
+  padding: 6px 0;
+  z-index: 1;
+}
+
+.island-options-popover--up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.island-popover-option {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1a1a2e;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.island-popover-option:active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.island-popover-option.destructive {
+  color: rgba(195, 0, 16, 0.74);
+}
+
+.island-options-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 249;
+  background: transparent;
+}
+
+.popover-fade-enter-active,
+.popover-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.popover-fade-enter-from,
+.popover-fade-leave-to {
+  opacity: 0;
 }
 
 .summary-grid {
