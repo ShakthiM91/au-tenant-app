@@ -3,6 +3,7 @@ import { useUserStore } from '@/store/user'
 import { warmBootstrapCache } from '@/utils/bootstrapCache'
 import { resolvePostAuthDestination } from '@/utils/onboardingSurvey/resolveDestination'
 import { HOME_ROUTE, WELCOME_ROUTE, POST_REGISTER_FLOW_KEY } from '@/utils/onboardingSurvey/constants'
+import { getStoredReferralCode, clearStoredReferralCode } from '@/utils/referralStorage'
 
 /**
  * Post-login: load profile and navigate home or personalization survey.
@@ -28,6 +29,7 @@ export function useAuthSession() {
   async function finishRegistrationSession() {
     await userStore.getInfo()
     warmBootstrapCache().catch(() => {})
+    clearStoredReferralCode()
     sessionStorage.setItem(POST_REGISTER_FLOW_KEY, 'true')
     await router.replace(WELCOME_ROUTE)
   }
@@ -38,7 +40,8 @@ export function useAuthSession() {
   }
 
   async function signUpWithGoogle(idToken) {
-    await userStore.loginWithGoogle({ idToken })
+    const referralCode = getStoredReferralCode() || undefined
+    await userStore.loginWithGoogle({ idToken, referralCode })
     await finishRegistrationSession()
   }
 

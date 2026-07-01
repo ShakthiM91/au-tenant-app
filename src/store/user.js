@@ -56,8 +56,10 @@ export const useUserStore = defineStore('user', {
 
     async register(userInfo) {
       try {
-        const { name, email, password } = userInfo
-        const response = await register({ name, email, password })
+        const { name, email, password, referralCode } = userInfo
+        const payload = { name, email, password }
+        if (referralCode) payload.referralCode = referralCode
+        const response = await register(payload)
 
         if (response && response.accessToken) {
           this.token = response.accessToken
@@ -76,9 +78,11 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    async loginWithGoogle({ idToken }) {
+    async loginWithGoogle({ idToken, referralCode }) {
       try {
-        const response = await loginWithGoogleApi({ idToken })
+        const payload = { idToken }
+        if (referralCode) payload.referralCode = referralCode
+        const response = await loginWithGoogleApi(payload)
 
         if (response && response.accessToken) {
           this.token = response.accessToken

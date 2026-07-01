@@ -15,6 +15,12 @@ const routes = [
     meta: { public: true }
   },
   {
+    path: '/invite/:code',
+    name: 'InviteLanding',
+    component: () => import('@/views/invite/index.vue'),
+    meta: { public: true }
+  },
+  {
     path: '/onboarding',
     name: 'Onboarding',
     component: () => import('@/views/onboarding/index.vue'),
@@ -147,6 +153,11 @@ const routes = [
     path: '/profile/settings',
     name: 'ProfileSettings',
     component: () => import('@/views/profile/Settings.vue'),
+  },
+  {
+    path: '/profile/referrals',
+    name: 'ProfileReferrals',
+    component: () => import('@/views/profile/Referrals.vue'),
   },
 ]
 

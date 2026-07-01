@@ -1,6 +1,6 @@
 {
   "name": "rupee-life-app",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Rupee Life Mobile App",
   "type": "module",
   "scripts": {
@@ -25,6 +25,7 @@
     "echarts": "^5.5.0",
     "ionicons": "^7.2.0",
     "pinia": "^2.1.7",
+    "qrcode": "^1.5.4",
     "vue": "^3.4.15",
     "vue-echarts": "^7.0.3",
     "vue-router": "^4.2.5"

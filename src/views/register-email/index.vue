@@ -160,6 +160,7 @@ import { IonPage, IonContent } from '@ionic/vue'
 import { useGoogleAuth } from '@/composables/useGoogleAuth'
 import { useAuthSession } from '@/composables/useAuthSession'
 import { showToast } from '@/utils/ionicFeedback'
+import { getStoredReferralCode } from '@/utils/referralStorage'
 
 const router = useRouter()
 const { signUpWithGoogle: registerWithGoogle, signUpWithPassword } = useAuthSession()
@@ -213,7 +214,8 @@ async function onSignUp() {
     await signUpWithPassword({
       name,
       email: form.email.trim(),
-      password: form.password
+      password: form.password,
+      referralCode: getStoredReferralCode() || undefined
     })
     showToast('Account created successfully')
   } catch (error) {

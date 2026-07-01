@@ -192,8 +192,8 @@ const menuRows = computed(() => [
   {
     id: 'referral',
     title: 'Tell a Friend about Us',
-    subtitle: 'Referral rewards are coming soon. Ask them to use your referral code.',
-    onClick: () => onMenuPlaceholder('Referrals')
+    subtitle: 'Share your referral code and invite friends.',
+    onClick: () => router.push('/profile/referrals')
   },
   {
     id: 'feedback',

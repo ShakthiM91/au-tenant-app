@@ -495,7 +495,7 @@ const quickActionsRow1 = [
   { label: 'Account\nBudget', icon: serverOutline, action: 'budget' },
   { label: 'Account\nAnalytics', icon: barChartOutline, route: { name: 'Analytics' } },
   { label: 'Daily\nCheck in', icon: createOutline },
-  { label: 'Invite a\nFriend', icon: peopleOutline },
+  { label: 'Invite a\nFriend', icon: peopleOutline, route: { name: 'ProfileReferrals' } },
   { label: 'Rupee\nGuide', icon: schoolOutline },
 ]
 
