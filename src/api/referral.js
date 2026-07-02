@@ -1,9 +1,17 @@
 import request from '@/utils/request'
 
+const NO_CACHE = {
+  headers: {
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache'
+  }
+}
+
 export function getMyReferralInfo() {
   return request({
     url: '/api/members/referrals/me',
-    method: 'get'
+    method: 'get',
+    ...NO_CACHE
   })
 }
 
@@ -11,7 +19,8 @@ export function getMyReferrals(params) {
   return request({
     url: '/api/members/referrals',
     method: 'get',
-    params
+    params,
+    ...NO_CACHE
   })
 }
 

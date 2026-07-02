@@ -211,7 +211,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import QRCode from 'qrcode'
 import {
   IonPage,
@@ -225,7 +225,8 @@ import {
   IonIcon,
   IonSpinner,
   IonModal,
-  IonToast
+  IonToast,
+  onIonViewDidEnter
 } from '@ionic/vue'
 import {
   chevronForwardOutline,
@@ -380,7 +381,7 @@ async function submitInviter() {
   }
 }
 
-onMounted(() => {
+onIonViewDidEnter(() => {
   loadData()
 })
 </script>

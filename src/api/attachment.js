@@ -3,6 +3,10 @@ import { getTenant } from '@/api/tenant'
 
 let cachedBaseUrl = null
 
+export function clearAttachmentCache() {
+  cachedBaseUrl = null
+}
+
 export async function getAttachmentBaseUrl() {
   if (cachedBaseUrl) return cachedBaseUrl
   try {

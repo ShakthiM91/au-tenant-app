@@ -81,6 +81,12 @@ export function markSurveyGatePassed() {
 export function clearSurveyGateCache() {
   cachedNeedsSurvey = null
   clearWorkspaceAccountSurveyCache()
+  clearPostRegisterFlow()
+  try {
+    localStorage.removeItem(SURVEY_GATE_PASSED_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 export async function userNeedsPersonalizationSurvey(force = false) {
