@@ -1592,7 +1592,7 @@ onUnmounted(() => {
 .top-header {
   display: flex;
   align-items: center;
-  padding: 10px 0;
+  padding: 15px 0 10px 0;
   gap: 8px;
 }
 

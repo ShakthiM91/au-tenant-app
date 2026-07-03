@@ -5,7 +5,7 @@
         <div class="page-header" :class="{ 'above-menu-backdrop': showAddMenu }">
           <span class="page-title">
             Accounts
-            <span v-if="workspaceMode === 'private'" class="workspace-mode-badge">Private</span>
+            <!-- <span v-if="workspaceMode === 'private'" class="workspace-mode-badge">Private</span> -->
           </span>
           <div class="header-actions">
             <button
@@ -150,7 +150,10 @@
                   }"
                 >
                   <div class="island-header">
-                    <span class="island-name">{{ group.island.name.endsWith('Island') ? group.island.name : group.island.name + ' Island' }}</span>
+                    <div class="island-left">
+                      <span class="island-name">{{ group.island.name.endsWith('Island') ? group.island.name : group.island.name + ' Island' }}</span>
+                      <span class="island-status">{{ formatIslandSharingStatus(group.island) }}</span>
+                    </div>
                     <div class="island-more-wrapper" @click.stop>
                       <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
@@ -263,9 +266,12 @@
                 }"
               >
                 <div class="island-header">
-                  <span class="island-name shared">
-                    {{ group.island.tenant_name ? `${group.island.tenant_name}'s ${group.island.name}` : group.island.name }}{{ (!group.island.name || !group.island.name.toLowerCase().includes('island')) ? ' Island' : '' }}
-                  </span>
+                  <div class="island-left">
+                    <span class="island-name shared">
+                      {{ group.island.tenant_name ? `${group.island.tenant_name}'s ${group.island.name}` : group.island.name }}{{ (!group.island.name || !group.island.name.toLowerCase().includes('island')) ? ' Island' : '' }}
+                    </span>
+                    <span class="island-status">{{ formatIslandSharingStatus(group.island) }}</span>
+                  </div>
                   <div class="island-more-wrapper" @click.stop>
                     <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
@@ -915,6 +921,27 @@ function formatUpdatedAgo(account) {
   return `Updated ${Math.floor(days / 7)} week${days >= 14 ? 's' : ''} ago`
 }
 
+function formatIslandSharingStatus(island) {
+  if (!island) return ''
+  if (island.is_shared) {
+    const total = Number(island.member_count) || 0
+    if (total > 1) {
+      const others = total - 1
+      return others === 1 ? 'Shared with you · 1 other member' : `Shared with you · ${others} other members`
+    }
+    return 'Shared with you'
+  }
+  if (island.id == null) {
+    return workspaceMode.value === 'private' ? 'Private island' : 'Default island'
+  }
+  const total = Number(island.member_count) || 0
+  const sharedWith = Math.max(0, total - 1)
+  if (sharedWith === 0) {
+    return 'Private island'
+  }
+  return sharedWith === 1 ? 'Shared with 1 member' : `Shared with ${sharedWith} members`
+}
+
 function goFlowLog(account) {
   const name = encodeURIComponent(account.name || 'Account')
   const cur = encodeURIComponent(account.currency || 'USD')
@@ -1129,6 +1156,7 @@ async function load() {
           id: ws.id,
           name: ws.name || 'My Island',
           is_shared: isSharedWithMe,
+          member_count: Number(ws.member_count) || 0,
           tenant_name: isSharedWithMe ? (ws.tenant_name ?? null) : null,
           created_by: ws.created_by != null && ws.created_by !== '' ? Number(ws.created_by) : null,
           my_role: ws.my_role ?? null,
@@ -1166,6 +1194,7 @@ async function load() {
               id: ws.id,
               name: ws.name || 'Shared Island',
               is_shared: true,
+              member_count: Number(ws.member_count) || 0,
               tenant_name: ws.tenant_name,
               created_by: ws.created_by != null && ws.created_by !== '' ? Number(ws.created_by) : null,
               inviter_name: ws.invited_by_name ?? null,
@@ -1405,9 +1434,23 @@ onIonViewDidEnter(async () => {
 .island-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 0 0;
-  margin-bottom: 0px;
+  margin-bottom: 6px;
+}
+
+.island-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.island-status {
+  font-size: 12px;
+  color: #A8A8A8;
+  line-height: 18px;
+  opacity: 0.8;
 }
 
 .island-more-wrapper {

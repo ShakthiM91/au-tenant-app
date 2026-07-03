@@ -6,7 +6,7 @@ import request from '@/utils/request'
  */
 export function getWorkspaces() {
   return request({
-    url: '/api/accounting/workspaces',
+    url: '/api/members/workspaces',
     method: 'get'
   })
 }
@@ -16,21 +16,21 @@ export function getWorkspaces() {
  */
 export function getSharedWorkspaces() {
   return request({
-    url: '/api/accounting/workspaces/shared',
+    url: '/api/members/workspaces/shared',
     method: 'get'
   })
 }
 
 export function acceptWorkspaceInvitation(workspaceId) {
   return request({
-    url: `/api/accounting/workspaces/${workspaceId}/invitations/accept`,
+    url: `/api/members/workspaces/${workspaceId}/invitations/accept`,
     method: 'patch'
   })
 }
 
 export function declineWorkspaceInvitation(workspaceId) {
   return request({
-    url: `/api/accounting/workspaces/${workspaceId}/invitations/decline`,
+    url: `/api/members/workspaces/${workspaceId}/invitations/decline`,
     method: 'patch'
   })
 }
@@ -40,7 +40,7 @@ export function declineWorkspaceInvitation(workspaceId) {
  */
 export function createWorkspace(data) {
   return request({
-    url: '/api/accounting/workspaces',
+    url: '/api/members/workspaces',
     method: 'post',
     data
   })
@@ -51,7 +51,7 @@ export function createWorkspace(data) {
  */
 export function updateWorkspace(id, data) {
   return request({
-    url: `/api/accounting/workspaces/${id}`,
+    url: `/api/members/workspaces/${id}`,
     method: 'put',
     data
   })
@@ -62,14 +62,14 @@ export function updateWorkspace(id, data) {
  */
 export function deleteWorkspace(id) {
   return request({
-    url: `/api/accounting/workspaces/${id}`,
+    url: `/api/members/workspaces/${id}`,
     method: 'delete'
   })
 }
 
 export function getWorkspaceMembers(id) {
   return request({
-    url: `/api/accounting/workspaces/${id}/members`,
+    url: `/api/members/workspaces/${id}/members`,
     method: 'get'
   })
 }
@@ -84,7 +84,7 @@ export function getWorkspaceMembers(id) {
  */
 export function inviteWorkspaceMember(id, data) {
   return request({
-    url: `/api/accounting/workspaces/${id}/members`,
+    url: `/api/members/workspaces/${id}/members`,
     method: 'post',
     data
   })
@@ -92,14 +92,14 @@ export function inviteWorkspaceMember(id, data) {
 
 export function getWorkspaceMemberGrants(id, memberId) {
   return request({
-    url: `/api/accounting/workspaces/${id}/members/${memberId}/grants`,
+    url: `/api/members/workspaces/${id}/members/${memberId}/grants`,
     method: 'get'
   })
 }
 
 export function updateWorkspaceMember(id, memberId, data) {
   return request({
-    url: `/api/accounting/workspaces/${id}/members/${memberId}`,
+    url: `/api/members/workspaces/${id}/members/${memberId}`,
     method: 'put',
     data
   })
@@ -107,14 +107,14 @@ export function updateWorkspaceMember(id, memberId, data) {
 
 export function removeWorkspaceMember(id, memberId) {
   return request({
-    url: `/api/accounting/workspaces/${id}/members/${memberId}`,
+    url: `/api/members/workspaces/${id}/members/${memberId}`,
     method: 'delete'
   })
 }
 
 export function searchWorkspaceUsers(id, email) {
   return request({
-    url: `/api/accounting/workspaces/${id}/users/search`,
+    url: `/api/members/workspaces/${id}/users/search`,
     method: 'get',
     params: { email }
   })
