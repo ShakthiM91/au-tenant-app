@@ -72,6 +72,17 @@ Deploy `dist/` with cache headers for `sw.js` and `workbox-*.js` (see `public/_h
 
 **iOS tab bar gap (PWA + native)** — `src/utils/iosViewportFix.js` sets `--au-app-height: 100vh` on iOS standalone / Capacitor iOS. Reinstall the PWA after changes if a white strip remains under the tab bar.
 
+## Workspaces (Islands)
+
+Accounting **workspaces** are exposed in the UI as **Islands** on the Accounts screen. Workspace APIs are served by **member-service**:
+
+- Client: `src/api/workspace.js` → `/api/members/workspaces/*`
+- Permissions: `member.workspaces.*` (legacy alias: `accounting.workspaces.*`)
+
+In **private** workspace mode, each island maps to a workspace; shared islands and pending invitations come from `GET /api/members/workspaces/shared`. Accounts, transactions, categories, and budgets remain on `/api/accounting/*` with optional `workspace_id`.
+
+See [`docs/workspaces.md`](../../docs/workspaces.md) for full architecture.
+
 ## Development
 
 Pages are developed one-by-one from the Figma design (I-E-Tracker). Add new routes to `src/router/index.js` and corresponding view components under `src/views/` as each screen is implemented.
