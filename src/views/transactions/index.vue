@@ -404,17 +404,17 @@
             </div>
             <div class="detail-cell">
               <div class="detail-cell-label">
-                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-                <span>Date & time</span>
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22a8 8 0 0 1 16 0"/><circle cx="10" cy="8" r="4"/><path d="M14 2a6 6 0 0 1 5 9"/></svg></span>
+                <span>Island</span>
               </div>
-              <span class="detail-cell-value">{{ formatDateAtTime(selectedTransaction.transaction_date) }}</span>
+              <span class="detail-cell-value">{{ detailIslandLabel(selectedTransaction) }}</span>
             </div>
             <div class="detail-cell">
               <div class="detail-cell-label">
-                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg></span>
-                <span>Status</span>
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+                <span>Account</span>
               </div>
-              <span class="detail-cell-value">{{ paymentStatusLabel(selectedTransaction) }}</span>
+              <span class="detail-cell-value">{{ detailAccountLabel(selectedTransaction) }}</span>
             </div>
             <div class="detail-cell">
               <div class="detail-cell-label">
@@ -427,34 +427,24 @@
             </div>
             <div class="detail-cell">
               <div class="detail-cell-label">
-                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22a8 8 0 0 1 16 0"/><circle cx="10" cy="8" r="4"/><path d="M14 2a6 6 0 0 1 5 9"/></svg></span>
-                <span>Island</span>
-              </div>
-              <span class="detail-cell-value">{{ detailIslandLabel(selectedTransaction) }}</span>
-            </div>
-            <div class="detail-cell" v-if="selectedTransaction.type !== 'transfer'">
-              <div class="detail-cell-label">
-                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
-                <span>Account</span>
-              </div>
-              <span class="detail-cell-value">{{ selectedTransaction.account_name || '—' }}</span>
-            </div>
-            <div class="detail-cell">
-              <div class="detail-cell-label">
                 <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg></span>
                 <span>Title</span>
               </div>
               <span class="detail-cell-value">{{ detailTransactionTitle(selectedTransaction) || '—' }}</span>
             </div>
-            <div
-              class="detail-cell detail-cell-span-full"
-              v-if="selectedTransaction.type === 'transfer' && (selectedTransaction.account_name || selectedTransaction.to_account_name)"
-            >
+            <div class="detail-cell">
               <div class="detail-cell-label">
-                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-                <span>Accounts</span>
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                <span>Date & time</span>
               </div>
-              <span class="detail-cell-value">{{ selectedTransaction.account_name || '—' }} → {{ selectedTransaction.to_account_name || '—' }}</span>
+              <span class="detail-cell-value">{{ formatDateAtTime(selectedTransaction.transaction_date) }}</span>
+            </div>
+            <div class="detail-cell">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg></span>
+                <span>Status</span>
+              </div>
+              <span class="detail-cell-value">{{ paymentStatusLabel(selectedTransaction) }}</span>
             </div>
             <div
               class="detail-cell detail-cell-span-full"
@@ -878,6 +868,16 @@ function detailIslandLabel(row) {
   if (!row) return '—'
   const name = (row.account_workspace_name || '').toString().trim()
   return name || 'Default Island'
+}
+
+function detailAccountLabel(row) {
+  if (!row) return '—'
+  if (row.type === 'transfer') {
+    const from = row.account_name || '—'
+    const to = row.to_account_name || '—'
+    return `${from} → ${to}`
+  }
+  return row.account_name || '—'
 }
 
 function formatAmountShort(row) {
