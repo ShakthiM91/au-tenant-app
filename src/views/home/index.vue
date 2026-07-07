@@ -622,14 +622,14 @@ function onFabSelect(type) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 0 14px;
+  padding: 10px 0 10px;
 }
 
 .brand-logo {
   display: block;
   height: 32px;
   width: auto;
-  max-width: min(220px, 72vw);
+  max-width: min(160px, 72vw);
   object-fit: contain;
 }
 

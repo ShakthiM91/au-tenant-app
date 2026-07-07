@@ -154,12 +154,22 @@
                       <span class="island-name">{{ group.island.name.endsWith('Island') ? group.island.name : group.island.name + ' Island' }}</span>
                       <span class="island-status">{{ formatIslandSharingStatus(group.island) }}</span>
                     </div>
-                    <div class="island-more-wrapper" @click.stop>
-                      <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
-                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                        </svg>
+                    <div class="island-header-actions">
+                      <button
+                        v-if="canShowIslandTransactionLog(group)"
+                        type="button"
+                        class="more-btn icon-only island-tx-log-btn"
+                        aria-label="Island transaction log"
+                        @click.stop="goIslandTransactionLog(group)"
+                      >
+                        <ion-icon :icon="bookOutline" class="island-tx-log-icon" />
                       </button>
+                      <div class="island-more-wrapper" @click.stop>
+                        <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
+                            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                          </svg>
+                        </button>
                       <Transition name="popover-fade">
                         <div
                           v-if="isIslandPopoverOpenFor(group)"
@@ -179,6 +189,7 @@
                           </button>
                         </div>
                       </Transition>
+                      </div>
                     </div>
                   </div>
                   <div v-if="group.accounts.length" class="account-rows">
@@ -196,7 +207,6 @@
                         <span v-if="account.current_balance != null || account.balance != null" class="account-balance">
                           {{ formatCurrency(account.current_balance ?? account.balance ?? 0, account.currency) }}
                         </span>
-                        <ion-icon :icon="peopleOutline" class="group-icon" />
                         <div class="account-more-wrapper" @click.stop>
                           <button type="button" class="more-btn" @click.stop="toggleAccountPopover(account, group, $event)">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="#A8A8A8">
@@ -272,31 +282,42 @@
                     </span>
                     <span class="island-status">{{ formatIslandSharingStatus(group.island) }}</span>
                   </div>
-                  <div class="island-more-wrapper" @click.stop>
-                    <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
-                        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                      </svg>
+                  <div class="island-header-actions">
+                    <button
+                      v-if="canShowIslandTransactionLog(group)"
+                      type="button"
+                      class="more-btn icon-only island-tx-log-btn"
+                      aria-label="Island transaction log"
+                      @click.stop="goIslandTransactionLog(group)"
+                    >
+                      <ion-icon :icon="bookOutline" class="island-tx-log-icon" />
                     </button>
-                    <Transition name="popover-fade">
-                      <div
-                        v-if="isIslandPopoverOpenFor(group)"
-                        class="island-options-popover"
-                        :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
-                        @click.stop
-                      >
-                        <button
-                          v-for="item in buildIslandMenuItems(group)"
-                          :key="item.role"
-                          type="button"
-                          class="island-popover-option"
-                          :class="{ destructive: item.destructive }"
-                          @click="onIslandPopoverSelect(item.role, group)"
+                    <div class="island-more-wrapper" @click.stop>
+                      <button type="button" class="more-btn icon-only" @click.stop="toggleIslandPopover(group, $event)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8D28">
+                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                        </svg>
+                      </button>
+                      <Transition name="popover-fade">
+                        <div
+                          v-if="isIslandPopoverOpenFor(group)"
+                          class="island-options-popover"
+                          :class="{ 'island-options-popover--up': optionsPopoverOpenUp }"
+                          @click.stop
                         >
-                          {{ item.label }}
-                        </button>
-                      </div>
-                    </Transition>
+                          <button
+                            v-for="item in buildIslandMenuItems(group)"
+                            :key="item.role"
+                            type="button"
+                            class="island-popover-option"
+                            :class="{ destructive: item.destructive }"
+                            @click="onIslandPopoverSelect(item.role, group)"
+                          >
+                            {{ item.label }}
+                          </button>
+                        </div>
+                      </Transition>
+                    </div>
                   </div>
                 </div>
                 <div v-if="group.accounts.length" class="account-rows">
@@ -451,7 +472,7 @@ import {
   IonLabel,
   IonIcon
 } from '@ionic/vue'
-import { peopleOutline } from 'ionicons/icons'
+import { peopleOutline, bookOutline } from 'ionicons/icons'
 import { showToast, showConfirmDialog } from '@/utils/ionicFeedback'
 import { getAccounts, getAccountsByWorkspace, deleteAccount } from '@/api/accounting'
 import {
@@ -836,6 +857,15 @@ function closeIslandPopover() {
 function onIslandPopoverSelect(role, group) {
   closeIslandPopover()
   handleIslandMenuAction(role, group)
+}
+
+function canShowIslandTransactionLog(group) {
+  return islandScopeAllowsView(effectiveIslandPermissionScope(group?.island))
+}
+
+function goIslandTransactionLog(group) {
+  closeIslandPopover()
+  handleIslandMenuAction('transaction-log', group)
 }
 
 function handleIslandMenuAction(role, group) {
@@ -1451,6 +1481,19 @@ onIonViewDidEnter(async () => {
   color: #A8A8A8;
   line-height: 18px;
   opacity: 0.8;
+}
+
+.island-header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.island-tx-log-icon {
+  display: flex;
+  font-size: 22px;
+  color: #FF8D28;
 }
 
 .island-more-wrapper {

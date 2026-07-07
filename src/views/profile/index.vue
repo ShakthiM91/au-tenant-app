@@ -347,7 +347,7 @@ const menuRows = computed(() => [
 }
 
 .display-name {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 500;
   color: #3a3a3c;
   letter-spacing: -0.02em;

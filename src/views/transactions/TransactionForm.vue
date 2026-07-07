@@ -31,9 +31,7 @@
               :disabled="saving || noAccountsBlock"
               @click="submitAndAddNew"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-              </svg>
+              <ion-icon :icon="duplicateOutline" class="header-ion-icon" />
             </button>
             <button
               type="button"
@@ -73,6 +71,7 @@
               <span class="datetime-trigger-text">{{ dateDisplayValue }}</span>
               <svg class="field-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
+            <span class="datetime-divider" aria-hidden="true">|</span>
             <button type="button" class="datetime-trigger" @click="showTimePicker = true">
               <svg class="datetime-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -81,7 +80,6 @@
               <svg class="field-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
           </div>
-          <p v-if="backdateLimitHint" class="backdate-hint">{{ backdateLimitHint }}</p>
 
           <!-- Island + Account side-by-side (income / expense) -->
           <div v-if="form.type !== 'transfer'" class="field-workspace-account-row">
@@ -144,6 +142,7 @@
             :visible="showDatePicker"
             :model-value="dateOnlyValue"
             :min-date="minTransactionDate"
+            :hint="backdateLimitHint"
             @close="showDatePicker = false"
             @select="onDateSelect"
           />
@@ -566,8 +565,10 @@ import {
   IonSearchbar,
   IonList,
   IonItem,
-  IonLabel
+  IonLabel,
+  IonIcon
 } from '@ionic/vue'
+import { duplicateOutline } from 'ionicons/icons'
 import { showToast, showToastIcon, showConfirmDialog } from '@/utils/ionicFeedback'
 import TabBar from '@/components/TabBar.vue'
 import CategoryForm from '@/views/categories/components/CategoryForm.vue'
@@ -1013,12 +1014,11 @@ function filterActiveCategories(categories) {
     }))
 }
 
-function flatten(arr, pre = '', parentId = null) {
+function flatten(arr, parentId = null) {
   const out = []
   for (const c of arr || []) {
-    const t = pre ? `${pre} > ${c.name}` : c.name
-    out.push({ value: Number(c.id), text: t, parentId: parentId != null ? Number(parentId) : null })
-    if (c.children?.length) out.push(...flatten(c.children, t, c.id))
+    out.push({ value: Number(c.id), text: c.name, parentId: parentId != null ? Number(parentId) : null })
+    if (c.children?.length) out.push(...flatten(c.children, c.id))
   }
   return out
 }
@@ -1819,7 +1819,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0 20px;
+  padding: 12px 0 12px;
   gap: 12px;
 }
 
@@ -1866,6 +1866,10 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
+.header-ion-icon {
+  font-size: 22px;
+}
+
 .header-icon-save {
   color: #ff8d28;
 }
@@ -1879,16 +1883,16 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   background: #e8e8ea;
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 3px;
-  margin-bottom: 20px;
+  margin-bottom: 6px;
 }
 
 .switch-tab {
   flex: 1;
   padding: 10px 8px;
   border: none;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   color: #9a9a9e;
@@ -1943,19 +1947,23 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 0;
+  padding: 10px 0;
   /* border-bottom: 1px solid rgba(168, 168, 168, 0.55); */
-  gap: 12px;
+  gap: 0px;
 }
 
 .field-datetime-row {
   flex-wrap: nowrap;
 }
 
-.backdate-hint {
-  margin: -4px 0 8px;
-  font-size: 12px;
-  color: #6e6a7c;
+.datetime-divider {
+  flex-shrink: 0;
+  padding: 0 10px;
+  color: rgba(168, 168, 168, 0.65);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1;
+  user-select: none;
 }
 
 .datetime-trigger {
@@ -1991,7 +1999,7 @@ onMounted(async () => {
   display: flex;
   align-items: stretch;
   gap: 0;
-  padding: 18px 0;
+  padding: 10px 0;
   /* border-bottom: 1px solid rgba(168, 168, 168, 0.55); */
 }
 
@@ -2161,10 +2169,10 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 141, 40, 0.55);
-  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #a8a8a866;
+  font-size: 13px;
   font-weight: 500;
   background: transparent;
   color: #ff8d28;

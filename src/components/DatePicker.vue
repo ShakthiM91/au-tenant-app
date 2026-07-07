@@ -53,6 +53,8 @@
               </div>
             </div>
 
+            <p v-if="hint" class="picker-hint">{{ hint }}</p>
+
             <div class="picker-quick">
               <button type="button" class="quick-btn" @click="setToday">Today</button>
               <button
@@ -78,7 +80,8 @@ import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 const props = defineProps({
   visible: { type: Boolean, default: false },
   modelValue: { type: String, default: '' },
-  minDate: { type: String, default: '' }
+  minDate: { type: String, default: '' },
+  hint: { type: String, default: '' }
 })
 
 const emit = defineEmits(['update:modelValue', 'close', 'select'])
@@ -346,6 +349,14 @@ function onCancel() { emit('close') }
   color: #d0d0d0;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+.picker-hint {
+  margin: -8px 0 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6e6a7c;
+  text-align: center;
 }
 
 .picker-quick {
