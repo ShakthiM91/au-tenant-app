@@ -246,6 +246,7 @@
         <DateRangePicker
           :model-value="{ from: dateFrom, to: dateTo }"
           :visible="showDatePicker"
+          quick-presets="month"
           @close="showDatePicker = false"
           @select="onDateRangeSelect"
         />

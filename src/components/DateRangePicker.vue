@@ -56,8 +56,14 @@
             </div>
 
             <div class="picker-quick">
-              <button type="button" class="quick-btn" @click="setToday">Today</button>
-              <button type="button" class="quick-btn" @click="setYesterday">Yesterday</button>
+              <template v-if="quickPresets === 'month'">
+                <button type="button" class="quick-btn" @click="setThisMonth">This month</button>
+                <button type="button" class="quick-btn" @click="setLastMonth">Last month</button>
+              </template>
+              <template v-else>
+                <button type="button" class="quick-btn" @click="setToday">Today</button>
+                <button type="button" class="quick-btn" @click="setYesterday">Yesterday</button>
+              </template>
             </div>
           </div>
           </div>
@@ -72,7 +78,9 @@ import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  modelValue: { type: Object, default: () => ({ from: '', to: '' }) }
+  modelValue: { type: Object, default: () => ({ from: '', to: '' }) },
+  /** 'day' = Today/Yesterday; 'month' = This month/Last month */
+  quickPresets: { type: String, default: 'day' }
 })
 
 const emit = defineEmits(['update:modelValue', 'close', 'select', 'clear'])
@@ -250,9 +258,13 @@ function onDayClick(cell) {
   }
 }
 
+function toDateStr(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 function setToday() {
   const d = new Date()
-  const s = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const s = toDateStr(d)
   tempFrom.value = s
   tempTo.value = s
   setViewToDate(d)
@@ -261,10 +273,27 @@ function setToday() {
 function setYesterday() {
   const d = new Date()
   d.setDate(d.getDate() - 1)
-  const s = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const s = toDateStr(d)
   tempFrom.value = s
   tempTo.value = s
   setViewToDate(d)
+}
+
+function setThisMonth() {
+  const now = new Date()
+  const from = new Date(now.getFullYear(), now.getMonth(), 1)
+  tempFrom.value = toDateStr(from)
+  tempTo.value = toDateStr(now)
+  setViewToDate(from)
+}
+
+function setLastMonth() {
+  const now = new Date()
+  const from = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const to = new Date(now.getFullYear(), now.getMonth(), 0)
+  tempFrom.value = toDateStr(from)
+  tempTo.value = toDateStr(to)
+  setViewToDate(from)
 }
 
 function onConfirm() {
