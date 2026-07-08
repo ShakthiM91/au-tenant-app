@@ -184,10 +184,11 @@ export function useOnboardingSurvey() {
       if (skippedAtQuestionId != null) {
         payload.skipped_at_question_id = skippedAtQuestionId
       }
+      const postRegister = isPostRegisterFlow()
       await submitOnboardingResponse(payload)
       clearSurveyGateCache()
       markSurveyGatePassed()
-      if (isPostRegisterFlow()) {
+      if (postRegister) {
         return completionStatus === 'completed' ? SURVEY_PROCESSING_ROUTE : ONBOARDING_ROUTE
       }
       return HOME_ROUTE
