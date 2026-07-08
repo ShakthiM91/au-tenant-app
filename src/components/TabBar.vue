@@ -89,7 +89,7 @@ const tabs = [
   left: 0;
   right: 0;
   background: #fff;
-  z-index: 100;
+  z-index: 1000;
   border-top: 1px solid #f0f0f0;
   padding-bottom: var(--au-safe-bottom, env(safe-area-inset-bottom, 0px));
 }

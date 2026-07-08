@@ -544,8 +544,6 @@
         </div>
       </Transition>
     </Teleport>
-
-    <TabBar />
   </ion-page>
 </template>
 
@@ -570,7 +568,6 @@ import {
 } from '@ionic/vue'
 import { duplicateOutline } from 'ionicons/icons'
 import { showToast, showToastIcon, showConfirmDialog } from '@/utils/ionicFeedback'
-import TabBar from '@/components/TabBar.vue'
 import CategoryForm from '@/views/categories/components/CategoryForm.vue'
 import DatePicker from '@/components/DatePicker.vue'
 import TimePicker from '@/components/TimePicker.vue'

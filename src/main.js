@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { IonicVue } from '@ionic/vue'
+import { IonicVue, isPlatform } from '@ionic/vue'
 import VChart from 'vue-echarts'
 import '@/echarts/registerEcharts.js'
 import '@ionic/vue/css/core.css'
@@ -23,7 +23,9 @@ const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
-app.use(IonicVue)
+app.use(IonicVue, {
+  swipeBackEnabled: !isPlatform('ios'),
+})
 app.use(router)
 setRouter(router)
 app.component('VChart', VChart)

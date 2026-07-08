@@ -19,27 +19,13 @@ import TabBar from '@/components/TabBar.vue'
 import PwaInstallBanner from '@/components/PwaInstallBanner.vue'
 import PwaUpdateBanner from '@/components/PwaUpdateBanner.vue'
 import { usePwaRegister } from '@/composables/usePwaRegister'
+import { shouldShowTabBar } from '@/utils/tabBarVisibility'
 
 const route = useRoute()
 const { needRefresh, updateServiceWorker } = usePwaRegister()
 const updateDismissed = ref(false)
 
-const TAB_BAR_ROUTES = [
-  '/home',
-  '/dashboard',
-  '/accounts',
-  '/analytics',
-  '/transactions',
-  '/accounting',
-  '/profile',
-  '/budgets',
-]
-
-const showTabBar = computed(() =>
-  TAB_BAR_ROUTES.some(r => route.path.startsWith(r)) &&
-  !route.path.startsWith('/transactions/create') &&
-  !/^\/transactions\/\d+$/.test(route.path)
-)
+const showTabBar = computed(() => shouldShowTabBar(route))
 
 const showUpdateBanner = computed(() => needRefresh.value && !updateDismissed.value)
 
