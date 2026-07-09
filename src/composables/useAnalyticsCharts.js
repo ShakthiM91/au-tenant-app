@@ -1087,7 +1087,11 @@ export function useAnalyticsCharts() {
       const report = repRes?.data
       const period = periods[periodIndex]
       const payload = {
-        items: Array.isArray(report?.items) ? report.items : [],
+        items: Array.isArray(report?.radar_items)
+          ? report.radar_items
+          : Array.isArray(report?.items)
+            ? report.items
+            : [],
         periodLabel: formatBudgetPeriodLabel(plan.period_type, period),
         periodIndex,
       }
