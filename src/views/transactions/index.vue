@@ -302,6 +302,7 @@
                       <strong>{{ getUserLabel(row) }}</strong> at <strong>{{ formatTime(row.transaction_date) }}</strong>
                     </span>
                     <span class="tx-category-pill">{{ getCategoryLabel(row) }}</span>
+                    <span v-if="isExcludedFromReports(row)" class="tx-excluded-pill">Excluded</span>
                     <span v-if="formatBalance(row)" class="tx-balance">{{ formatBalance(row) }}</span>
                   </div>
                 </div>
@@ -446,6 +447,20 @@
               </div>
               <span class="detail-cell-value">{{ paymentStatusLabel(selectedTransaction) }}</span>
             </div>
+            <div class="detail-cell detail-cell-span-full detail-exclude-row">
+              <div class="detail-cell-label">
+                <span class="detail-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M7.5 7.5C5.7 8.9 4.5 11 4.5 13.5A7.5 7.5 0 0 0 12 21c2.5 0 4.6-1.2 6-3"/></svg></span>
+                <span>Exclude from reports</span>
+              </div>
+              <div class="detail-exclude-control">
+                <ion-toggle
+                  :checked="isExcludedFromReports(selectedTransaction)"
+                  :disabled="selectedTransaction._pending"
+                  @ionChange="onDetailExcludeToggle"
+                />
+                <span class="detail-exclude-hint">Omitted from analytics charts. Balance unchanged.</span>
+              </div>
+            </div>
             <div
               class="detail-cell detail-cell-span-full"
               v-if="detailReferenceLabel(selectedTransaction)"
@@ -499,11 +514,12 @@ import {
   IonTitle,
   IonButtons,
   IonButton,
+  IonToggle,
   onIonViewDidEnter
 } from '@ionic/vue'
 import { cloudOfflineOutline } from 'ionicons/icons'
 import { showToast, showActionSheet, showConfirmDialog } from '@/utils/ionicFeedback'
-import { getTransactions, deleteTransaction, getSummary, getCategoryTree } from '@/api/accounting'
+import { getTransactions, deleteTransaction, getSummary, getCategoryTree, updateTransaction } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces, deleteWorkspace } from '@/api/workspace'
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { getPendingWrites, deleteEntry } from '@/db/pendingWrites'
@@ -1458,8 +1474,43 @@ function transactionRowActionFlags() {
 /** More menu: pending rows need “Remove from queue”; otherwise need at least one of Edit/Delete. */
 function rowHasOverflowActions(row) {
   if (row._pending) return true
-  const { showEdit, showDelete } = transactionRowActionFlags()
-  return showEdit || showDelete
+  return true
+}
+
+function isExcludedFromReports(row) {
+  return Boolean(Number(row?.exclude_from_reports))
+}
+
+async function toggleExcludeFromReports(row) {
+  if (!row || row._pending) return
+  const next = !isExcludedFromReports(row)
+  try {
+    await updateTransaction(row.id, { exclude_from_reports: next })
+    if (selectedTransaction.value?.id === row.id) {
+      selectedTransaction.value = { ...selectedTransaction.value, exclude_from_reports: next ? 1 : 0 }
+    }
+    showToast(next ? 'Excluded from reports' : 'Included in reports')
+    invalidateAccountingCache()
+    await refreshData()
+  } catch (e) {
+    showToast(e?.message || 'Update failed')
+  }
+}
+
+async function onDetailExcludeToggle(ev) {
+  const row = selectedTransaction.value
+  if (!row || row._pending) return
+  const next = Boolean(ev.detail.checked)
+  if (next === isExcludedFromReports(row)) return
+  try {
+    await updateTransaction(row.id, { exclude_from_reports: next })
+    selectedTransaction.value = { ...row, exclude_from_reports: next ? 1 : 0 }
+    showToast(next ? 'Excluded from reports' : 'Included in reports')
+    invalidateAccountingCache()
+    await refreshData()
+  } catch (e) {
+    showToast(e?.message || 'Update failed')
+  }
 }
 
 async function openRowOptions(row) {
@@ -1469,6 +1520,12 @@ async function openRowOptions(row) {
     ? [{ text: 'Remove from queue', role: 'remove-queue' }, { text: 'Cancel', role: 'cancel' }]
     : (() => {
         const opts = []
+        if (!row._pending) {
+          opts.push({
+            text: isExcludedFromReports(row) ? 'Include in reports' : 'Exclude from reports',
+            role: 'exclude-reports'
+          })
+        }
         if (showEdit) opts.push({ text: 'Edit', role: 'edit' })
         if (showDelete) opts.push({ text: 'Delete', role: 'delete' })
         opts.push({ text: 'Cancel', role: 'cancel' })
@@ -1485,6 +1542,8 @@ async function openRowOptions(row) {
     }
   } else if (role === 'edit' && !row._pending) {
     router.push(`/transactions/${row.id}`)
+  } else if (role === 'exclude-reports' && !row._pending) {
+    await toggleExcludeFromReports(row)
   } else if (role === 'delete' && !row._pending) {
     try {
       await showConfirmDialog({ title: 'Delete', message: `Delete "${row.transaction_number || row.title}"?` })
@@ -2212,13 +2271,39 @@ onUnmounted(() => {
 }
 
 .tx-category-pill {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: #F0F0F0;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
   font-size: 11px;
-  font-weight: 500;
-  color: #6E6A7C;
+  font-weight: 600;
+  background: rgba(255, 141, 40, 0.12);
+  color: #ff8d28;
+}
+
+.tx-excluded-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(110, 106, 124, 0.12);
+  color: #6e6a7c;
+}
+
+.detail-exclude-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.detail-exclude-hint {
+  font-size: 12px;
+  color: #6e6a7c;
+  line-height: 1.35;
 }
 
 .tx-balance {

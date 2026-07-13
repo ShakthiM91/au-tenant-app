@@ -275,6 +275,14 @@
             @select="onAmountSelect"
           />
 
+          <div class="field-underline field-exclude-row">
+            <div class="field-exclude-copy">
+              <label class="field-label">Exclude from reports</label>
+              <p class="field-hint">Correction entry — omitted from analytics charts. Balance unchanged.</p>
+            </div>
+            <ion-toggle v-model="form.exclude_from_reports" />
+          </div>
+
           <!-- Description -->
           <div class="field-underline field-underline-last">
             <label class="field-label">Description</label>
@@ -564,7 +572,8 @@ import {
   IonList,
   IonItem,
   IonLabel,
-  IonIcon
+  IonIcon,
+  IonToggle
 } from '@ionic/vue'
 import { duplicateOutline } from 'ionicons/icons'
 import { showToast, showToastIcon, showConfirmDialog } from '@/utils/ionicFeedback'
@@ -639,7 +648,8 @@ const form = reactive({
   currency: 'USD',
   description: '',
   transaction_date: getCurrentDateTimeString(),
-  status: 'completed'
+  status: 'completed',
+  exclude_from_reports: false
 })
 
 const typeOptions = [
@@ -1571,6 +1581,7 @@ async function loadEdit() {
     form.description = t.description || ''
     form.transaction_date = normalizeTransactionDateTime(t.transaction_date)
     form.status = t.status || 'completed'
+    form.exclude_from_reports = Boolean(Number(t.exclude_from_reports || 0))
     form.account_id = aid
     form.to_account_id = toId
     form.category_id = null
@@ -1633,7 +1644,8 @@ async function submit(stayAndAddNew = false) {
       currency: form.currency,
       description: form.description?.trim() || null,
       transaction_date: normalizeTransactionDateTime(form.transaction_date),
-      status: form.status
+      status: form.status,
+      exclude_from_reports: Boolean(form.exclude_from_reports)
     }
     const res = isEdit ? await updateTransaction(id, body) : await createTransaction(body)
     if (res?.queued) {
@@ -2311,6 +2323,27 @@ onMounted(async () => {
 .field-underline-last {
   border-bottom: 1px solid rgba(168, 168, 168, 0.55);
   padding-bottom: 8px;
+}
+
+.field-exclude-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(168, 168, 168, 0.55);
+}
+
+.field-exclude-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #6e6a7c;
 }
 
 .field-label {
