@@ -33,6 +33,14 @@
         <p class="chart-focus-modal__detail-value">
           {{ selectedSlice.amount }} · {{ selectedSlice.percent }}%
         </p>
+        <button
+          v-if="onDrill"
+          type="button"
+          class="chart-focus-modal__drill-btn"
+          @click="onViewTransactions"
+        >
+          View transactions
+        </button>
       </div>
     </ion-content>
   </ion-modal>
@@ -57,9 +65,16 @@ const props = defineProps({
   title: { type: String, default: '' },
   subtitle: { type: String, default: '' },
   option: { type: Object, default: () => ({}) },
+  onDrill: { type: Function, default: null },
 })
 
 const emit = defineEmits(['close'])
+
+function handleDrill(params) {
+  if (!props.onDrill) return
+  emit('close')
+  props.onDrill(params)
+}
 
 const optionRef = toRef(props, 'option')
 const {
@@ -70,7 +85,9 @@ const {
   resetInteraction,
   onChartClick,
   onChartDblClick,
-} = useAnalyticsChartHandlers(optionRef)
+} = useAnalyticsChartHandlers(optionRef, {
+  onDrill: handleDrill,
+})
 
 const hintText = computed(() => {
   if (isPie.value) return 'Tap a segment to focus · Tap again to clear'
@@ -114,6 +131,16 @@ watch(
 function onDismiss() {
   resetInteraction()
   emit('close')
+}
+
+function onViewTransactions() {
+  if (selectedIndex.value == null || !props.onDrill) return
+  handleDrill({
+    seriesType: 'pie',
+    dataIndex: selectedIndex.value,
+    componentType: 'series',
+    name: selectedSlice.value?.name,
+  })
 }
 </script>
 
@@ -177,5 +204,17 @@ function onDismiss() {
   margin: 0;
   font-size: 13px;
   color: rgba(0, 0, 0, 0.55);
+}
+
+.chart-focus-modal__drill-btn {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #ff8d28;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>

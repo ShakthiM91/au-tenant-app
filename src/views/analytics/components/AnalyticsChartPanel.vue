@@ -43,6 +43,8 @@ const props = defineProps({
   bodyClass: { type: [String, Array, Object], default: '' },
   bodyStyle: { type: Object, default: null },
   chartClass: { type: [String, Array, Object], default: '' },
+  chartKey: { type: String, default: '' },
+  onDrill: { type: Function, default: null },
 })
 
 const emit = defineEmits(['open'])
@@ -53,7 +55,9 @@ const {
   interactiveOption,
   onChartClick,
   onChartDblClick,
-} = useAnalyticsChartHandlers(toRef(props, 'option'))
+} = useAnalyticsChartHandlers(toRef(props, 'option'), {
+  onDrill: (params) => props.onDrill?.(params),
+})
 
 const displayOption = computed(() =>
   isInteractive.value ? interactiveOption.value : props.option
@@ -65,6 +69,7 @@ function onOpen() {
     title: props.title,
     subtitle: props.subtitle,
     option: props.option,
+    chartKey: props.chartKey,
   })
 }
 </script>

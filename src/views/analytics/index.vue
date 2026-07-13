@@ -64,6 +64,8 @@
               title="Monthly Analysis"
               :subtitle="monthlyAnalysisPeriodLabel"
               :option="monthlyBarOption"
+              chart-key="monthlyAnalysis"
+              :on-drill="drillFor('monthlyAnalysis')"
               @open="openChartFocus"
             />
           </section>
@@ -83,6 +85,8 @@
               :subtitle="categoryDonutPeriodLabel"
               :option="subcategoryDonutOption"
               :loading="categoryDonutLoading"
+              chart-key="subcategory"
+              :on-drill="drillFor('subcategory')"
               @open="openChartFocus"
             />
           </section>
@@ -100,6 +104,8 @@
               title="I/E Monthly Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="incomeExpenseBarOption"
+              chart-key="ieMonthly"
+              :on-drill="drillFor('ieMonthly')"
               @open="openChartFocus"
             />
           </section>
@@ -122,6 +128,8 @@
               :subtitle="dailyMonthLabel"
               :option="dailyAnalysisOption"
               :loading="analytics.dailyMonthLoading"
+              chart-key="dailyAnalysis"
+              :on-drill="drillFor('dailyAnalysis')"
               @open="openChartFocus"
             />
           </section>
@@ -140,6 +148,8 @@
               :subtitle="dailyMonthLabel"
               :option="monthlyProgressionStepOption"
               :loading="analytics.dailyMonthLoading"
+              chart-key="monthlyProgression"
+              :on-drill="drillFor('monthlyProgression')"
               @open="openChartFocus"
             />
           </section>
@@ -158,6 +168,8 @@
               :subtitle="patternPeriodLabel"
               :option="weekdayAnalysisOption"
               :loading="analytics.patternLoading"
+              chart-key="weekday"
+              :on-drill="drillFor('weekday')"
               @open="openChartFocus"
             />
           </section>
@@ -176,6 +188,8 @@
               :subtitle="patternPeriodLabel"
               :option="dayOfMonthAnalysisOption"
               :loading="analytics.patternLoading"
+              chart-key="dom"
+              :on-drill="drillFor('dom')"
               @open="openChartFocus"
             />
           </section>
@@ -193,6 +207,8 @@
               title="Monthly Analysis"
               :subtitle="monthlyAnalysisPeriodLabel"
               :option="monthlyBarOption"
+              chart-key="monthlyAnalysis"
+              :on-drill="drillFor('monthlyAnalysis')"
               @open="openChartFocus"
             />
           </section>
@@ -214,6 +230,8 @@
               :subtitle="categoryDonutPeriodLabel"
               :option="categoryWiseDonutOption"
               :loading="categoryDonutLoading"
+              chart-key="categoryWise"
+              :on-drill="drillFor('categoryWise')"
               @open="openChartFocus"
             />
           </section>
@@ -233,6 +251,8 @@
               :subtitle="categoryDonutPeriodLabel"
               :option="subcategoryDonutOption"
               :loading="categoryDonutLoading"
+              chart-key="subcategory"
+              :on-drill="drillFor('subcategory')"
               @open="openChartFocus"
             />
           </section>
@@ -297,6 +317,8 @@
               :subtitle="treemapPeriodLabel"
               :option="treemapRsOption"
               :loading="analytics.treemapLoading"
+              chart-key="treemap"
+              :on-drill="drillFor('treemap')"
               @open="openChartFocus"
             />
           </section>
@@ -319,6 +341,8 @@
               :subtitle="sankeyMonthLabel"
               :option="sankeyOption"
               :loading="analytics.sankeyLoading"
+              chart-key="sankey"
+              :on-drill="drillFor('sankey')"
               @open="openChartFocus"
             />
           </section>
@@ -338,6 +362,8 @@
               :subtitle="paretoPeriodLabel"
               :option="pareto12kOption"
               :loading="analytics.paretoLoading"
+              chart-key="pareto"
+              :on-drill="drillFor('pareto')"
               @open="openChartFocus"
             />
           </section>
@@ -361,6 +387,8 @@
               :subtitle="analytics.budgetRadarPeriodLabel"
               :option="radarPlannedActualOption"
               :loading="analytics.budgetRadarLoading"
+              chart-key="radar"
+              :on-drill="drillFor('radar')"
               @open="openChartFocus"
             />
           </section>
@@ -386,6 +414,8 @@
               :subtitle="progressionMonthLabel"
               :option="ieProgressionDualAreaOption"
               :loading="analytics.ieProgressionMonthLoading"
+              chart-key="ieProgression"
+              :on-drill="drillFor('ieProgression')"
               @open="openChartFocus"
             />
           </section>
@@ -403,6 +433,8 @@
               title="I/E Monthly Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="incomeExpenseHighlightOption"
+              chart-key="ieMonthly"
+              :on-drill="drillFor('ieMonthly')"
               @open="openChartFocus"
             />
           </section>
@@ -420,6 +452,8 @@
               title="I/E Gap Monthly Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="ieGapMonthlyOption"
+              chart-key="ieGap"
+              :on-drill="drillFor('ieGap')"
               @open="openChartFocus"
             />
           </section>
@@ -437,6 +471,8 @@
               title="I/E Waterfall Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="ieWaterfall12Option"
+              chart-key="ieWaterfall"
+              :on-drill="drillFor('ieWaterfall')"
               @open="openChartFocus"
             />
           </section>
@@ -450,6 +486,7 @@
       :title="chartFocus?.title || ''"
       :subtitle="chartFocus?.subtitle || ''"
       :option="chartFocus?.option || {}"
+      :on-drill="focusDrillHandler"
       @close="closeChartFocus"
     />
   </ion-page>
@@ -512,6 +549,7 @@ import {
 } from '@/views/analytics/chartOptions'
 import AnalyticsChartPanel from '@/views/analytics/components/AnalyticsChartPanel.vue'
 import AnalyticsChartFocusModal from '@/views/analytics/components/AnalyticsChartFocusModal.vue'
+import { useAnalyticsDrillDown } from '@/views/analytics/useAnalyticsDrillDown.js'
 import CategoryPickerFlyout from '@/components/CategoryPickerFlyout.vue'
 import { toYmdInLocalTime } from '@/utils/profileDisplay'
 import {
@@ -522,6 +560,7 @@ import {
 const analytics = useAnalyticsCharts()
 const viewMode = ref('basic')
 const chartFocus = ref(null)
+const chartFocusKey = ref(null)
 const categoryAnalysisPickerRef = ref(null)
 const categoryAnalysisSelectedId = ref(null)
 
@@ -537,6 +576,19 @@ const monthlyAnalysisMonths = ref(6)
 
 const IE_MONTHLY_PERIOD_OPTIONS = STANDARD_PERIOD_OPTIONS.filter((p) => p.months === 6 || p.months === 12)
 const ieMonthlyAnalysisMonths = ref(6)
+
+const drillDown = useAnalyticsDrillDown(analytics, {
+  monthlyAnalysisMonths,
+  ieMonthlyAnalysisMonths,
+})
+
+function drillFor(key) {
+  return (params) => drillDown.focusDrillHandler(key, params)
+}
+
+const focusDrillHandler = computed(() =>
+  chartFocusKey.value ? drillFor(chartFocusKey.value) : null
+)
 
 const patternPeriodLabel = computed(() => {
   const opt = PATTERN_PERIOD_OPTIONS.find((p) => p.months === analytics.patternPeriodMonths)
@@ -849,10 +901,12 @@ function openChartFocus(payload) {
     subtitle: payload.subtitle || '',
     option: payload.option,
   }
+  chartFocusKey.value = payload.chartKey || null
 }
 
 function closeChartFocus() {
   chartFocus.value = null
+  chartFocusKey.value = null
 }
 
 async function loadAdvancedCharts() {

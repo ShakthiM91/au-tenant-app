@@ -90,6 +90,36 @@ const routes = [
     component: () => import('@/views/analytics/index.vue'),
   },
   {
+    path: '/analytics/day/:date',
+    name: 'AnalyticsDay',
+    component: () => import('@/views/analytics/AnalyticsDayDetail.vue'),
+    meta: { hideTabBar: true },
+  },
+  {
+    path: '/analytics/month/:ym',
+    name: 'AnalyticsMonth',
+    component: () => import('@/views/analytics/AnalyticsMonthDetail.vue'),
+    meta: { hideTabBar: true },
+  },
+  {
+    path: '/analytics/expense-by-category/:categoryId',
+    name: 'AnalyticsExpenseByCategoryDetail',
+    component: () => import('@/views/analytics/ExpenseByCategoryDetail.vue'),
+    meta: { hideTabBar: true },
+  },
+  {
+    path: '/analytics/income-by-category/:categoryId',
+    name: 'AnalyticsIncomeByCategoryDetail',
+    component: () => import('@/views/analytics/ExpenseByCategoryDetail.vue'),
+    meta: { hideTabBar: true },
+  },
+  {
+    path: '/analytics/pattern-transactions',
+    name: 'AnalyticsPatternTransactions',
+    component: () => import('@/views/analytics/ReportPatternTransactionsDetail.vue'),
+    meta: { hideTabBar: true },
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     redirect: { name: 'Home' },

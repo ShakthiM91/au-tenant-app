@@ -15,8 +15,9 @@ export function getRecentTransactions(limit = 5) {
   return getTransactions({ limit, offset: 0, recent_for_current_user: 1 })
 }
 
-export function getCategories(type = null) {
-  const params = type ? { type } : {}
+export function getCategories(type = null, extraParams = {}) {
+  const params = { ...extraParams }
+  if (type) params.type = type
   return request({
     url: '/api/accounting/categories',
     method: 'get',

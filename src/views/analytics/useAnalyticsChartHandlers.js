@@ -6,7 +6,7 @@ import {
 } from '@/views/analytics/chartOptions'
 
 /** Pie / treemap click handlers shared by inline charts and the focus modal. */
-export function useAnalyticsChartHandlers(optionSource) {
+export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
   const chartRef = ref(null)
   const selectedIndex = ref(null)
   const treemapLastTapAt = ref(0)
@@ -78,6 +78,14 @@ export function useAnalyticsChartHandlers(optionSource) {
   }
 
   function onChartClick(params) {
+    if (onDrill && params?.seriesType === 'sankey') {
+      onDrill(params)
+      return
+    }
+    if (onDrill && params?.seriesType === 'treemap') {
+      onDrill(params)
+      return
+    }
     if (isTreemap.value && params?.seriesType === 'treemap') {
       const now = Date.now()
       if (treemapLastTapAt.value && now - treemapLastTapAt.value < 400) {
@@ -89,7 +97,10 @@ export function useAnalyticsChartHandlers(optionSource) {
       treemapZoomIn(params)
       return
     }
-    if (!isPie.value || params?.componentType !== 'series' || params?.seriesType !== 'pie') return
+    if (!isPie.value || params?.componentType !== 'series' || params?.seriesType !== 'pie') {
+      if (onDrill) onDrill(params)
+      return
+    }
     if (params?.data?.name === 'No data') return
     const idx = params.dataIndex
     selectedIndex.value = selectedIndex.value === idx ? null : idx

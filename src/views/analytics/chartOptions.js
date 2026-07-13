@@ -405,7 +405,7 @@ function buildDonutOption(rows, { tall = false, expanded = false } = {}) {
   }
 }
 
-/** @param {{ category_name: string, amount: number }[]} rows */
+/** @param {{ category_name: string, amount: number, category_id?: number }[]} rows */
 export function categoryDonutFromRows(rows, opts) {
   const mapped = (rows || [])
     .filter((r) => Number(r.amount) > 0)
@@ -413,6 +413,7 @@ export function categoryDonutFromRows(rows, opts) {
       name: r.category_name || 'Uncategorized',
       value: Number(r.amount) || 0,
       color: DONUT_COLORS[i % DONUT_COLORS.length],
+      category_id: r.category_id != null ? Number(r.category_id) : 0,
     }))
   if (!mapped.length) {
     return {
@@ -848,6 +849,7 @@ export function treemapFromCategories(rows) {
   const treemapRsData = sorted.map((d, i) => ({
     name: d.category_name || 'Uncategorized',
     value: Number(d.amount) || 0,
+    category_id: d.category_id != null ? Number(d.category_id) : 0,
     itemStyle: { color: TREEMAP_BLUES[Math.min(i, TREEMAP_BLUES.length - 1)] },
     label: {
       color: Number(d.amount) >= 20000 ? 'rgba(255,255,255,0.97)' : 'rgba(0,0,0,0.7)',
@@ -943,18 +945,24 @@ export function sankeyFromFlow(flow) {
   const links = []
   const usedNames = new Set()
 
-  function addNode(name, depth, color) {
+  function addNode(name, depth, color, drillMeta = null) {
     nodes.push({
       name,
       depth,
       itemStyle: color ? { color, borderColor: 'rgba(255,255,255,0.85)', borderWidth: 1 } : undefined,
+      ...(drillMeta || {}),
     })
   }
 
   if (totalIncome > 0) {
     incomeRows.forEach((row, i) => {
       const name = sankeyNodeName(row.category_name, usedNames, '(income)')
-      addNode(name, 0, SANKEY_INCOME_COLORS[i % SANKEY_INCOME_COLORS.length])
+      addNode(name, 0, SANKEY_INCOME_COLORS[i % SANKEY_INCOME_COLORS.length], {
+        drillable: true,
+        categoryId: row.category_id != null ? Number(row.category_id) : 0,
+        categoryName: row.category_name || name,
+        txnType: 'income',
+      })
       links.push({ source: name, target: SANKEY_HUB, value: Number(row.amount) })
     })
   } else if (totalExpense > 0) {
@@ -973,7 +981,12 @@ export function sankeyFromFlow(flow) {
     const raw = Number(row.amount) || 0
     const value = Math.round(raw * expenseScale * 100) / 100
     if (value <= 0) return
-    addNode(name, 2, SANKEY_EXPENSE_COLORS[i % SANKEY_EXPENSE_COLORS.length])
+    addNode(name, 2, SANKEY_EXPENSE_COLORS[i % SANKEY_EXPENSE_COLORS.length], {
+      drillable: true,
+      categoryId: row.category_id != null ? Number(row.category_id) : 0,
+      categoryName: row.category_name || name,
+      txnType: 'expense',
+    })
     links.push({ source: SANKEY_HUB, target: name, value })
     allocatedExpense += value
   })
