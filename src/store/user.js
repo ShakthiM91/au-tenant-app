@@ -11,6 +11,7 @@ import { getToken, setToken, removeToken, setRefreshToken, removeRefreshToken } 
 import { clearAllClientStorage } from '@/utils/clearDeviceStorage'
 import { clearInMemoryAppCaches } from '@/utils/clearInMemoryAppCaches'
 import { useSyncStore } from '@/store/sync'
+import { initWebPush, teardownWebPush } from '@/composables/useWebPush'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -134,6 +135,8 @@ export const useUserStore = defineStore('user', {
         this.permissions = permissions || []
         this.menus = menus || []
 
+        initWebPush().catch(() => {})
+
         return response
       } catch (error) {
         await this.clearSession()
@@ -153,6 +156,7 @@ export const useUserStore = defineStore('user', {
 
     /** Wipe in-memory state and all user data on device (logout / session expiry). */
     async clearSession() {
+      await teardownWebPush().catch(() => {})
       clearInMemoryAppCaches()
       this.resetState()
       useSyncStore().resetState()

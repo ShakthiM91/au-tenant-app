@@ -12,18 +12,21 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { IonApp, IonRouterOutlet } from '@ionic/vue'
+import { IonApp, IonRouterOutlet, toastController } from '@ionic/vue'
 import TabBar from '@/components/TabBar.vue'
 import PwaInstallBanner from '@/components/PwaInstallBanner.vue'
 import PwaUpdateBanner from '@/components/PwaUpdateBanner.vue'
 import { usePwaRegister } from '@/composables/usePwaRegister'
 import { shouldShowTabBar } from '@/utils/tabBarVisibility'
+import { ensureWebPushListener } from '@/composables/useWebPush'
+import { getToken } from '@/utils/auth'
 
 const route = useRoute()
 const { needRefresh, updateServiceWorker } = usePwaRegister()
 const updateDismissed = ref(false)
+let unbindPush = null
 
 const showTabBar = computed(() => shouldShowTabBar(route))
 
@@ -40,6 +43,26 @@ async function applyPwaUpdate() {
 function dismissUpdate() {
   updateDismissed.value = true
 }
+
+async function showForegroundPush(payload) {
+  const title = payload.notification?.title || payload.data?.title || 'Notification'
+  const body = payload.notification?.body || payload.data?.body || ''
+  const toast = await toastController.create({
+    message: body ? `${title}: ${body}` : title,
+    duration: 4500,
+    position: 'top'
+  })
+  await toast.present()
+}
+
+onMounted(async () => {
+  if (!getToken()) return
+  unbindPush = await ensureWebPushListener(showForegroundPush)
+})
+
+onUnmounted(() => {
+  if (typeof unbindPush === 'function') unbindPush()
+})
 </script>
 
 <style>
