@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
           globIgnores: ['**/splash-artwork.png', '**/onboarding-*.png', '**/welcome-journey.png', '**/home-banner-1.png', '**/firebase-messaging-sw.js'],
           navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api\//]
+          navigateFallbackDenylist: [/^\/api\//, /^\/firebase-messaging-sw\.js$/]
         }
       })
     ],

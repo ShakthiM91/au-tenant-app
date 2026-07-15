@@ -1,9 +1,13 @@
 /**
- * Serves /firebase-messaging-sw.js by delegating to push-service (via /api proxy).
+ * Serves /firebase-messaging-sw.js for FCM web push.
+ * Bootstrap loads the full script from push-service at runtime (no build-time API needed).
  */
 export function fcmServiceWorkerPlugin(appToken = '') {
-  const token = encodeURIComponent(appToken || '')
-  const source = `importScripts('/api/push/firebase-messaging-sw.js?app_token=${token}');`
+  const safeToken = (appToken || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  const source = [
+    '/* FCM bootstrap — loads messaging worker from push-service at runtime */',
+    `importScripts(self.location.origin + '/api/push/messaging-service-worker?app_token=' + encodeURIComponent('${safeToken}'));`
+  ].join('\n')
 
   return {
     name: 'revo-fcm-service-worker',
