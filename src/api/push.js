@@ -25,7 +25,9 @@ export function registerPushDevice(payload) {
   return request({
     url: '/api/push/devices/register',
     method: 'post',
-    data: payload
+    data: payload,
+    skipQueue: true,
+    silentError: true
   })
 }
 
@@ -33,6 +35,8 @@ export function unregisterPushDevice(token) {
   return request({
     url: `/api/push/devices/${encodeURIComponent(token)}`,
     method: 'delete',
-    params: { app_token: APP_TOKEN }
+    params: { app_token: APP_TOKEN },
+    skipQueue: true,
+    silentError: true
   })
 }

@@ -6,11 +6,13 @@ import { fcmServiceWorkerPlugin } from './vite.fcm-sw.js'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const appToken = env.VITE_APP_TOKEN || 'au-tenant-app-token-2024'
+  const fcmSenderId = env.VITE_FCM_SENDER_ID || '988110853089'
 
   return {
     plugins: [
       vue(),
-      fcmServiceWorkerPlugin(env.VITE_APP_TOKEN),
+      fcmServiceWorkerPlugin(appToken, env.VITE_API_BASE_URL || 'http://localhost:3000'),
       VitePWA({
         registerType: 'prompt',
         injectRegister: 'auto',
@@ -18,6 +20,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: 'Rupee Life',
           short_name: 'Rupee Life',
+          gcm_sender_id: fcmSenderId,
           description: 'Rupee Life mobile app for Revo ERP',
           theme_color: '#ff8d28',
           background_color: '#ffffff',

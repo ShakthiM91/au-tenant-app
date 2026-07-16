@@ -102,6 +102,13 @@
                 <ion-icon :icon="chevronForwardOutline" class="chevron" />
               </div>
             </button>
+            <button type="button" class="st-row" @click="enablePush">
+              <span class="st-label">Push notifications</span>
+              <div class="st-right">
+                <span class="st-value">{{ pushStatusLabel }}</span>
+                <ion-icon :icon="chevronForwardOutline" class="chevron" />
+              </div>
+            </button>
           </div>
         </section>
 
@@ -159,6 +166,11 @@ import { setPrimaryAccount, getAccounts, getAccountsByWorkspace } from '@/api/ac
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import request from '@/utils/request'
 import { showToast as showFeedbackToast } from '@/utils/ionicFeedback'
+import {
+  enableWebPushNotifications,
+  getWebPushPermission,
+  hasRegisteredFcmToken
+} from '@/composables/useWebPush'
 
 const LS = {
   language: 'au_settings_language',
@@ -182,6 +194,9 @@ const languageLabel = ref('English')
 const themeLabel = ref('Light')
 const checkInOn = ref(true)
 const memberActivityOn = ref(true)
+const pushEnabling = ref(false)
+const pushPermission = ref(getWebPushPermission())
+const pushRegistered = ref(hasRegisteredFcmToken())
 const enabledCurrencies = ref([])
 const tenantDefaultCurrency = ref(null)
 const logoutConfirmOpen = ref(false)
@@ -421,6 +436,9 @@ async function loadCurrencyContext() {
 }
 
 onMounted(async () => {
+  pushPermission.value = getWebPushPermission()
+  pushRegistered.value = hasRegisteredFcmToken()
+
   try {
     const lang = localStorage.getItem(LS.language)
     if (lang) languageLabel.value = lang
@@ -537,6 +555,28 @@ async function onDefaultCurrency() {
 function toggleCheckIn() {
   checkInOn.value = !checkInOn.value
   persist()
+}
+
+const pushStatusLabel = computed(() => {
+  if (pushRegistered.value) return 'Enabled on this device'
+  if (pushPermission.value === 'denied') return 'Blocked — tap to fix'
+  if (pushPermission.value === 'granted') return 'Allowed — tap to register'
+  return 'Tap to enable'
+})
+
+async function enablePush() {
+  if (pushEnabling.value) return
+  pushEnabling.value = true
+  try {
+    const result = await enableWebPushNotifications()
+    pushPermission.value = getWebPushPermission()
+    pushRegistered.value = hasRegisteredFcmToken()
+    if (!result.ok && result.reason === 'permission-denied') {
+      showToast('Reset: address bar lock icon → Site settings → Notifications → Allow')
+    }
+  } finally {
+    pushEnabling.value = false
+  }
 }
 
 function toggleMemberActivity() {

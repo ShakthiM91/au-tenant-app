@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { IonApp, IonRouterOutlet, toastController } from '@ionic/vue'
 import TabBar from '@/components/TabBar.vue'
@@ -21,9 +21,10 @@ import PwaUpdateBanner from '@/components/PwaUpdateBanner.vue'
 import { usePwaRegister } from '@/composables/usePwaRegister'
 import { shouldShowTabBar } from '@/utils/tabBarVisibility'
 import { ensureWebPushListener } from '@/composables/useWebPush'
-import { getToken } from '@/utils/auth'
+import { useUserStore } from '@/store/user'
 
 const route = useRoute()
+const userStore = useUserStore()
 const { needRefresh, updateServiceWorker } = usePwaRegister()
 const updateDismissed = ref(false)
 let unbindPush = null
@@ -37,7 +38,17 @@ watch(needRefresh, (v) => {
 })
 
 async function applyPwaUpdate() {
-  await updateServiceWorker(true)
+  try {
+    await updateServiceWorker(true)
+  } catch (err) {
+    console.warn('[PWA] update failed, reloading', err)
+    window.location.reload()
+    return
+  }
+
+  window.setTimeout(() => {
+    if (needRefresh.value) window.location.reload()
+  }, 2500)
 }
 
 function dismissUpdate() {
@@ -55,10 +66,18 @@ async function showForegroundPush(payload) {
   await toast.present()
 }
 
-onMounted(async () => {
-  if (!getToken()) return
-  unbindPush = await ensureWebPushListener(showForegroundPush)
-})
+watch(
+  () => userStore.role,
+  async (role) => {
+    if (typeof unbindPush === 'function') {
+      unbindPush()
+      unbindPush = null
+    }
+    if (!role || !userStore.token) return
+    unbindPush = await ensureWebPushListener(showForegroundPush)
+  },
+  { immediate: true }
+)
 
 onUnmounted(() => {
   if (typeof unbindPush === 'function') unbindPush()

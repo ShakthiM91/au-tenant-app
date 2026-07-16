@@ -107,13 +107,15 @@ service.interceptors.response.use(
         redirectToLogin()
       }
     } else if (status === 403) {
-      showToast({
-        variant: 'error',
-        title: 'Access denied',
-        message: message || 'You do not have permission for this action.'
-      })
+      if (!error.config?.silent403 && !error.config?.silentError) {
+        showToast({
+          variant: 'error',
+          title: 'Access denied',
+          message: message || 'You do not have permission for this action.'
+        })
+      }
     } else if (status === 404) {
-      if (!error.config?.skipErrorToast) {
+      if (!error.config?.skipErrorToast && !error.config?.silentError) {
         showToast({
           variant: 'error',
           title: 'Not found',
@@ -121,14 +123,14 @@ service.interceptors.response.use(
         })
       }
     } else if (status === 500) {
-      if (!error.config?.skipErrorToast) {
+      if (!error.config?.skipErrorToast && !error.config?.silentError) {
         showToast({
           variant: 'error',
           title: 'Server error',
           message: 'Please try again later.'
         })
       }
-    } else if (!error.config?.skipErrorToast) {
+    } else if (!error.config?.skipErrorToast && !error.config?.silentError) {
       showToast({
         variant: 'error',
         message: message || 'Network error'
