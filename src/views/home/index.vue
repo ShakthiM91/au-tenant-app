@@ -67,12 +67,12 @@
         </section>
 
         <section class="card list-card">
-          <h2 class="card-heading">Recent Activity</h2>
+          <h2 class="card-heading">{{ recentActivityTitle }}</h2>
           <div v-if="recentActivityLoading" class="recent-loading">
             <ion-spinner name="crescent" />
           </div>
           <div v-else-if="!recentActivityRows.length" class="recent-empty">
-            No recent transactions
+            {{ recentActivityEmpty }}
           </div>
           <div v-else class="list-body">
             <button
@@ -98,11 +98,11 @@
         </section>
 
         <section class="card list-card recurring-card">
-          <h2 class="card-heading">Recurring Transactions</h2>
+          <h2 class="card-heading">{{ recurringTitle }}</h2>
           <div v-if="recurringLoading" class="recent-loading">
             <ion-spinner name="crescent" />
           </div>
-          <div v-else-if="!recurringRows.length" class="recent-empty">No recurring transactions.</div>
+          <div v-else-if="!recurringRows.length" class="recent-empty">{{ recurringEmpty }}</div>
           <div v-else class="list-body">
             <button
               v-for="row in recurringRows"
@@ -219,7 +219,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent, IonIcon, IonSpinner, onIonViewDidEnter } from '@ionic/vue'
 import {
@@ -240,12 +240,73 @@ import { getRecentTransactions, getUpcomingRepayments, getPrimaryAccount } from 
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { useUserStore } from '@/store/user'
 import { formatTransactionAuthorLabel } from '@/utils/transactionAuthorDisplay'
+import { useAppContent } from '@/composables/useAppContent'
+import { resolveContentImage } from '@/utils/contentImage'
 
 const router = useRouter()
 const userStore = useUserStore()
 const bannerIndex = ref(0)
+const { getText, getImageRaw, contentVersion } = useAppContent()
 
-const brandLogoUrl = `${import.meta.env.BASE_URL}rupee-life-logo.png`
+const baseUrl = import.meta.env.BASE_URL || '/'
+const brandLogoUrl = ref(`${baseUrl}rupee-life-logo.png`)
+const bannerPhotoUrl = ref(`${baseUrl}home-banner-1.png`)
+
+const DEFAULT_BANNER_GRADIENTS = [
+  'linear-gradient(135deg, #e7ecf7 0%, #b8cff7 45%, #6a8fce 100%)',
+  'linear-gradient(135deg, #d4f5e8 0%, #9ee5c8 50%, #52bf90 100%)',
+]
+const bannerGradients = ref([...DEFAULT_BANNER_GRADIENTS])
+
+const recentActivityTitle = computed(() => getText('home.recentActivity.title', 'Recent Activity'))
+const recentActivityEmpty = computed(() => getText('home.recentActivity.empty', 'No recent transactions'))
+const recurringTitle = computed(() => getText('home.recurring.title', 'Recurring Transactions'))
+const recurringEmpty = computed(() => getText('home.recurring.empty', 'No recurring transactions.'))
+
+const QUICK_ACTION_DEFS_ROW1 = [
+  { contentKey: 'home.qa.budget.label', defaultLabel: 'Account\nBudget', icon: serverOutline, action: 'budget' },
+  { contentKey: 'home.qa.analytics.label', defaultLabel: 'Account\nAnalytics', icon: barChartOutline, route: { name: 'Analytics' } },
+  { contentKey: 'home.qa.checkin.label', defaultLabel: 'Daily\nCheck in', icon: createOutline },
+  { contentKey: 'home.qa.invite.label', defaultLabel: 'Invite a\nFriend', icon: peopleOutline, route: { name: 'ProfileReferrals' } },
+  { contentKey: 'home.qa.guide.label', defaultLabel: 'Rupee\nGuide', icon: schoolOutline },
+]
+
+const QUICK_ACTION_DEFS_ROW2 = [
+  { contentKey: 'home.qa.about.label', defaultLabel: 'About\nus', icon: businessOutline },
+  { contentKey: 'home.qa.reach.label', defaultLabel: 'Reach\nus', icon: headsetOutline },
+  { contentKey: 'home.qa.plans.label', defaultLabel: 'Explore\nPlans', icon: searchOutline },
+  { contentKey: 'home.qa.profile.label', defaultLabel: 'My\nProfile', icon: scanOutline, route: { name: 'ProfileMyProfile' } },
+  { contentKey: 'home.qa.settings.label', defaultLabel: 'Settings', icon: settingsOutline, route: { name: 'ProfileSettings' } },
+]
+
+function mapQuickActions(defs) {
+  return defs.map((def) => ({
+    ...def,
+    label: getText(def.contentKey, def.defaultLabel),
+  }))
+}
+
+const quickActionsRow1 = computed(() => mapQuickActions(QUICK_ACTION_DEFS_ROW1))
+const quickActionsRow2 = computed(() => mapQuickActions(QUICK_ACTION_DEFS_ROW2))
+
+async function applyHomeContent() {
+  brandLogoUrl.value = await resolveContentImage(
+    getImageRaw('home.brandLogo', '/rupee-life-logo.png'),
+    `${baseUrl}rupee-life-logo.png`
+  )
+  bannerPhotoUrl.value = await resolveContentImage(
+    getImageRaw('home.banner.image', '/home-banner-1.png'),
+    `${baseUrl}home-banner-1.png`
+  )
+  bannerGradients.value = [
+    getText('home.banner.gradient2', DEFAULT_BANNER_GRADIENTS[0]),
+    getText('home.banner.gradient3', DEFAULT_BANNER_GRADIENTS[1]),
+  ]
+}
+
+watch(contentVersion, () => {
+  applyHomeContent()
+}, { immediate: true })
 
 const defaultCurrency = ref({ code: 'USD' })
 const recentActivityLoading = ref(true)
@@ -478,118 +539,17 @@ onIonViewDidEnter(() => {
   loadHomeData()
 })
 
-/** First carousel slide uses `public/home-banner-1.png`; these are slides 2–3. */
-const bannerPhotoUrl = `${import.meta.env.BASE_URL}home-banner-1.png`
-
-const bannerGradients = [
-  'linear-gradient(135deg, #e7ecf7 0%, #b8cff7 45%, #6a8fce 100%)',
-  'linear-gradient(135deg, #d4f5e8 0%, #9ee5c8 50%, #52bf90 100%)',
-]
-
 /** Photo slide + gradients (keep in sync with template). */
-const BANNER_SLIDE_COUNT = 1 + bannerGradients.length
+const BANNER_SLIDE_COUNT = computed(() => 1 + bannerGradients.value.length)
 
 let bannerScrollRaf = null
-
-const quickActionsRow1 = [
-  { label: 'Account\nBudget', icon: serverOutline, action: 'budget' },
-  { label: 'Account\nAnalytics', icon: barChartOutline, route: { name: 'Analytics' } },
-  { label: 'Daily\nCheck in', icon: createOutline },
-  { label: 'Invite a\nFriend', icon: peopleOutline, route: { name: 'ProfileReferrals' } },
-  { label: 'Rupee\nGuide', icon: schoolOutline },
-]
-
-const quickActionsRow2 = [
-  { label: 'About\nus', icon: businessOutline },
-  { label: 'Reach\nus', icon: headsetOutline },
-  { label: 'Explore\nPlans', icon: searchOutline },
-  { label: 'My\nProfile', icon: scanOutline, route: { name: 'ProfileMyProfile' } },
-  { label: 'Settings', icon: settingsOutline, route: { name: 'ProfileSettings' } },
-]
-
-/*
-const kryptonites = [
-  {
-    name: 'Snacks',
-    entries: '15 Entries',
-    avg: '866',
-    proj: '1500',
-    year: '5900',
-    pct: 70,
-    monthRatio: '1,126 / 700',
-    barPct: 100,
-    barColor: 'rgba(196, 0, 16, 0.74)',
-  },
-  {
-    name: 'Smoking',
-    entries: '1 Entries',
-    avg: '9140',
-    proj: '300',
-    year: '36,000',
-    pct: 70,
-    monthRatio: '150 / 3000',
-    barPct: 5,
-    barColor: '#52bf90',
-  },
-  {
-    name: 'Eating Out',
-    entries: '8 Entries',
-    avg: '21,450',
-    proj: '15,683',
-    year: '95,000',
-    pct: 70,
-    monthRatio: '17,150 / 20,000',
-    barPct: 86,
-    barColor: 'rgba(196, 0, 16, 0.74)',
-  },
-]
-
-const goals = [
-  {
-    title: 'Pay off House',
-    subtitle: '988 Days Left',
-    lm: '54,188',
-    avg: '36,866',
-    req: '51,616',
-    lm2: '5900',
-    pct: 70,
-    goalRatio: '100,126 / 1,800,000',
-    barPct: 5,
-    barColor: 'rgba(196, 0, 16, 0.74)',
-  },
-  {
-    title: 'Maldives 🐚',
-    subtitle: '154 Days Left',
-    lm: '31,117',
-    avg: '16,976',
-    req: '73,835',
-    lm2: '5900',
-    pct: 70,
-    goalRatio: '320,981 / 700,000',
-    barPct: 46,
-    barColor: 'rgba(255, 141, 40, 0.75)',
-  },
-  {
-    title: 'Emergency Fund',
-    subtitle: '8 Days Left',
-    lm: '90,000',
-    avg: '36,616',
-    req: '38,112',
-    lm2: '5900',
-    pct: 70,
-    goalRatio: '961,888 / 1,000,000',
-    barPct: 96,
-    barColor: '#52bf90',
-  },
-]
-*/
 
 function onBannerScroll(e) {
   const el = e.currentTarget
   if (!el || bannerScrollRaf != null) return
   bannerScrollRaf = requestAnimationFrame(() => {
     bannerScrollRaf = null
-    const n = BANNER_SLIDE_COUNT
+    const n = BANNER_SLIDE_COUNT.value
     const slideW = el.scrollWidth / n || el.clientWidth || 1
     let i = Math.round(el.scrollLeft / slideW)
     if (i < 0) i = 0
