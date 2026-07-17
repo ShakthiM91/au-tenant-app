@@ -13,21 +13,20 @@
         <section class="banner-section">
           <div class="banner-scroll" @scroll="onBannerScroll">
             <div
-              class="banner-slide banner-slide--photo"
-              :style="{ backgroundImage: `url(${bannerPhotoUrl})` }"
-              role="img"
-              aria-label="Lifestyle banner"
-            />
-            <div
-              v-for="(bg, idx) in bannerGradients"
+              v-for="(slide, idx) in bannerSlides"
               :key="idx"
               class="banner-slide"
-              :style="{ background: bg }"
+              :class="{ 'banner-slide--photo': slide.type === 'image' }"
+              :style="slide.type === 'image'
+                ? { backgroundImage: `url(${slide.displayUrl})` }
+                : { background: slide.displayUrl }"
+              :role="slide.type === 'image' ? 'img' : undefined"
+              :aria-label="slide.type === 'image' ? 'Lifestyle banner' : undefined"
             />
           </div>
-          <div class="banner-dots" aria-hidden="true">
+          <div v-if="bannerSlides.length > 1" class="banner-dots" aria-hidden="true">
             <span
-              v-for="i in BANNER_SLIDE_COUNT"
+              v-for="i in bannerSlides.length"
               :key="'d' + i"
               class="dot"
               :class="{ active: bannerIndex === i - 1 }"
@@ -242,21 +241,16 @@ import { useUserStore } from '@/store/user'
 import { formatTransactionAuthorLabel } from '@/utils/transactionAuthorDisplay'
 import { useAppContent } from '@/composables/useAppContent'
 import { resolveContentImage } from '@/utils/contentImage'
+import { resolveBannerSlides } from '@/utils/bannerSlides'
 
 const router = useRouter()
 const userStore = useUserStore()
 const bannerIndex = ref(0)
-const { getText, getImageRaw, contentVersion } = useAppContent()
+const { getText, getImageRaw, contentVersion, store } = useAppContent()
 
 const baseUrl = import.meta.env.BASE_URL || '/'
 const brandLogoUrl = ref(`${baseUrl}rupee-life-logo.png`)
-const bannerPhotoUrl = ref(`${baseUrl}home-banner-1.png`)
-
-const DEFAULT_BANNER_GRADIENTS = [
-  'linear-gradient(135deg, #e7ecf7 0%, #b8cff7 45%, #6a8fce 100%)',
-  'linear-gradient(135deg, #d4f5e8 0%, #9ee5c8 50%, #52bf90 100%)',
-]
-const bannerGradients = ref([...DEFAULT_BANNER_GRADIENTS])
+const bannerSlides = ref([])
 
 const recentActivityTitle = computed(() => getText('home.recentActivity.title', 'Recent Activity'))
 const recentActivityEmpty = computed(() => getText('home.recentActivity.empty', 'No recent transactions'))
@@ -294,14 +288,23 @@ async function applyHomeContent() {
     getImageRaw('home.brandLogo', '/rupee-life-logo.png'),
     `${baseUrl}rupee-life-logo.png`
   )
-  bannerPhotoUrl.value = await resolveContentImage(
-    getImageRaw('home.banner.image', '/home-banner-1.png'),
-    `${baseUrl}home-banner-1.png`
+
+  const slides = resolveBannerSlides(store.fields)
+  bannerSlides.value = await Promise.all(
+    slides.map(async (slide) => {
+      if (slide.type === 'image') {
+        const displayUrl = await resolveContentImage(
+          slide.value,
+          `${baseUrl}home-banner-1.png`
+        )
+        return { ...slide, displayUrl }
+      }
+      return { ...slide, displayUrl: slide.value }
+    })
   )
-  bannerGradients.value = [
-    getText('home.banner.gradient2', DEFAULT_BANNER_GRADIENTS[0]),
-    getText('home.banner.gradient3', DEFAULT_BANNER_GRADIENTS[1]),
-  ]
+  if (bannerIndex.value >= bannerSlides.value.length) {
+    bannerIndex.value = 0
+  }
 }
 
 watch(contentVersion, () => {
@@ -539,8 +542,8 @@ onIonViewDidEnter(() => {
   loadHomeData()
 })
 
-/** Photo slide + gradients (keep in sync with template). */
-const BANNER_SLIDE_COUNT = computed(() => 1 + bannerGradients.value.length)
+/** Banner slide count (keep in sync with template). */
+const BANNER_SLIDE_COUNT = computed(() => bannerSlides.value.length)
 
 let bannerScrollRaf = null
 
