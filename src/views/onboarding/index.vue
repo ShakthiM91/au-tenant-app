@@ -43,18 +43,21 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { HOME_ROUTE } from '@/utils/onboardingSurvey/constants'
 import { clearPostRegisterFlow, markSurveyGatePassed } from '@/utils/onboardingSurvey/resolveDestination'
+import { useAppContent } from '@/composables/useAppContent'
+import { resolveContentImage } from '@/utils/contentImage'
 
 const ONBOARDING_KEY = 'au_onboarding_completed'
 
 const router = useRouter()
 const currentIndex = ref(0)
+const { getText, getImageRaw, contentVersion } = useAppContent()
 
-const slides = [
+const DEFAULT_SLIDES = [
   {
     image: '/onboarding-1.png',
     heading: 'Know Your Balance, Find Your \nBalance',
@@ -75,6 +78,28 @@ const slides = [
   }
 ]
 
+const slides = ref([...DEFAULT_SLIDES])
+
+async function buildSlides() {
+  const built = []
+  for (let i = 1; i <= 3; i += 1) {
+    const prefix = `onboarding.slide${i}`
+    const fallback = DEFAULT_SLIDES[i - 1]
+    const subheading = getText(`${prefix}.subheading`, fallback.subheading || '')
+    built.push({
+      image: await resolveContentImage(getImageRaw(`${prefix}.image`), fallback.image),
+      heading: getText(`${prefix}.heading`, fallback.heading),
+      subheading: subheading || null,
+      cta: getText(`${prefix}.cta`, fallback.cta)
+    })
+  }
+  slides.value = built
+}
+
+watch(contentVersion, () => {
+  buildSlides()
+}, { immediate: true })
+
 let touchStartX = 0
 let touchDeltaX = 0
 
@@ -89,7 +114,7 @@ function onTouchMove(e) {
 
 function onTouchEnd() {
   const threshold = 50
-  if (touchDeltaX < -threshold && currentIndex.value < slides.length - 1) {
+  if (touchDeltaX < -threshold && currentIndex.value < slides.value.length - 1) {
     currentIndex.value++
   } else if (touchDeltaX > threshold && currentIndex.value > 0) {
     currentIndex.value--
@@ -104,7 +129,7 @@ function completeOnboarding() {
 }
 
 function onCtaClick() {
-  if (currentIndex.value < slides.length - 1) {
+  if (currentIndex.value < slides.value.length - 1) {
     currentIndex.value++
   } else {
     completeOnboarding()

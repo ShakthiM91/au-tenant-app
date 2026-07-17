@@ -4,14 +4,14 @@
       <div class="splash-container">
         <div class="splash-top">
           <div class="logo-wrapper">
-            <img src="/logo.png" alt="Rupee" class="logo-image" />
+            <img :src="logoSrc" alt="Rupee" class="logo-image" />
           </div>
-          <h1 class="app-name">Rupee</h1>
-          <p class="app-tagline">Nurturing Today for a Better Tomorrow</p>
+          <h1 class="app-name">{{ appName }}</h1>
+          <p class="app-tagline">{{ tagline }}</p>
         </div>
 
         <div class="splash-artwork">
-          <img src="/splash-artwork.png" alt="" class="artwork-image" />
+          <img :src="artworkSrc" alt="" class="artwork-image" />
         </div>
 
         <p class="version-text">{{ appVersion }} V</p>
@@ -21,20 +21,39 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { getToken } from '@/utils/auth'
 import { useUserStore } from '@/store/user'
 import { resolvePostAuthDestination } from '@/utils/onboardingSurvey/resolveDestination'
 import { isAccessTokenExpired, refreshSession } from '@/utils/tokenRefresh'
+import { useAppContent } from '@/composables/useAppContent'
+import { resolveContentImage } from '@/utils/contentImage'
 import pkg from '../../../package.json'
 
 const router = useRouter()
 const userStore = useUserStore()
 const appVersion = pkg.version || '0.0.1'
+const { getText, getImageRaw, contentVersion } = useAppContent()
+
+const appName = ref(getText('splash.appName'))
+const tagline = ref(getText('splash.tagline'))
+const logoSrc = ref('/logo.png')
+const artworkSrc = ref('/splash-artwork.png')
 
 const MIN_SPLASH_MS = 3000
+
+async function applyContent() {
+  appName.value = getText('splash.appName')
+  tagline.value = getText('splash.tagline')
+  logoSrc.value = await resolveContentImage(getImageRaw('splash.logo'), '/logo.png')
+  artworkSrc.value = await resolveContentImage(getImageRaw('splash.artwork'), '/splash-artwork.png')
+}
+
+watch(contentVersion, () => {
+  applyContent()
+}, { immediate: true })
 
 function waitForMinSplash(elapsedMs) {
   const remaining = MIN_SPLASH_MS - elapsedMs
@@ -62,9 +81,7 @@ async function resolveSplashDestination() {
   }
 
   try {
-    if (!userStore.role) {
-      await userStore.getInfo()
-    }
+    await userStore.getInfo()
     return await resolvePostAuthDestination()
   } catch {
     await userStore.clearSession()
@@ -73,9 +90,9 @@ async function resolveSplashDestination() {
 }
 
 onMounted(async () => {
-  const splashStart = Date.now()
+  const start = Date.now()
   const destination = await resolveSplashDestination()
-  await waitForMinSplash(Date.now() - splashStart)
+  await waitForMinSplash(Date.now() - start)
   router.replace(destination)
 })
 </script>

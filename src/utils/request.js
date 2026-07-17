@@ -43,10 +43,12 @@ service.interceptors.response.use(
   (response) => {
     const res = response.data
     if (res.success === false) {
-      showToast({
-        variant: 'error',
-        message: res.error || 'Request failed'
-      })
+      if (!response.config?.silentError) {
+        showToast({
+          variant: 'error',
+          message: res.error || 'Request failed'
+        })
+      }
       return Promise.reject(new Error(res.error || 'Request failed'))
     }
     return res

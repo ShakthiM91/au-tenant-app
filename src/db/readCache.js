@@ -1,7 +1,7 @@
 import Dexie from 'dexie'
 
 const DB_NAME = 'RevoReadCache'
-const DB_VERSION = 4
+const DB_VERSION = 5
 
 const db = new Dexie(DB_NAME)
 db.version(DB_VERSION).stores({
@@ -9,7 +9,8 @@ db.version(DB_VERSION).stores({
   category_trees: 'id, cache_key, updated_at',
   currencies_tenant: 'id, cache_key, updated_at',
   default_currency: 'id, cache_key, updated_at',
-  primary_account: 'id, cache_key, updated_at'
+  primary_account: 'id, cache_key, updated_at',
+  app_content: 'id, cache_key, updated_at'
 })
 
 /** Maps logical cache key (string) to store name. */
@@ -21,7 +22,8 @@ const KEY_TO_STORE = {
   'categoryTree:expense': 'category_trees',
   'currencies:tenant': 'currencies_tenant',
   defaultCurrency: 'default_currency',
-  primaryAccount: 'primary_account'
+  primaryAccount: 'primary_account',
+  appContent: 'app_content'
 }
 
 function resolveKey(key) {
@@ -89,7 +91,8 @@ export const CACHE_KEYS = {
   CATEGORIES: (type) => (type ? `categories:${type}` : 'categories'),
   CURRENCIES_TENANT: 'currencies:tenant',
   DEFAULT_CURRENCY: 'defaultCurrency',
-  PRIMARY_ACCOUNT: 'primaryAccount'
+  PRIMARY_ACCOUNT: 'primaryAccount',
+  APP_CONTENT: 'appContent'
 }
 
 /** Invalidate accounts and/or category caches after mutations (e.g. from sync). */

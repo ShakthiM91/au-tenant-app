@@ -13,68 +13,78 @@ import { setTransactionInvalidationHandler, setTransactionListInvalidationHandle
 import { useSyncStore } from '@/store/sync'
 import { getToken, getRefreshToken } from '@/utils/auth'
 import { warmBootstrapCache, refreshBootstrapCache } from '@/utils/bootstrapCache'
+import { loadAppContent, refreshAppContent } from '@/utils/appContent'
 import { isAccessTokenExpiringSoon, refreshSession } from '@/utils/tokenRefresh'
 import App from './App.vue'
 import { installIosViewportFix } from '@/utils/iosViewportFix'
 
 installIosViewportFix()
 
-const app = createApp(App)
-const pinia = createPinia()
+async function bootstrap() {
+  const app = createApp(App)
+  const pinia = createPinia()
 
-app.use(pinia)
-app.use(IonicVue, {
-  swipeBackEnabled: !isPlatform('ios'),
-})
-app.use(router)
-setRouter(router)
-app.component('VChart', VChart)
+  app.use(pinia)
+  app.use(IonicVue, {
+    swipeBackEnabled: !isPlatform('ios'),
+  })
+  app.use(router)
+  setRouter(router)
+  app.component('VChart', VChart)
 
-app.mount('#app')
+  await loadAppContent()
 
-if (getToken()) {
-  warmBootstrapCache().catch(() => {})
-}
+  app.mount('#app')
 
-const syncStore = useSyncStore()
-setTransactionInvalidationHandler((accountIds) => {
-  syncStore.addInvalidatedAccountIds(accountIds)
-})
-setTransactionListInvalidationHandler(() => {
-  syncStore.setTransactionListInvalidated()
-})
-syncStore.refreshPendingCount()
+  refreshAppContent().catch(() => {})
 
-const SYNC_INTERVAL_MS = 45000
-setInterval(() => {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return
-  if (!getToken()) return
-  runSync().then(() => syncStore.refreshPendingCount())
-}, SYNC_INTERVAL_MS)
+  if (getToken()) {
+    warmBootstrapCache().catch(() => {})
+  }
 
-async function initAppResumeSync() {
-  async function onResume() {
+  const syncStore = useSyncStore()
+  setTransactionInvalidationHandler((accountIds) => {
+    syncStore.addInvalidatedAccountIds(accountIds)
+  })
+  setTransactionListInvalidationHandler(() => {
+    syncStore.setTransactionListInvalidated()
+  })
+  syncStore.refreshPendingCount()
+
+  const SYNC_INTERVAL_MS = 45000
+  setInterval(() => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return
-    const token = getToken()
-    if (token && getRefreshToken() && isAccessTokenExpiringSoon(token)) {
-      await refreshSession().catch(() => {})
-    }
     if (!getToken()) return
     runSync().then(() => syncStore.refreshPendingCount())
-    refreshBootstrapCache().catch(() => {})
+  }, SYNC_INTERVAL_MS)
+
+  async function initAppResumeSync() {
+    async function onResume() {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return
+      const token = getToken()
+      if (token && getRefreshToken() && isAccessTokenExpiringSoon(token)) {
+        await refreshSession().catch(() => {})
+      }
+      refreshAppContent().catch(() => {})
+      if (!getToken()) return
+      runSync().then(() => syncStore.refreshPendingCount())
+      refreshBootstrapCache().catch(() => {})
+    }
+    try {
+      const { App: CapApp } = await import('@capacitor/app')
+      CapApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) onResume()
+      })
+    } catch {
+      // Not in Capacitor (e.g. browser/PWA); use visibility fallback
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') onResume()
+      })
+    }
   }
-  try {
-    const { App } = await import('@capacitor/app')
-    App.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) onResume()
-    })
-  } catch {
-    // Not in Capacitor (e.g. browser/PWA); use visibility fallback
-  }
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') onResume()
-    })
-  }
+  initAppResumeSync()
 }
-initAppResumeSync()
+
+bootstrap()

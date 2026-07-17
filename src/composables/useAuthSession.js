@@ -1,6 +1,7 @@
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { warmBootstrapCache } from '@/utils/bootstrapCache'
+import { refreshAppContent } from '@/utils/appContent'
 import { resolvePostAuthDestination } from '@/utils/onboardingSurvey/resolveDestination'
 import { HOME_ROUTE, WELCOME_ROUTE, POST_REGISTER_FLOW_KEY } from '@/utils/onboardingSurvey/constants'
 import { getStoredReferralCode, clearStoredReferralCode } from '@/utils/referralStorage'
@@ -17,6 +18,7 @@ export function useAuthSession() {
   async function finishAuthenticatedSession() {
     await userStore.getInfo()
     warmBootstrapCache().catch(() => {})
+    refreshAppContent().catch(() => {})
     const dest = await resolvePostAuthDestination()
     const redirect = route.query.redirect
     if (redirect && dest === HOME_ROUTE) {
@@ -29,6 +31,7 @@ export function useAuthSession() {
   async function finishRegistrationSession() {
     await userStore.getInfo()
     warmBootstrapCache().catch(() => {})
+    refreshAppContent().catch(() => {})
     clearStoredReferralCode()
     sessionStorage.setItem(POST_REGISTER_FLOW_KEY, 'true')
     await router.replace(WELCOME_ROUTE)
