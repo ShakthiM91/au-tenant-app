@@ -71,10 +71,12 @@ service.interceptors.response.use(
     }
 
     const isPublicRoute = _router?.currentRoute?.value?.meta?.public === true
+    const isSessionSuperseded = error.response?.data?.code === 'SESSION_SUPERSEDED'
     const isAuthError = status === 401 || isInvalidOrExpiredToken403
 
     if (
       isAuthError &&
+      !isSessionSuperseded &&
       config &&
       !config._retried &&
       !config.skipAuthRefresh &&
@@ -91,14 +93,23 @@ service.interceptors.response.use(
 
     if (status === 401) {
       if (!isPublicRoute) {
+        const errorCode = error.response?.data?.code
         useUserStore()
           .clearSession()
           .catch(() => {})
-        showToast({
-          variant: 'error',
-          title: 'Session expired',
-          message: 'Please log in again.'
-        })
+        if (errorCode === 'SESSION_SUPERSEDED') {
+          showToast({
+            variant: 'error',
+            title: 'Signed out',
+            message: 'Your account was signed in on another device.'
+          })
+        } else {
+          showToast({
+            variant: 'error',
+            title: 'Session expired',
+            message: 'Please log in again.'
+          })
+        }
         redirectToLogin()
       }
     } else if (isInvalidOrExpiredToken403) {
