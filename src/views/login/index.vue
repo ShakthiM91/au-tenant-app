@@ -46,8 +46,8 @@
           <div class="bottom-section">
             <p class="terms-text">
               By continuing, you agree to
-              <span class="terms-link">Terms of Use</span> and
-              <span class="terms-link">Privacy Policy</span>.
+              <span class="terms-link" @click="goToTerms">Terms of Use</span> and
+              <span class="terms-link" @click="goToPrivacy">Privacy Policy</span>.
             </p>
 
             <button class="login-button" :disabled="loading" @click="onLogin">
@@ -103,6 +103,14 @@ const loading = ref(false)
 
 function goToRegister() {
   router.push('/register')
+}
+
+function goToTerms() {
+  router.push({ path: '/legal/terms', query: { from: '/login' } })
+}
+
+function goToPrivacy() {
+  router.push({ path: '/legal/privacy', query: { from: '/login' } })
 }
 
 async function onLogin() {

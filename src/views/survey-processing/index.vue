@@ -20,7 +20,7 @@
 
         <div class="status-section">
           <h1 class="status-title">{{ stage.title }}</h1>
-          <p v-if="stage.subtitle" class="status-subtitle">{{ stage.subtitle }}</p>
+          <p class="status-subtitle">{{ stage.subtitle }}</p>
         </div>
       </div>
     </ion-content>
@@ -33,55 +33,103 @@ import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { ONBOARDING_ROUTE } from '@/utils/onboardingSurvey/constants'
 
-const DURATION_MS = 10000
 const RADIUS = 68
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+const DONE_HOLD_MS = 3000
+
+/** Progress segments: from% → to% over durationMs */
+const SEGMENTS = [
+  {
+    from: 3,
+    to: 38,
+    durationMs: 6000,
+    title: 'Processing...',
+    subtitle: 'Analyzing your responses.',
+  },
+  {
+    from: 38,
+    to: 54,
+    durationMs: 3000,
+    title: 'Creating...',
+    subtitle: 'Personalizing your experience.',
+  },
+  {
+    from: 54,
+    to: 88,
+    durationMs: 6000,
+    title: 'Finalizing...',
+    subtitle: 'Adding final touches.',
+  },
+  {
+    from: 88,
+    to: 99,
+    durationMs: 5000,
+    title: 'Finalizing...',
+    subtitle: 'Adding final touches.',
+  },
+]
 
 const router = useRouter()
-const progress = ref(0)
+const progress = ref(SEGMENTS[0].from)
+const segmentIndex = ref(0)
 let rafId = null
-let startTime = null
+let segmentStart = null
+let doneTimeoutId = null
 
 const displayPercent = computed(() => Math.round(progress.value))
 
 const arcStyle = computed(() => ({
   strokeDasharray: `${CIRCUMFERENCE}`,
-  strokeDashoffset: `${CIRCUMFERENCE * (1 - progress.value / 100)}`
+  strokeDashoffset: `${CIRCUMFERENCE * (1 - progress.value / 100)}`,
 }))
 
 const stage = computed(() => {
-  const p = displayPercent.value
-  if (p >= 100) {
+  if (progress.value >= 100) {
     return { title: 'All Done !', subtitle: '' }
   }
-  if (p >= 55) {
-    return { title: 'Finalizing...', subtitle: 'Adding final touches.' }
-  }
-  if (p >= 39) {
-    return { title: 'Creating...', subtitle: 'Personalizing your experience.' }
-  }
-  return { title: 'Processing...', subtitle: 'Analyzing your responces.' }
+  const seg = SEGMENTS[segmentIndex.value] || SEGMENTS[SEGMENTS.length - 1]
+  return { title: seg.title, subtitle: seg.subtitle }
 })
 
-function easeOutCubic(t) {
-  return 1 - (1 - t) ** 3
+function easeInOutQuad(t) {
+  return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+}
+
+function finishAndNavigate() {
+  progress.value = 100
+  doneTimeoutId = setTimeout(() => {
+    router.replace(ONBOARDING_ROUTE)
+  }, DONE_HOLD_MS)
 }
 
 function tick(now) {
-  if (startTime == null) startTime = now
-  const elapsed = now - startTime
-  const t = Math.min(elapsed / DURATION_MS, 1)
-  progress.value = easeOutCubic(t) * 100
+  if (segmentStart == null) segmentStart = now
+
+  const seg = SEGMENTS[segmentIndex.value]
+  if (!seg) {
+    finishAndNavigate()
+    return
+  }
+
+  const elapsed = now - segmentStart
+  const t = Math.min(elapsed / seg.durationMs, 1)
+  progress.value = seg.from + (seg.to - seg.from) * easeInOutQuad(t)
 
   if (t < 1) {
     rafId = requestAnimationFrame(tick)
     return
   }
 
-  progress.value = 100
-  setTimeout(() => {
-    router.replace(ONBOARDING_ROUTE)
-  }, 1000)
+  progress.value = seg.to
+  segmentIndex.value += 1
+  segmentStart = now
+
+  if (segmentIndex.value >= SEGMENTS.length) {
+    finishAndNavigate()
+    return
+  }
+
+  rafId = requestAnimationFrame(tick)
 }
 
 onMounted(() => {
@@ -90,6 +138,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (rafId != null) cancelAnimationFrame(rafId)
+  if (doneTimeoutId != null) clearTimeout(doneTimeoutId)
 })
 </script>
 
@@ -179,6 +228,7 @@ onUnmounted(() => {
 
 .status-subtitle {
   margin: 0;
+  min-height: calc(14px * 1.4);
   font-size: 14px;
   font-weight: 400;
   color: #6e6a7c;

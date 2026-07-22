@@ -109,6 +109,7 @@ export function isSurveyExemptPath(path) {
     path.startsWith('/register') ||
     path === '/login' ||
     path.startsWith('/verify') ||
-    path.startsWith('/profile-setup')
+    path.startsWith('/profile-setup') ||
+    path.startsWith('/legal/')
   )
 }

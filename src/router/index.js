@@ -80,6 +80,28 @@ const routes = [
     meta: { public: true }
   },
   {
+    path: '/legal/terms',
+    name: 'LegalTerms',
+    component: () => import('@/views/legal/LegalContentPage.vue'),
+    meta: {
+      public: true,
+      hideTabBar: true,
+      contentKey: 'miscellaneous.termsOfService',
+      title: 'Terms of Service',
+    },
+  },
+  {
+    path: '/legal/privacy',
+    name: 'LegalPrivacy',
+    component: () => import('@/views/legal/LegalContentPage.vue'),
+    meta: {
+      public: true,
+      hideTabBar: true,
+      contentKey: 'miscellaneous.privacyPolicy',
+      title: 'Privacy Policy',
+    },
+  },
+  {
     path: '/home',
     name: 'Home',
     component: () => import('@/views/home/index.vue'),

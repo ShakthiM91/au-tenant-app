@@ -4,6 +4,7 @@ import { useAppContentStore } from '@/store/appContent'
 const TEXT_FALLBACKS = {
   'splash.appName': 'Rupee',
   'splash.tagline': 'Nurturing Today for a Better Tomorrow',
+  'splash.logoSize': '130',
   'onboarding.slide1.heading': 'Know Your Balance, Find Your \nBalance',
   'onboarding.slide1.cta': 'Find My Balance !',
   'onboarding.slide2.heading': 'Build wealth,\none entry at a time',
@@ -29,6 +30,16 @@ const IMAGE_FALLBACKS = {
   'home.banner.image': '/home-banner-1.png'
 }
 
+const HTML_FALLBACKS = {
+  'miscellaneous.termsOfService':
+    '<h2>Terms of Service</h2><p>These terms govern your use of this application. By creating an account or using the app, you agree to these terms.</p><p>Contact your administrator if you have questions about your organization\'s policies.</p>',
+  'miscellaneous.privacyPolicy':
+    '<h2>Privacy Policy</h2><p>We respect your privacy and handle your personal and financial data according to applicable law and your organization\'s policies.</p><p>Data you submit is used to provide app features such as accounts, transactions, and reports.</p>',
+}
+
+const EMPTY_HTML_MESSAGE =
+  '<p class="legal-empty">Content is not available yet.</p>'
+
 export function useAppContent() {
   const store = useAppContentStore()
 
@@ -40,6 +51,12 @@ export function useAppContent() {
     return store.getField(key, fallback ?? IMAGE_FALLBACKS[key] ?? '')
   }
 
+  function getHtml(key, fallback) {
+    const raw = store.getField(key, fallback ?? HTML_FALLBACKS[key] ?? '')
+    const html = raw != null ? String(raw).trim() : ''
+    return html || EMPTY_HTML_MESSAGE
+  }
+
   const contentVersion = computed(() => store.version)
 
   return {
@@ -47,7 +64,9 @@ export function useAppContent() {
     contentVersion,
     getText,
     getImageRaw,
+    getHtml,
     TEXT_FALLBACKS,
-    IMAGE_FALLBACKS
+    IMAGE_FALLBACKS,
+    HTML_FALLBACKS,
   }
 }

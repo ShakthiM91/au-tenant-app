@@ -204,12 +204,12 @@ const menuRows = computed(() => [
   {
     id: 'terms',
     title: 'Terms & Conditions',
-    onClick: () => onMenuPlaceholder('Terms & Conditions')
+    onClick: () => router.push({ path: '/legal/terms', query: { from: '/profile' } })
   },
   {
     id: 'privacy',
     title: 'Privacy Policy',
-    onClick: () => onMenuPlaceholder('Privacy Policy')
+    onClick: () => router.push({ path: '/legal/privacy', query: { from: '/profile' } })
   },
   {
     id: 'about',

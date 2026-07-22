@@ -122,8 +122,8 @@
           <div class="bottom-section">
             <p class="terms-text">
               By continuing, you agree to
-              <span class="terms-link">Terms of Use</span> and
-              <span class="terms-link">Privacy Policy</span>.
+              <span class="terms-link" @click="goToTerms">Terms of Use</span> and
+              <span class="terms-link" @click="goToPrivacy">Privacy Policy</span>.
             </p>
 
             <button class="signup-button" :disabled="loading" @click="onSignUp">
@@ -184,6 +184,14 @@ const hasValidLength = computed(() => form.password.length >= 8 && form.password
 
 function goToLogin() {
   router.push('/login')
+}
+
+function goToTerms() {
+  router.push({ path: '/legal/terms', query: { from: '/register-email' } })
+}
+
+function goToPrivacy() {
+  router.push({ path: '/legal/privacy', query: { from: '/register-email' } })
 }
 
 async function onSignUp() {

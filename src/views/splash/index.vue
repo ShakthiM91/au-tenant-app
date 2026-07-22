@@ -4,7 +4,7 @@
       <div class="splash-container">
         <div class="splash-top">
           <div class="logo-wrapper">
-            <img :src="logoSrc" alt="Rupee" class="logo-image" />
+            <img :src="logoSrc" alt="Rupee" class="logo-image" :style="logoStyle" />
           </div>
           <h1 class="app-name">{{ appName }}</h1>
           <p class="app-tagline">{{ tagline }}</p>
@@ -21,7 +21,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
 import { getToken } from '@/utils/auth'
@@ -41,12 +41,24 @@ const appName = ref(getText('splash.appName'))
 const tagline = ref(getText('splash.tagline'))
 const logoSrc = ref('/logo.png')
 const artworkSrc = ref('/splash-artwork.png')
+const logoSizePx = ref(130)
+
+const logoStyle = computed(() => ({
+  width: `${logoSizePx.value}px`,
+  height: `${logoSizePx.value}px`,
+}))
 
 const MIN_SPLASH_MS = 3000
+
+function resolveLogoSize(raw) {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : 130
+}
 
 async function applyContent() {
   appName.value = getText('splash.appName')
   tagline.value = getText('splash.tagline')
+  logoSizePx.value = resolveLogoSize(getText('splash.logoSize', '130'))
   logoSrc.value = await resolveContentImage(getImageRaw('splash.logo'), '/logo.png')
   artworkSrc.value = await resolveContentImage(getImageRaw('splash.artwork'), '/splash-artwork.png')
 }
@@ -129,8 +141,6 @@ onMounted(async () => {
 }
 
 .logo-image {
-  width: 130px;
-  height: 130px;
   object-fit: contain;
 }
 
