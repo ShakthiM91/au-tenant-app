@@ -34,12 +34,7 @@
 
             <div class="field-group">
               <label class="field-label">Password</label>
-              <input
-                v-model="form.password"
-                type="password"
-                class="field-input"
-                placeholder="••••••••••"
-              />
+              <AuthPasswordInput v-model="form.password" placeholder="••••••••••" />
             </div>
           </form>
 
@@ -88,6 +83,7 @@ import { useGoogleAuth } from '@/composables/useGoogleAuth'
 import { useAuthSession } from '@/composables/useAuthSession'
 import { showToast } from '@/utils/ionicFeedback'
 import { validEmail } from '@/utils/validate'
+import AuthPasswordInput from '@/components/AuthPasswordInput.vue'
 
 const router = useRouter()
 const route = useRoute()

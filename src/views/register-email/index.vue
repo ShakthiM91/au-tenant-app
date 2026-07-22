@@ -55,25 +55,14 @@
 
             <div class="field-group">
               <label class="field-label">Password</label>
-              <input
+              <AuthPasswordInput
                 v-model="form.password"
-                type="password"
-                class="field-input"
                 placeholder="••••••••••"
+                autocomplete="new-password"
               />
             </div>
 
-            <div class="field-group">
-              <label class="field-label">Confirm password</label>
-              <input
-                v-model="form.confirmPassword"
-                type="password"
-                class="field-input"
-                placeholder="••••••••••"
-              />
-            </div>
-
-            <div class="pw-requirements">
+            <div v-show="showPasswordRequirements" class="pw-requirements">
               <div class="pw-row">
                 <div class="pw-check">
                   <span class="pw-icon" :class="{ met: hasUppercase }">
@@ -99,12 +88,11 @@
                   <span class="pw-label">Number</span>
                 </div>
                 <div class="pw-check">
-                  <span class="pw-icon" :class="{ failed: form.password.length > 0 && !hasSpecial }">
+                  <span class="pw-icon" :class="{ met: hasSpecial }">
                     <svg v-if="hasSpecial" viewBox="0 0 18 18" fill="none"><ellipse cx="9" cy="9" rx="6" ry="6" stroke="#A8A8A8" stroke-width="1"/><polyline points="6,9.5 8,11.5 12,7" stroke="#FF8D28" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <svg v-else-if="form.password.length > 0" viewBox="0 0 18 18" fill="none"><ellipse cx="9" cy="9" rx="6" ry="6" stroke="#A8A8A8" stroke-width="1"/><line x1="6" y1="6" x2="12" y2="12" stroke="rgba(195,0,16,0.74)" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="6" x2="6" y2="12" stroke="rgba(195,0,16,0.74)" stroke-width="1.5" stroke-linecap="round"/></svg>
                     <svg v-else viewBox="0 0 18 18" fill="none"><ellipse cx="9" cy="9" rx="6" ry="6" stroke="#A8A8A8" stroke-width="1"/></svg>
                   </span>
-                  <span class="pw-label" :class="{ 'pw-fail': form.password.length > 0 && !hasSpecial }">Special character</span>
+                  <span class="pw-label">Special character</span>
                 </div>
               </div>
               <div class="pw-row">
@@ -117,6 +105,27 @@
                 </div>
               </div>
             </div>
+
+            <div class="field-group">
+              <label class="field-label">Confirm password</label>
+              <AuthPasswordInput
+                v-model="form.confirmPassword"
+                placeholder="••••••••••"
+                autocomplete="new-password"
+              />
+            </div>
+
+            <div v-show="showPasswordMatchIndicator" class="pw-requirements">
+              <div class="pw-row">
+                <div class="pw-check">
+                  <span class="pw-icon" :class="{ met: passwordsMatch }">
+                    <svg v-if="passwordsMatch" viewBox="0 0 18 18" fill="none"><ellipse cx="9" cy="9" rx="6" ry="6" stroke="#A8A8A8" stroke-width="1"/><polyline points="6,9.5 8,11.5 12,7" stroke="#FF8D28" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <svg v-else viewBox="0 0 18 18" fill="none"><ellipse cx="9" cy="9" rx="6" ry="6" stroke="#A8A8A8" stroke-width="1"/></svg>
+                  </span>
+                  <span class="pw-label">Passwords match</span>
+                </div>
+              </div>
+            </div>
           </form>
 
           <div class="bottom-section">
@@ -126,7 +135,7 @@
               <span class="terms-link" @click="goToPrivacy">Privacy Policy</span>.
             </p>
 
-            <button class="signup-button" :disabled="loading" @click="onSignUp">
+            <button class="signup-button" :disabled="loading || !canSignUp" @click="onSignUp">
               {{ loading ? 'Creating account...' : 'Sign up' }}
             </button>
 
@@ -161,6 +170,8 @@ import { useGoogleAuth } from '@/composables/useGoogleAuth'
 import { useAuthSession } from '@/composables/useAuthSession'
 import { showToast } from '@/utils/ionicFeedback'
 import { getStoredReferralCode } from '@/utils/referralStorage'
+import { validEmail } from '@/utils/validate'
+import AuthPasswordInput from '@/components/AuthPasswordInput.vue'
 
 const router = useRouter()
 const { signUpWithGoogle: registerWithGoogle, signUpWithPassword } = useAuthSession()
@@ -181,6 +192,23 @@ const hasLowercase = computed(() => /[a-z]/.test(form.password))
 const hasNumber = computed(() => /[0-9]/.test(form.password))
 const hasSpecial = computed(() => /[^A-Za-z0-9]/.test(form.password))
 const hasValidLength = computed(() => form.password.length >= 8 && form.password.length <= 16)
+const showPasswordRequirements = computed(() => form.password.length > 0)
+const showPasswordMatchIndicator = computed(() => form.confirmPassword.length > 0)
+const passwordsMatch = computed(
+  () => form.confirmPassword.length > 0 && form.password === form.confirmPassword
+)
+const canSignUp = computed(
+  () =>
+    !!form.firstName.trim() &&
+    !!form.email.trim() &&
+    validEmail(form.email.trim()) &&
+    hasUppercase.value &&
+    hasLowercase.value &&
+    hasNumber.value &&
+    hasSpecial.value &&
+    hasValidLength.value &&
+    passwordsMatch.value
+)
 
 function goToLogin() {
   router.push('/login')
@@ -201,6 +229,10 @@ async function onSignUp() {
   }
   if (!form.email?.trim()) {
     showToast('Please enter your email')
+    return
+  }
+  if (!validEmail(form.email.trim())) {
+    showToast('Please enter a valid email')
     return
   }
   if (!form.password) {
@@ -451,10 +483,6 @@ async function signUpWithGoogle() {
   color: rgba(0, 0, 0, 0.72);
 }
 
-.pw-label.pw-fail {
-  color: rgba(195, 0, 16, 0.74);
-}
-
 .bottom-section {
   display: flex;
   flex-direction: column;
@@ -489,8 +517,13 @@ async function signUpWithGoogle() {
   box-shadow: 0 3.8px 4px 1px rgba(0, 0, 0, 0.16);
 }
 
-.signup-button:active {
+.signup-button:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+.signup-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .alt-register {
