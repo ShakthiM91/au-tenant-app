@@ -58,7 +58,7 @@
         </div>
 
         <template v-else-if="planMeta">
-          <section v-if="activeTab === 'overview' && dashboardData" class="overall-block">
+          <section v-if="dashboardData" class="overall-block">
             <div class="overall-head">
               <span class="overall-label">Overall Progress</span>
               <div class="overall-metrics">
@@ -228,8 +228,7 @@ import {
   formatBudgetStatusLabel,
   formatBudgetDateRange,
   workspaceBudgetParams,
-  calendarTodayYmd,
-  periodBounds
+  pickDashboardPeriodIndex
 } from '@/utils/budgetManagement'
 import BudgetSetupSheet from '@/views/budgets/components/BudgetSetupSheet.vue'
 import BudgetDetailCategoryCard from '@/views/budgets/components/BudgetDetailCategoryCard.vue'
@@ -437,9 +436,9 @@ async function loadPickerBudgets() {
   try {
     const res = await getBudgets(workspaceBudgetParams(wsId))
     const rows = (Array.isArray(res?.data) ? res.data : []).filter((r) =>
-      ['active', 'completed', 'abandoned'].includes(r.status)
+      ['active', 'draft', 'completed', 'abandoned'].includes(r.status)
     )
-    const statusOrder = { active: 0, completed: 1, abandoned: 2 }
+    const statusOrder = { active: 0, draft: 1, completed: 2, abandoned: 3 }
     rows.sort((a, b) => {
       const orderA = statusOrder[a.status] ?? 9
       const orderB = statusOrder[b.status] ?? 9
@@ -473,14 +472,7 @@ async function loadCore() {
 }
 
 function pickPeriodIndex(periods) {
-  if (!periods?.length) return 0
-  const today = calendarTodayYmd()
-  const idx = periods.findIndex((p) => {
-    const { start, end } = periodBounds(p)
-    return today >= start && today <= end
-  })
-  if (idx >= 0) return idx
-  return periods.length - 1
+  return pickDashboardPeriodIndex(planMeta.value, periods) ?? 0
 }
 
 async function loadDetailed() {

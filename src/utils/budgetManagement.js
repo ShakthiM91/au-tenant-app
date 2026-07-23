@@ -204,18 +204,23 @@ export function computeMonthlyProjection(actual, planned, periodStart, periodEnd
 export function pickReportPeriod(plan, periods) {
   const list = Array.isArray(periods) ? periods : []
   if (!list.length) return null
+  const idx = pickDashboardPeriodIndex(plan, list)
+  return idx == null ? null : list[idx]
+}
+
+/** 0-based period index for overview/detailed views. */
+export function pickDashboardPeriodIndex(plan, periods) {
+  const list = Array.isArray(periods) ? periods : []
+  if (!list.length) return null
+  const status = String(plan?.status || '').toLowerCase()
+  if (status === 'completed' || status === 'abandoned') return list.length - 1
+  if (status === 'draft') return 0
   const today = calendarTodayYmd()
-  const inRange = (p) => {
+  const idx = list.findIndex((p) => {
     const { start, end } = periodBounds(p)
-    return start && end && start <= today && today <= end
-  }
-  if (plan.status === 'active') {
-    return list.find(inRange) || list[list.length - 1]
-  }
-  if (plan.status === 'completed' || plan.status === 'abandoned') {
-    return list[list.length - 1]
-  }
-  return list[0]
+    return start && end && today >= start && today <= end
+  })
+  return idx >= 0 ? idx : list.length - 1
 }
 
 export function flattenPieSlices(items) {
