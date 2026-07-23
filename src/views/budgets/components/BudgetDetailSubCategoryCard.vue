@@ -6,16 +6,12 @@
         <p v-if="entryCount != null" class="sub-detail-card__subtitle">{{ periodTypeLabel }} entries {{ entryCount }}</p>
       </div>
       <div class="sub-detail-card__this-month">
-        <span class="sub-detail-card__metric-label">{{ periodLabel }}</span>
+        <span class="sub-detail-card__metric-label">{{ periodLabel }}/ Total Planned</span>
         <span class="sub-detail-card__metric-value">
-          <span class="amount-spent">{{ formatAmount(item.actual) }}</span>
+          <span class="amount-spent" :class="barToneClass(usagePct)">{{ formatAmount(item.actual) }}</span>
           <span v-if="hasBudget" class="amount-sep"> / </span>
           <span v-if="hasBudget" class="amount-total">{{ formatAmount(item.budget) }}</span>
         </span>
-      </div>
-      <div class="sub-detail-card__planned">
-        <span class="sub-detail-card__metric-label">Planned Budget</span>
-        <span class="sub-detail-card__budget-value">{{ formatAmount(item.budget) }}</span>
       </div>
       <button type="button" class="sub-detail-card__menu" aria-label="Sub-category options" @click="$emit('menu', $event)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="#A8A8A8">
@@ -47,14 +43,14 @@
         <span class="sub-metric__label">Monthly Average</span>
         <span class="sub-metric__value">{{ formatAmount(stats.monthlyAvg) }}</span>
       </div>
-      <div class="sub-metric">
+      <!-- <div class="sub-metric">
         <span class="sub-metric__label">Monthly Projection</span>
         <span class="sub-metric__value">{{ formatAmount(stats.projected) }}</span>
       </div>
       <div class="sub-metric">
         <span class="sub-metric__label">Change %</span>
         <span class="sub-metric__value" :class="changePctClass">{{ formatSignedBudgetPct(stats.changePct) }}</span>
-      </div>
+      </div> -->
     </div>
   </article>
 </template>
@@ -116,7 +112,7 @@ function formatAmount(val) {
 
 .sub-detail-card__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto 24px;
+  grid-template-columns: minmax(0, 1fr) auto 24px;
   column-gap: 6px;
   align-items: center;
   margin-bottom: 8px;
@@ -144,8 +140,7 @@ function formatAmount(val) {
   color: rgba(0, 0, 0, 0.45);
 }
 
-.sub-detail-card__this-month,
-.sub-detail-card__planned {
+.sub-detail-card__this-month {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -160,17 +155,9 @@ function formatAmount(val) {
 }
 
 .sub-detail-card__metric-value {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
-  white-space: nowrap;
-}
-
-.sub-detail-card__budget-value {
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: #1a1a2e;
   white-space: nowrap;
 }
 
@@ -189,8 +176,19 @@ function formatAmount(val) {
 }
 
 .amount-spent {
-  color: #2d9d62;
   font-weight: 600;
+}
+
+.amount-spent.tone-ok {
+  color: #52bf90;
+}
+
+.amount-spent.tone-warn {
+  color: #ffcc00;
+}
+
+.amount-spent.tone-danger {
+  color: #c30010bd;
 }
 
 .amount-sep,
@@ -230,7 +228,7 @@ function formatAmount(val) {
 
 .sub-detail-card__metrics {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -242,13 +240,13 @@ function formatAmount(val) {
 }
 
 .sub-metric__label {
-  font-size: 7px;
+  font-size: 10px;
   line-height: 1.15;
   color: rgba(0, 0, 0, 0.45);
 }
 
 .sub-metric__value {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
   color: #1a1a2e;

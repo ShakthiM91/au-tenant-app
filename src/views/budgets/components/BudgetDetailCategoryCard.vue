@@ -6,24 +6,20 @@
         <p v-if="entryCount != null" class="detail-card__subtitle">{{ periodTypeLabel }} entries {{ entryCount }}</p>
       </div>
       <div class="detail-card__this-month">
-        <span class="detail-card__metric-label">{{ periodLabel }}</span>
+        <span class="detail-card__metric-label">{{ periodLabel }}/ Total Planned</span>
         <span class="detail-card__metric-value">
-          <span class="amount-spent">{{ formatAmount(item.actual) }}</span>
+          <span class="amount-spent" :class="barToneClass(usagePct)">{{ formatAmount(item.actual) }}</span>
           <span class="amount-sep"> / </span>
           <span class="amount-total">{{ formatAmount(item.budget) }}</span>
         </span>
       </div>
-      <div class="detail-card__planned">
-        <span class="detail-card__metric-label">Total Planned</span>
-        <span class="detail-card__planned-value">{{ formatAmount(item.budget) }}</span>
-      </div>
-      <button type="button" class="detail-card__menu" aria-label="Category options" @click="$emit('menu', $event)">
+      <!-- <button type="button" class="detail-card__menu" aria-label="Category options" @click="$emit('menu', $event)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="#A8A8A8">
           <circle cx="12" cy="5" r="1.5" />
           <circle cx="12" cy="12" r="1.5" />
           <circle cx="12" cy="19" r="1.5" />
         </svg>
-      </button>
+      </button> -->
     </div>
 
     <div v-if="hasBudget" class="progress-track progress-track--main">
@@ -35,7 +31,7 @@
     </div>
 
     <div class="detail-card__body">
-      <div class="detail-stats__col">
+      <div class="detail-stats">
         <div class="stat-row">
           <span class="stat-label">This Year so far</span>
           <span class="stat-value">{{ formatAmount(stats.ytd) }}</span>
@@ -45,30 +41,12 @@
           <span class="stat-value">{{ formatAmount(stats.lastMonth) }}</span>
         </div>
         <div class="stat-row">
-          <span class="stat-label">Monthly Average</span>
-          <span class="stat-value">{{ formatAmount(stats.monthlyAvg) }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Monthly Projection</span>
-          <span class="stat-value">{{ formatAmount(stats.projected) }}</span>
-        </div>
-      </div>
-      <div class="detail-stats__col">
-        <div class="stat-row">
-          <span class="stat-label">Overall %</span>
-          <span class="stat-value">{{ formatBudgetPct(stats.overallPct) }}</span>
-        </div>
-        <div class="stat-row">
           <span class="stat-label">Remaining</span>
           <span class="stat-value">{{ formatAmount(stats.remaining) }}</span>
         </div>
         <div class="stat-row">
           <span class="stat-label">Remaining %</span>
           <span class="stat-value">{{ formatBudgetPct(stats.remainingPct) }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Change %</span>
-          <span class="stat-value" :class="changePctClass">{{ formatSignedBudgetPct(stats.changePct) }}</span>
         </div>
       </div>
       <div
@@ -175,7 +153,6 @@ import {
   formatBudgetPeriodType,
   currentPeriodSpendLabel,
   formatBudgetPct,
-  formatSignedBudgetPct,
   buildDonutSlicesFromItem,
   buildCategoryDetailStats,
   buildBudgetDetailDonutOption,
@@ -209,13 +186,6 @@ const usagePct = computed(() => {
   const b = Number(props.item?.budget) || 0
   if (b <= 0) return 0
   return ((Number(props.item?.actual) || 0) / b) * 100
-})
-
-const changePctClass = computed(() => {
-  const n = Number(stats.value.changePct) || 0
-  if (n > 0) return 'stat-value--over'
-  if (n < 0) return 'stat-value--under'
-  return ''
 })
 
 const donutOption = computed(() => buildBudgetDetailDonutOption(donutSlices.value))
@@ -386,7 +356,7 @@ function formatAmount(val) {
 
 .detail-card__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto 28px;
+  grid-template-columns: minmax(0, 1fr) auto 28px;
   column-gap: 8px;
   row-gap: 0;
   align-items: center;
@@ -419,14 +389,6 @@ function formatAmount(val) {
 
 .detail-card__this-month {
   grid-column: 2;
-}
-
-.detail-card__planned {
-  grid-column: 3;
-}
-
-.detail-card__this-month,
-.detail-card__planned {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -434,7 +396,7 @@ function formatAmount(val) {
 }
 
 .detail-card__menu {
-  grid-column: 4;
+  grid-column: 3;
   grid-row: 1;
   justify-self: end;
   align-self: start;
@@ -463,22 +425,26 @@ function formatAmount(val) {
 }
 
 .detail-card__metric-value {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
 }
 
-.detail-card__planned-value {
-  font-size: 11px;
+.amount-spent {
   font-weight: 600;
-  color: #1a1a2e;
-  white-space: nowrap;
 }
 
-.amount-spent {
-  color: #2d9d62;
-  font-weight: 600;
+.amount-spent.tone-ok {
+  color: #52bf90;
+}
+
+.amount-spent.tone-warn {
+  color: #ffcc00;
+}
+
+.amount-spent.tone-danger {
+  color: #c30010bd;
 }
 
 .amount-sep,
@@ -511,40 +477,42 @@ function formatAmount(val) {
 }
 
 .progress-fill.tone-ok {
-  background: #2d9d62;
+  background: #52bf90;
 }
 
 .progress-fill.tone-warn {
-  background: #e6c200;
+  background: #FFCC00;
 }
 
 .progress-fill.tone-danger {
-  background: #d32f2f;
+  background: #C30010bd;
 }
 
 .detail-card__body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 6px 8px;
   align-items: center;
   min-width: 0;
 }
 
-.detail-stats__col {
+.detail-stats {
   display: flex;
   flex-direction: column;
   gap: 7px;
   min-width: 0;
+  align-items: flex-start;
 }
 
 .stat-row {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  align-items: flex-start;
 }
 
 .stat-label {
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.2;
   color: rgba(0, 0, 0, 0.45);
 }
@@ -555,14 +523,6 @@ function formatAmount(val) {
   line-height: 1.2;
   color: #1a1a2e;
   font-variant-numeric: tabular-nums;
-}
-
-.stat-value--over {
-  color: #d32f2f;
-}
-
-.stat-value--under {
-  color: #2d9d62;
 }
 
 .detail-donut {
@@ -714,10 +674,6 @@ function formatAmount(val) {
     font-size: 11px;
   }
 
-  .detail-card__planned-value {
-    font-size: 11px;
-  }
-
   .detail-card__menu {
     width: 28px;
     height: 28px;
@@ -730,16 +686,16 @@ function formatAmount(val) {
   }
 
   .detail-card__body {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-columns: auto minmax(0, 1fr);
     gap: 4px 6px;
   }
 
-  .detail-stats__col {
+  .detail-stats {
     gap: 6px;
   }
 
   .stat-label {
-    font-size: 8px;
+    font-size: 10px;
   }
 
   .stat-value {

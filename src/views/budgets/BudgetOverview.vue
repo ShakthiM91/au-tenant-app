@@ -65,7 +65,6 @@
                 <span class="overall-values">
                   {{ formatAmountPair(dashboardData.totalActual, dashboardData.totalBudget) }}
                 </span>
-                <span class="overall-pct" :class="barToneClass(overallPct)">{{ overallPct.toFixed(0) }}%</span>
               </div>
             </div>
             <div class="progress-track progress-track--main">
@@ -74,6 +73,7 @@
                 :class="barToneClass(overallPct)"
                 :style="{ width: `${Math.min(overallPct, 100)}%` }"
               />
+              <span class="progress-pct">{{ overallPct.toFixed(0) }}%</span>
             </div>
           </section>
 
@@ -85,7 +85,6 @@
                 <span class="card-title">{{ row.category_name }}</span>
                 <div v-if="hasRowBudget(row)" class="card-head-metrics">
                   <span class="card-ratio">{{ formatAmountPair(row.actual, row.budget) }}</span>
-                  <span class="card-pct" :class="barToneClass(rowPct(row))">{{ rowPct(row).toFixed(0) }}%</span>
                 </div>
               </div>
               <div v-if="hasRowBudget(row)" class="progress-track progress-track--main">
@@ -94,6 +93,7 @@
                   :class="barToneClass(rowPct(row))"
                   :style="{ width: `${Math.min(rowPct(row), 100)}%` }"
                 />
+                <span class="progress-pct">{{ rowPct(row).toFixed(0) }}%</span>
               </div>
               <div v-if="row.sub_items?.length" class="sub-list">
                 <div v-for="s in row.sub_items" :key="s.category_id" class="sub-row">
@@ -681,7 +681,7 @@ async function onEdited() {
 }
 
 .budget-overview-page ion-content {
-  --background: #f5f5f7;
+  --background: white;
 }
 
 .page-container {
@@ -900,23 +900,6 @@ async function onEdited() {
   flex-shrink: 0;
 }
 
-.overall-pct {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.overall-pct.tone-ok {
-  color: #2d9d62;
-}
-
-.overall-pct.tone-warn {
-  color: #c9a600;
-}
-
-.overall-pct.tone-danger {
-  color: #d32f2f;
-}
-
 .overall-values {
   font-size: 13px;
   color: rgba(0, 0, 0, 0.45);
@@ -932,7 +915,7 @@ async function onEdited() {
 }
 
 .progress-track--main {
-  height: 12px;
+  height: 18px;
 }
 
 .progress-track--sub {
@@ -947,27 +930,30 @@ async function onEdited() {
 }
 
 .progress-fill.tone-ok {
-  background: #2d9d62;
+  background: #52bf90;
 }
 
 .progress-fill.tone-warn {
-  background: #e6c200;
+  background: #FFCC00;
 }
 
 .progress-fill.tone-danger {
-  background: #d32f2f;
+  background: #C30010bd;
 }
 
-.card-pct.tone-ok {
-  color: #2d9d62;
-}
-
-.card-pct.tone-warn {
-  color: #c9a600;
-}
-
-.card-pct.tone-danger {
-  color: #d32f2f;
+.progress-pct {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+  color: rgba(0, 0, 0, 0.72);
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.75);
 }
 
 .budget-card {
@@ -1003,12 +989,6 @@ async function onEdited() {
 .card-ratio {
   font-size: 13px;
   color: rgba(0, 0, 0, 0.45);
-  white-space: nowrap;
-}
-
-.card-pct {
-  font-size: 14px;
-  font-weight: 600;
   white-space: nowrap;
 }
 

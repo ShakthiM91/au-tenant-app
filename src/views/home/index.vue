@@ -236,6 +236,7 @@ import {
 } from 'ionicons/icons'
 import FloatingAddButton from '@/components/FloatingAddButton.vue'
 import { getRecentTransactions, getUpcomingRepayments, getPrimaryAccount } from '@/api/accounting'
+import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantDefaultCurrency } from '@/api/currency'
 import { useUserStore } from '@/store/user'
 import { formatTransactionAuthorLabel } from '@/utils/transactionAuthorDisplay'
@@ -516,15 +517,59 @@ function openRecurring(row) {
   router.push({ name: 'AccountFlowLog', params: { id: String(row.accountId) } })
 }
 
+function workspaceDisplayName(ws) {
+  if (!ws) return ''
+  if (ws.tenant_name) {
+    return `${ws.name || 'Shared'} (${ws.tenant_name})`
+  }
+  return ws.name || `Island ${ws.id}`
+}
+
+async function resolveBudgetIslandTarget() {
+  const [primaryRes, ownRes, sharedRes] = await Promise.all([
+    getPrimaryAccount().catch(() => null),
+    getWorkspaces().catch(() => null),
+    getSharedWorkspaces().catch(() => null),
+  ])
+
+  const own = Array.isArray(ownRes?.data) ? ownRes.data : []
+  const shared = Array.isArray(sharedRes?.data?.active) ? sharedRes.data.active : []
+  const islands = [...own, ...shared]
+
+  const defaultWorkspaceId = primaryRes?.data?.workspace_id
+  if (defaultWorkspaceId != null && defaultWorkspaceId !== '') {
+    const wsId = Number(defaultWorkspaceId)
+    const match = islands.find((ws) => Number(ws.id) === wsId)
+    return { workspaceId: wsId, workspaceName: workspaceDisplayName(match) }
+  }
+
+  const first = islands[0]
+  if (first?.id != null) {
+    return {
+      workspaceId: Number(first.id),
+      workspaceName: workspaceDisplayName(first),
+    }
+  }
+
+  return null
+}
+
 async function openBudgetFromHome() {
   try {
-    const res = await getPrimaryAccount()
-    const wid = res?.data?.workspace_id
-    const query = {}
-    if (wid != null && wid !== '') query.workspace_id = String(Number(wid))
-    router.push({ name: 'Categories', query })
+    const target = await resolveBudgetIslandTarget()
+    if (!target?.workspaceId) {
+      router.push({ name: 'BudgetManagement' })
+      return
+    }
+    router.push({
+      name: 'BudgetManagement',
+      query: {
+        workspace_id: String(target.workspaceId),
+        workspace_name: encodeURIComponent(target.workspaceName || ''),
+      },
+    })
   } catch {
-    router.push({ name: 'Categories' })
+    router.push({ name: 'BudgetManagement' })
   }
 }
 

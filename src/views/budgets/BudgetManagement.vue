@@ -295,8 +295,7 @@ const workspaceLabel = computed(() => {
 const showOngoingHero = computed(
   () =>
     ongoingPlan.value &&
-    ongoingSummary.value?.has_current_period !== false &&
-    statusFilter.value !== 'active'
+    ongoingSummary.value?.has_current_period !== false
 )
 
 const ongoingPct = computed(() =>
@@ -818,15 +817,15 @@ onIonViewDidEnter(load)
 }
 
 .progress-fill.tone-ok {
-  background: #2d9d62;
+  background: #52bf90;
 }
 
 .progress-fill.tone-warn {
-  background: #e6c200;
+  background: #FFCC00;
 }
 
 .progress-fill.tone-danger {
-  background: #d32f2f;
+  background: #C30010bd;
 }
 
 .progress-pct {
@@ -860,13 +859,13 @@ onIonViewDidEnter(load)
 }
 
 .stat-label {
-  font-size: 8px;
+  font-size: 10px;
   color: #6e6a7c;
   line-height: 1.2;
 }
 
 .stat-value {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: rgba(0, 0, 0, 0.72);
 }
@@ -936,7 +935,7 @@ onIonViewDidEnter(load)
 }
 
 .directory-card__left {
-  display: flex;
+  
   flex-direction: column;
   gap: 3px;
   min-width: 0;
