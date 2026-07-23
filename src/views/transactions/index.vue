@@ -1565,6 +1565,46 @@ async function onFabSelect(type) {
 }
 
 
+function routeHasBudgetTransactionFilters(q = route.query) {
+  return !!(
+    q.start_date ||
+    q.end_date ||
+    q.filter_category_id ||
+    q.category_ids
+  )
+}
+
+function applyBudgetTransactionFiltersFromRoute() {
+  const q = route.query
+  if (!routeHasBudgetTransactionFilters(q)) return false
+
+  if (q.start_date) dateFrom.value = String(q.start_date).split('T')[0]
+  if (q.end_date) dateTo.value = String(q.end_date).split('T')[0]
+
+  if (q.filter_category_id != null && q.filter_category_id !== '') {
+    const id = Number(q.filter_category_id)
+    if (!Number.isNaN(id)) categoryFilterIds.value = [id]
+  } else if (q.category_ids) {
+    const ids = String(q.category_ids)
+      .split(',')
+      .map((x) => Number(x.trim()))
+      .filter((n) => !Number.isNaN(n))
+    if (ids.length) categoryFilterIds.value = ids
+  }
+
+  const typeParam = q.types || q.type
+  if (typeParam) {
+    const types = String(typeParam)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const valid = types.filter((t) => filterTypeOptions.some((o) => o.value === t))
+    if (valid.length) flowTypeFilterValues.value = valid
+  }
+
+  return true
+}
+
 watch(workspaceId, () => {
   refreshWorkspaceListPermissions()
 })
@@ -1574,13 +1614,33 @@ watch(
   async (_wid, prev) => {
     await loadCategoryMenu()
     if (prev !== undefined) {
-      categoryFilterIds.value = []
-      categoryFilterSearch.value = ''
-      flowTypeFilterValues.value = []
+      if (routeHasBudgetTransactionFilters()) {
+        applyBudgetTransactionFiltersFromRoute()
+      } else {
+        categoryFilterIds.value = []
+        categoryFilterSearch.value = ''
+        flowTypeFilterValues.value = []
+      }
       await onFilter()
     }
   },
   { immediate: true }
+)
+
+watch(
+  () => [
+    route.query.start_date,
+    route.query.end_date,
+    route.query.filter_category_id,
+    route.query.category_ids,
+    route.query.type,
+    route.query.types
+  ],
+  async () => {
+    if (!routeHasBudgetTransactionFilters()) return
+    applyBudgetTransactionFiltersFromRoute()
+    await onFilter()
+  }
 )
 
 watch(categoryMenuOptions, (opts) => {
@@ -1608,8 +1668,11 @@ watch(
   }
 )
 
-onIonViewDidEnter(() => {
+onIonViewDidEnter(async () => {
   refreshWorkspaceListPermissions()
+  if (routeHasBudgetTransactionFilters()) {
+    applyBudgetTransactionFiltersFromRoute()
+  }
   const queued = syncStore.consumeLastQueuedTransaction()
   if (queued) {
     const row = payloadToRow(queued.id, queued.payload)

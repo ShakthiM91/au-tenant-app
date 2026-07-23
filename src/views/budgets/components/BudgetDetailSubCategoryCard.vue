@@ -13,7 +13,12 @@
           <span v-if="hasBudget" class="amount-total">{{ formatAmount(item.budget) }}</span>
         </span>
       </div>
-      <button type="button" class="sub-detail-card__menu" aria-label="Sub-category options" @click="$emit('menu', $event)">
+      <BudgetViewTransactionsButton
+        v-if="showViewTransactions"
+        class="sub-detail-card__tx"
+        @click="$emit('view-transactions', { item, level: 'leaf' })"
+      />
+      <button v-else type="button" class="sub-detail-card__menu" aria-label="Sub-category options" @click="$emit('menu', $event)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="#A8A8A8">
           <circle cx="12" cy="5" r="1.5" />
           <circle cx="12" cy="12" r="1.5" />
@@ -65,16 +70,18 @@ import {
   buildCategoryDetailStats,
   barToneClass
 } from '@/utils/budgetManagement'
+import BudgetViewTransactionsButton from '@/views/budgets/components/BudgetViewTransactionsButton.vue'
 
 const props = defineProps({
   item: { type: Object, required: true },
   periodReport: { type: Object, default: null },
   fullReport: { type: Object, default: null },
   periodType: { type: String, default: 'month' },
-  entryCount: { type: Number, default: null }
+  entryCount: { type: Number, default: null },
+  showViewTransactions: { type: Boolean, default: false }
 })
 
-defineEmits(['menu'])
+defineEmits(['menu', 'view-transactions'])
 
 const periodLabel = computed(() => currentPeriodSpendLabel(props.periodType))
 const periodTypeLabel = computed(() => formatBudgetPeriodType(props.periodType))
@@ -112,7 +119,7 @@ function formatAmount(val) {
 
 .sub-detail-card__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 24px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   column-gap: 6px;
   align-items: center;
   margin-bottom: 8px;
@@ -120,6 +127,10 @@ function formatAmount(val) {
 
 .sub-detail-card__title-block {
   min-width: 0;
+}
+
+.sub-detail-card__tx {
+  align-self: center;
 }
 
 .sub-detail-card__title {

@@ -82,10 +82,14 @@
           <template v-if="activeTab === 'overview' && displayItems.length">
             <section v-for="row in displayItems" :key="row.category_id" class="budget-card">
               <div class="card-head">
-                <span class="card-title">{{ row.category_name }}</span>
-                <div v-if="hasRowBudget(row)" class="card-head-metrics">
-                  <span class="card-ratio">{{ formatAmountPair(row.actual, row.budget) }}</span>
+                <div class="card-title-line">
+                  <span class="card-title">{{ row.category_name }}</span>
+                  <BudgetViewTransactionsButton
+                    v-if="canViewCategoryTransactions"
+                    @click="openCategoryTransactions(row, { level: 'parent', tab: 'overview' })"
+                  />
                 </div>
+                <span v-if="hasRowBudget(row)" class="card-ratio">{{ formatAmountPair(row.actual, row.budget) }}</span>
               </div>
               <div v-if="hasRowBudget(row)" class="progress-track progress-track--main">
                 <div
@@ -116,6 +120,11 @@
                     </div>
                   </div>
                   <span v-else class="sub-stats sub-stats--solo">{{ formatAmount(s.actual) }}</span>
+                  <BudgetViewTransactionsButton
+                    v-if="canViewCategoryTransactions"
+                    class="sub-row__tx"
+                    @click="openCategoryTransactions(s, { level: 'leaf', tab: 'overview' })"
+                  />
                 </div>
               </div>
             </section>
@@ -134,7 +143,9 @@
                 :entry-count="categoryEntryCount(item)"
                 :expanded="!!expandedCategories[String(item.category_id)]"
                 :sub-entry-count="subCategoryEntryCount"
+                :show-view-transactions="canViewCategoryTransactions"
                 @toggle-expand="toggleCategoryExpand(item.category_id)"
+                @view-transactions="openCategoryTransactions($event.item, { level: $event.level, tab: 'detailed' })"
               />
             </template>
             <p v-else class="muted-banner">No detailed data for this period.</p>
@@ -228,10 +239,12 @@ import {
   formatBudgetStatusLabel,
   formatBudgetDateRange,
   workspaceBudgetParams,
-  pickDashboardPeriodIndex
+  pickDashboardPeriodIndex,
+  navigateToBudgetCategoryTransactions
 } from '@/utils/budgetManagement'
 import BudgetSetupSheet from '@/views/budgets/components/BudgetSetupSheet.vue'
 import BudgetDetailCategoryCard from '@/views/budgets/components/BudgetDetailCategoryCard.vue'
+import BudgetViewTransactionsButton from '@/views/budgets/components/BudgetViewTransactionsButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -324,6 +337,45 @@ const canEditPlan = computed(() => {
   const s = planMeta.value?.status
   return s === 'active' || s === 'draft'
 })
+
+const canViewCategoryTransactions = computed(() => {
+  if (workspaceId.value == null) return false
+  return !!resolveBudgetPeriodBounds()
+})
+
+function resolveBudgetPeriodBounds(preferDetailed = false) {
+  const report = periodReport.value
+  if (preferDetailed && report?.period_start && report?.period_end) {
+    return { start: report.period_start, end: report.period_end }
+  }
+  if (report?.period_start && report?.period_end) {
+    return { start: report.period_start, end: report.period_end }
+  }
+  const dash = dashboardData.value
+  if (dash?.period_start && dash?.period_end) {
+    return { start: dash.period_start, end: dash.period_end }
+  }
+  return null
+}
+
+function budgetPeriodBounds(tab = 'overview') {
+  return resolveBudgetPeriodBounds(tab === 'detailed')
+}
+
+function openCategoryTransactions(item, { level = 'parent', tab = 'overview' } = {}) {
+  const bounds = budgetPeriodBounds(tab)
+  if (!bounds || item?.category_id == null) return
+  const wsName = route.query.workspace_name || workspaceNameDisplay.value
+  navigateToBudgetCategoryTransactions(router, {
+    workspaceId: workspaceId.value,
+    workspaceName: wsName,
+    categoryId: item.category_id,
+    level,
+    periodStart: bounds.start,
+    periodEnd: bounds.end,
+    from: route.fullPath
+  })
+}
 
 function rowPct(row) {
   const b = parseFloat(row.budget) || 0
@@ -969,18 +1021,19 @@ async function onEdited() {
   margin-bottom: 10px;
 }
 
+.card-title-line {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
 .card-title {
   font-size: 14px;
   font-weight: 600;
   color: rgba(255, 141, 40, 0.95);
   min-width: 0;
-}
-
-.card-head-metrics {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
 }
 
 .card-ratio {
@@ -1027,6 +1080,10 @@ async function onEdited() {
   flex-shrink: 0;
   width: 132px;
   gap: 6px;
+}
+
+.sub-row__tx {
+  align-self: center;
 }
 
 .sub-stats {

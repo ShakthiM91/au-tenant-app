@@ -2,7 +2,13 @@
   <article class="detail-card">
     <div class="detail-card__header">
       <div class="detail-card__title-block">
-        <h3 class="detail-card__title">{{ item.category_name }}</h3>
+        <div class="detail-card__title-line">
+          <h3 class="detail-card__title">{{ item.category_name }}</h3>
+          <BudgetViewTransactionsButton
+            v-if="showViewTransactions"
+            @click="$emit('view-transactions', { item, level: 'parent' })"
+          />
+        </div>
         <p v-if="entryCount != null" class="detail-card__subtitle">{{ periodTypeLabel }} entries {{ entryCount }}</p>
       </div>
       <div class="detail-card__this-month">
@@ -13,13 +19,6 @@
           <span class="amount-total">{{ formatAmount(item.budget) }}</span>
         </span>
       </div>
-      <!-- <button type="button" class="detail-card__menu" aria-label="Category options" @click="$emit('menu', $event)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="#A8A8A8">
-          <circle cx="12" cy="5" r="1.5" />
-          <circle cx="12" cy="12" r="1.5" />
-          <circle cx="12" cy="19" r="1.5" />
-        </svg>
-      </button> -->
     </div>
 
     <div v-if="hasBudget" class="progress-track progress-track--main">
@@ -138,7 +137,9 @@
         :full-report="fullReport"
         :period-type="periodType"
         :entry-count="subEntryCount?.(s.category_id) ?? null"
+        :show-view-transactions="showViewTransactions"
         @menu="$emit('sub-menu', $event, s)"
+        @view-transactions="$emit('view-transactions', $event)"
       />
     </div>
   </article>
@@ -148,6 +149,7 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import VChart from 'vue-echarts'
 import BudgetDetailSubCategoryCard from '@/views/budgets/components/BudgetDetailSubCategoryCard.vue'
+import BudgetViewTransactionsButton from '@/views/budgets/components/BudgetViewTransactionsButton.vue'
 import {
   formatBudgetAmount,
   formatBudgetPeriodType,
@@ -171,10 +173,11 @@ const props = defineProps({
   periodType: { type: String, default: 'month' },
   entryCount: { type: Number, default: null },
   expanded: { type: Boolean, default: false },
-  subEntryCount: { type: Function, default: null }
+  subEntryCount: { type: Function, default: null },
+  showViewTransactions: { type: Boolean, default: false }
 })
 
-defineEmits(['toggle-expand', 'menu', 'sub-menu'])
+defineEmits(['toggle-expand', 'menu', 'sub-menu', 'view-transactions'])
 
 const periodLabel = computed(() => currentPeriodSpendLabel(props.periodType))
 const periodTypeLabel = computed(() => formatBudgetPeriodType(props.periodType))
@@ -356,11 +359,18 @@ function formatAmount(val) {
 
 .detail-card__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 28px;
+  grid-template-columns: minmax(0, 1fr) auto;
   column-gap: 8px;
   row-gap: 0;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.detail-card__title-line {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
 }
 
 .detail-card__title-block {
@@ -371,6 +381,8 @@ function formatAmount(val) {
 
 .detail-card__title {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
   font-weight: 600;
   line-height: 1.3;

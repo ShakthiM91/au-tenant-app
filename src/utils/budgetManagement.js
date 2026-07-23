@@ -280,6 +280,41 @@ export async function fetchPlannerCategoryActuals(plan, api) {
   return { actuals, hint }
 }
 
+/**
+ * Open transaction log filtered by budget period and category.
+ * Parent level includes sub-category transactions via category tree expansion on the list page.
+ */
+export function navigateToBudgetCategoryTransactions(router, opts = {}) {
+  const {
+    workspaceId,
+    workspaceName,
+    categoryId,
+    level = 'parent',
+    periodStart,
+    periodEnd,
+    from
+  } = opts
+  if (categoryId == null || !periodStart || !periodEnd) return
+
+  const query = {
+    start_date: String(periodStart).split('T')[0],
+    end_date: String(periodEnd).split('T')[0],
+    filter_category_id: String(categoryId),
+    filter_category_level: level === 'leaf' ? 'leaf' : 'parent',
+    type: 'expense'
+  }
+  if (workspaceId != null && workspaceId !== '') query.workspace_id = String(workspaceId)
+  if (workspaceName) {
+    query.workspace_name =
+      typeof workspaceName === 'string' && workspaceName.includes('%')
+        ? workspaceName
+        : encodeURIComponent(String(workspaceName))
+  }
+  if (from) query.from = from
+
+  router.push({ name: 'Transactions', query })
+}
+
 export function flattenPieSlices(items) {
   const slices = []
   for (const row of items || []) {
