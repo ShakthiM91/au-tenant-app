@@ -15,7 +15,8 @@
         <div class="welcome-content">
           <div class="header-section">
             <h1 class="heading">Welcome !</h1>
-            <p class="subtitle">We've started the engine, a world of potential left to explore.</p>
+            <p class="subtitle">So let's build this Rupee Life journey around <b>you</b>.</p>
+      
           </div>
 
           <div class="illustration">

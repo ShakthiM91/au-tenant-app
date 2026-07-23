@@ -29,7 +29,9 @@
                 <button class="link-btn" @click="goToLogin">Log in</button>
               </p>
               <p class="terms-text">
-                By continuing, you agree to our Terms of Use and Privacy Policy.
+                By continuing, you agree to our
+                <span class="terms-link" @click="goToTerms">Terms of Use</span> and
+                <span class="terms-link" @click="goToPrivacy">Privacy Policy</span>.
               </p>
             </div>
           </div>
@@ -51,6 +53,14 @@ function startNow() {
 
 function goToLogin() {
   router.push('/login')
+}
+
+function goToTerms() {
+  router.push({ path: '/legal/terms', query: { from: '/start' } })
+}
+
+function goToPrivacy() {
+  router.push({ path: '/legal/privacy', query: { from: '/start' } })
 }
 </script>
 
@@ -247,5 +257,11 @@ function goToLogin() {
   margin: 0;
   text-align: center;
   max-width: 234px;
+}
+
+.terms-link {
+  color: rgba(255, 141, 40, 0.85);
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>
