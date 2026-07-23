@@ -182,12 +182,10 @@ const parentGroups = computed(() => {
 })
 
 function groupSum(group) {
-  const parentAmt = parseAmount(budgetByCategoryId[group.parent.id]?.text)
-  if (!group.leaves.length) return parentAmt
-  return (
-    parentAmt +
-    group.leaves.reduce((s, leaf) => s + parseAmount(budgetByCategoryId[leaf.id]?.text), 0)
-  )
+  if (!group.leaves.length) {
+    return parseAmount(budgetByCategoryId[group.parent.id]?.text)
+  }
+  return group.leaves.reduce((s, leaf) => s + parseAmount(budgetByCategoryId[leaf.id]?.text), 0)
 }
 
 const childrenExceedParentWarning = computed(() => {
