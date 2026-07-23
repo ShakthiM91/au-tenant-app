@@ -227,7 +227,9 @@ import {
 import {
   formatBudgetStatusLabel,
   formatBudgetDateRange,
-  workspaceBudgetParams
+  workspaceBudgetParams,
+  calendarTodayYmd,
+  periodBounds
 } from '@/utils/budgetManagement'
 import BudgetSetupSheet from '@/views/budgets/components/BudgetSetupSheet.vue'
 import BudgetDetailCategoryCard from '@/views/budgets/components/BudgetDetailCategoryCard.vue'
@@ -472,8 +474,11 @@ async function loadCore() {
 
 function pickPeriodIndex(periods) {
   if (!periods?.length) return 0
-  const today = new Date().toISOString().slice(0, 10)
-  const idx = periods.findIndex((p) => today >= p.periodStart && today <= p.periodEnd)
+  const today = calendarTodayYmd()
+  const idx = periods.findIndex((p) => {
+    const { start, end } = periodBounds(p)
+    return today >= start && today <= end
+  })
   if (idx >= 0) return idx
   return periods.length - 1
 }

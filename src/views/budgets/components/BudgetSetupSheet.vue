@@ -191,6 +191,7 @@ import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
 import { getTenantCurrencies, getTenantDefaultCurrency } from '@/api/currency'
 import { useIonSheetHeight } from '@/composables/useIonSheetHeight'
 import { BUDGET_V2_FIELDS } from '@/views/budgets/constants'
+import { computePeriodEndDate, formatBudgetPlanNameWithPeriod, stripBudgetPeriodBracketSuffix } from '@/utils/budgetManagement'
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -329,19 +330,7 @@ function computeStartYmd() {
 }
 
 function computeEndYmd(startYmd) {
-  const [y, m, d] = startYmd.split('-').map(Number)
-  const start = new Date(y, m - 1, d, 12, 0, 0, 0)
-  if (form.period_type === 'week') {
-    const end = new Date(start)
-    end.setDate(end.getDate() + 6)
-    return toYmd(end)
-  }
-  if (form.period_type === 'month') {
-    const end = new Date(y, m, 0, 12, 0, 0, 0)
-    return toYmd(end)
-  }
-  const end = new Date(y, 11, 31, 12, 0, 0, 0)
-  return toYmd(end)
+  return computePeriodEndDate(form.period_type, startYmd)
 }
 
 function setPeriod(p) {
@@ -485,7 +474,7 @@ async function loadPlanForEdit() {
     }
     form.workspace_id =
       data.workspace_id != null && data.workspace_id !== '' ? Number(data.workspace_id) : null
-    form.name = data.name || ''
+    form.name = stripBudgetPeriodBracketSuffix(data.name || '') || data.name || ''
     form.period_type = data.period_type || 'month'
     form.is_recurring = data.is_recurring !== false && data.is_recurring !== 0
     form.currency = (data.currency || 'USD').toString().slice(0, 3)
@@ -524,8 +513,8 @@ watch(
 )
 
 async function onOk() {
-  const name = (form.name || '').trim()
-  if (!name) {
+  const rawName = (form.name || '').trim()
+  if (!rawName) {
     showToast('Enter a budget name')
     return
   }
@@ -539,6 +528,7 @@ async function onOk() {
     showToast('Invalid date range')
     return
   }
+  const name = formatBudgetPlanNameWithPeriod(rawName, form.period_type, start_date, end_date)
 
   const workspace_label =
     workspaceOptions.value.find((w) => w.id === form.workspace_id)?.label || lockedWorkspaceLabel.value

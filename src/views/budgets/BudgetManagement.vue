@@ -584,11 +584,13 @@ async function onAbandon(row) {
 
 async function onGenerateNext(row) {
   try {
-    await generateBudgetNext(row.id)
-    showToast('Next period draft created')
-    await load()
+    const res = await generateBudgetNext(row.id)
+    if (res?.success) {
+      showToast(res.reused ? res.message || 'Next period already exists' : 'Next period draft created')
+      await load()
+    }
   } catch (e) {
-    showToast(e?.message || 'Could not generate draft')
+    showToast(getApiErrorMessage(e, 'Could not generate next period'))
   }
 }
 

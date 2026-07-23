@@ -1,3 +1,5 @@
+import { formatDateRange } from '@/utils/dateUtils'
+
 export const BUDGET_STATUS_FILTERS = [
   { label: 'Ongoing', value: 'active' },
   { label: 'All', value: '' },
@@ -30,12 +32,110 @@ export function formatBudgetPeriodType(t) {
 }
 
 export function formatBudgetDateRange(start, end) {
-  if (!start || !end) return ''
-  const fmt = (ymd) => {
-    const d = new Date(`${ymd}T12:00:00`)
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateRange(start, end, '')
+}
+
+export function normalizeBudgetPeriodType(periodType) {
+  const t = String(periodType || 'month').toLowerCase()
+  if (t === 'weekly') return 'week'
+  if (t === 'monthly') return 'month'
+  if (t === 'yearly') return 'year'
+  return t
+}
+
+function parseCalendarYmd(ymd) {
+  const s = String(ymd).split('T')[0]
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d, 12, 0, 0, 0)
+}
+
+function toCalendarYmd(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function addDaysToYmd(ymd, deltaDays) {
+  const d = parseCalendarYmd(ymd)
+  d.setDate(d.getDate() + deltaDays)
+  return toCalendarYmd(d)
+}
+
+export function calendarTodayYmd() {
+  return toCalendarYmd(new Date())
+}
+
+/** Matches accounting-service budgetPeriodUtils.computePeriodEndDate */
+export function computePeriodEndDate(periodType, startYmd) {
+  const startStr = String(startYmd).split('T')[0]
+  const [y, m] = startStr.split('-').map(Number)
+  const type = normalizeBudgetPeriodType(periodType)
+  if (type === 'week') {
+    const start = parseCalendarYmd(startStr)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+    return toCalendarYmd(end)
   }
-  return `${fmt(start)} to ${fmt(end)}`
+  if (type === 'month') {
+    return toCalendarYmd(new Date(y, m, 0, 12, 0, 0, 0))
+  }
+  return toCalendarYmd(new Date(y, 11, 31, 12, 0, 0, 0))
+}
+
+/** Matches accounting-service budgetPeriodUtils.computeNextPeriodDates */
+export function computeNextPeriodDates(endDate, periodType) {
+  const endStr = String(endDate).split('T')[0]
+  const newStart = addDaysToYmd(endStr, 1)
+  const newEnd = computePeriodEndDate(periodType, newStart)
+  return { newStart, newEnd }
+}
+
+export function periodBounds(period) {
+  if (!period) return { start: '', end: '' }
+  return {
+    start: period.period_start ?? period.periodStart ?? '',
+    end: period.period_end ?? period.periodEnd ?? ''
+  }
+}
+
+export function stripBudgetPeriodBracketSuffix(name) {
+  return String(name || '').replace(/\s*\([^)]+\)\s*$/, '').trim()
+}
+
+/** Period-only label, e.g. "July 2026". Mirrors accounting-service formatPeriodLabelOnly. */
+export function formatBudgetPeriodLabel(periodType, startDate, endDate) {
+  const startStr = String(startDate || '').split('T')[0]
+  const endStr = String(endDate || '').split('T')[0]
+  if (!startStr) return ''
+  const start = parseCalendarYmd(startStr)
+  const type = normalizeBudgetPeriodType(periodType)
+
+  if (type === 'month') {
+    return start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  }
+  if (type === 'year') {
+    return String(start.getFullYear())
+  }
+  if (type === 'week' && endStr) {
+    const end = parseCalendarYmd(endStr)
+    const opts = { day: 'numeric', month: 'short', year: 'numeric' }
+    const a = start.toLocaleDateString('en-US', opts)
+    const b = end.toLocaleDateString('en-US', opts)
+    return a === b ? a : `${a} – ${b}`
+  }
+  return endStr ? `${startStr} – ${endStr}` : startStr
+}
+
+/**
+ * Build a plan display name: "My budget (July 2026)".
+ * If the base name is empty or equals the period label, returns the period label only.
+ */
+export function formatBudgetPlanNameWithPeriod(baseName, periodType, startDate, endDate) {
+  const periodLabel = formatBudgetPeriodLabel(periodType, startDate, endDate)
+  const base = stripBudgetPeriodBracketSuffix(baseName)
+  if (!base || base === periodLabel) return periodLabel
+  return `${base} (${periodLabel})`
 }
 
 export function workspaceBudgetParams(workspaceId) {
@@ -104,9 +204,13 @@ export function computeMonthlyProjection(actual, planned, periodStart, periodEnd
 export function pickReportPeriod(plan, periods) {
   const list = Array.isArray(periods) ? periods : []
   if (!list.length) return null
+  const today = calendarTodayYmd()
+  const inRange = (p) => {
+    const { start, end } = periodBounds(p)
+    return start && end && start <= today && today <= end
+  }
   if (plan.status === 'active') {
-    const today = new Date().toISOString().slice(0, 10)
-    return list.find((p) => p.period_start <= today && p.period_end >= today) || list[list.length - 1]
+    return list.find(inRange) || list[list.length - 1]
   }
   if (plan.status === 'completed' || plan.status === 'abandoned') {
     return list[list.length - 1]
