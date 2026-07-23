@@ -223,6 +223,63 @@ export function pickDashboardPeriodIndex(plan, periods) {
   return idx >= 0 ? idx : list.length - 1
 }
 
+/** Which plan/period to load when editing planned amounts. */
+export function resolvePlannerActualsReference(plan) {
+  const status = String(plan?.status || '').toLowerCase()
+  if (status === 'active' && plan?.id != null) {
+    return { referencePlanId: Number(plan.id), mode: 'current' }
+  }
+  if (status === 'draft' && plan?.source_plan_id) {
+    return { referencePlanId: Number(plan.source_plan_id), mode: 'previous' }
+  }
+  return null
+}
+
+export function mapActualsFromPeriodReport(report) {
+  const map = new Map()
+  for (const row of report?.items || []) {
+    const cid = Number(row.category_id)
+    if (!Number.isNaN(cid)) map.set(cid, Number(row.actual) || 0)
+    for (const sub of row.sub_items || []) {
+      const sid = Number(sub.category_id)
+      if (!Number.isNaN(sid)) map.set(sid, Number(sub.actual) || 0)
+    }
+  }
+  return map
+}
+
+export function buildPlannerActualsPeriodHint(mode, periodType, period) {
+  const { start, end } = periodBounds(period)
+  const label = formatBudgetPeriodLabel(periodType, start, end)
+  if (!label) return ''
+  if (mode === 'previous') return `Previous period spending · ${label}`
+  return `This period spending · ${label}`
+}
+
+export async function fetchPlannerCategoryActuals(plan, api) {
+  const ref = resolvePlannerActualsReference(plan)
+  if (!ref) return null
+
+  let referencePlan = plan
+  if (ref.mode === 'previous') {
+    const res = await api.getBudgetById(ref.referencePlanId)
+    referencePlan = res?.data
+    if (!referencePlan) return null
+  }
+
+  const periodsRes = await api.getBudgetPeriods(ref.referencePlanId)
+  const periods = periodsRes?.data ?? []
+  const periodIndex = pickDashboardPeriodIndex(referencePlan, periods)
+  if (periodIndex == null) return null
+
+  const reportRes = await api.getBudgetPeriodReport(ref.referencePlanId, periodIndex)
+  const report = reportRes?.data
+  const actuals = mapActualsFromPeriodReport(report)
+  const period = periods[periodIndex]
+  const hint = buildPlannerActualsPeriodHint(ref.mode, referencePlan.period_type, period)
+  return { actuals, hint }
+}
+
 export function flattenPieSlices(items) {
   const slices = []
   for (const row of items || []) {

@@ -9,6 +9,7 @@
         </div>
 
         <p v-if="draft?.name" class="plan-hint">{{ draft.name }} · {{ planWorkspaceHint }}</p>
+        <p v-if="plannerActualsHint" class="actuals-hint">{{ plannerActualsHint }}</p>
 
         <div v-if="loading" class="loading-state">
           <ion-spinner name="crescent" />
@@ -19,7 +20,12 @@
 
           <section v-for="group in parentGroups" :key="group.parent.id" class="budget-card">
             <div class="card-head" :class="{ 'card-head--has-children': group.leaves.length }">
-              <span class="card-title">{{ group.parent.name }}</span>
+              <div class="card-title-block">
+                <span class="card-title">{{ group.parent.name }}</span>
+                <span v-if="plannerActualsHint" class="row-actual">
+                  Spent {{ formatBudgetAmount(categoryActual(group.parent.id)) }}
+                </span>
+              </div>
               <div class="card-head-aside">
                 <div class="amount-stepper">
                   <button
@@ -59,7 +65,12 @@
                     <rect x="0" y="10.5" width="12" height="2.5" rx="1" fill="#A8A8A8" />
                   </svg>
                 </span>
-                <span class="leaf-name">{{ leaf.name }}</span>
+                <span class="leaf-name-block">
+                  <span class="leaf-name">{{ leaf.name }}</span>
+                  <span v-if="plannerActualsHint" class="row-actual">
+                    Spent {{ formatBudgetAmount(categoryActual(leaf.id)) }}
+                  </span>
+                </span>
                 <div class="amount-stepper">
                   <button
                     type="button"
@@ -106,8 +117,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { IonPage, IonContent, IonSpinner } from '@ionic/vue'
 import { showToast } from '@/utils/ionicFeedback'
 import { getApiErrorMessage } from '@/utils/apiError'
-import { getCategoryTree, getBudgetById, createBudget, updateBudget } from '@/api/accounting'
+import { getCategoryTree, getBudgetById, createBudget, updateBudget, getBudgetPeriods, getBudgetPeriodReport } from '@/api/accounting'
 import { budgetSetupDraft, clearBudgetSetupDraft } from '@/views/budgets/draftStore'
+import { formatBudgetAmount, fetchPlannerCategoryActuals } from '@/utils/budgetManagement'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,6 +131,9 @@ const editBudgetId = ref(null)
 const expenseTree = ref([])
 /** category id -> { text } */
 const budgetByCategoryId = reactive({})
+const plannerActualsHint = ref('')
+/** category id -> actual amount */
+const actualByCategoryId = reactive({})
 
 const AMOUNT_STEP = 500
 
@@ -207,6 +222,37 @@ function formatNum(n) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n || 0)
 }
 
+function categoryActual(categoryId) {
+  if (!plannerActualsHint.value) return 0
+  return Number(actualByCategoryId[Number(categoryId)]) || 0
+}
+
+function clearPlannerActuals() {
+  plannerActualsHint.value = ''
+  for (const key of Object.keys(actualByCategoryId)) {
+    delete actualByCategoryId[key]
+  }
+}
+
+async function loadPlannerActuals(plan) {
+  clearPlannerActuals()
+  if (!plan) return
+  try {
+    const result = await fetchPlannerCategoryActuals(plan, {
+      getBudgetById,
+      getBudgetPeriods,
+      getBudgetPeriodReport
+    })
+    if (!result) return
+    plannerActualsHint.value = result.hint
+    for (const [cid, amt] of result.actuals) {
+      actualByCategoryId[cid] = amt
+    }
+  } catch {
+    clearPlannerActuals()
+  }
+}
+
 function initRowsFromTree(nodes) {
   for (const root of nodes || []) {
     const leaves = collectLeaves(root)
@@ -260,6 +306,7 @@ async function loadEditMode(budgetId) {
   expenseTree.value = Array.isArray(data) ? data : []
   initRowsFromTree(expenseTree.value)
   initRowsFromItems(plan.items)
+  await loadPlannerActuals(plan)
 }
 
 onMounted(async () => {
@@ -412,6 +459,30 @@ async function onSave() {
   text-align: center;
 }
 
+.actuals-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.5);
+  margin: -8px 0 14px;
+  text-align: center;
+}
+
+.card-title-block,
+.leaf-name-block {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row-actual {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
 .loading-state {
   display: flex;
   justify-content: center;
@@ -449,7 +520,6 @@ async function onSave() {
 }
 
 .card-title {
-  flex: 1;
   min-width: 0;
   font-size: 16px;
   font-weight: 700;
@@ -497,7 +567,6 @@ async function onSave() {
 }
 
 .leaf-name {
-  flex: 1;
   min-width: 0;
   font-size: 15px;
   color: #1a1a2e;
