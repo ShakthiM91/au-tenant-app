@@ -1,24 +1,27 @@
 <template>
   <ion-page class="budget-plan-page">
-    <ion-content :fullscreen="true" :scroll-y="true">
-      <div class="page-container">
-        <div class="page-header">
-          <button type="button" class="back-btn" aria-label="Cancel" @click="onCancel">Cancel</button>
-          <span class="page-title">{{ isEditMode ? 'Edit planned amount' : 'Set planned amount' }}</span>
-          <button type="button" class="save-btn" :disabled="saving" @click="onSave">Save</button>
+    <ion-content :fullscreen="true" :scroll-y="false">
+      <div class="page-shell">
+        <div class="page-header-area">
+          <div class="page-header">
+            <button type="button" class="back-btn" aria-label="Cancel" @click="onCancel">Cancel</button>
+            <span class="page-title">{{ isEditMode ? 'Edit planned amount' : 'Set planned amount' }}</span>
+            <button type="button" class="save-btn" :disabled="saving" @click="onSave">Save</button>
+          </div>
+
+          <p v-if="draft?.name" class="plan-hint">{{ draft.name }} · {{ planWorkspaceHint }}</p>
+          <p v-if="plannerActualsHint" class="actuals-hint">{{ plannerActualsHint }}</p>
         </div>
 
-        <p v-if="draft?.name" class="plan-hint">{{ draft.name }} · {{ planWorkspaceHint }}</p>
-        <p v-if="plannerActualsHint" class="actuals-hint">{{ plannerActualsHint }}</p>
+        <div class="page-scroll">
+          <div v-if="loading" class="loading-state">
+            <ion-spinner name="crescent" />
+          </div>
 
-        <div v-if="loading" class="loading-state">
-          <ion-spinner name="crescent" />
-        </div>
+          <template v-else>
+            <p v-if="childrenExceedParentWarning" class="warn-banner">{{ childrenExceedParentWarning }}</p>
 
-        <template v-else>
-          <p v-if="childrenExceedParentWarning" class="warn-banner">{{ childrenExceedParentWarning }}</p>
-
-          <section v-for="group in parentGroups" :key="group.parent.id" class="budget-card">
+            <section v-for="group in parentGroups" :key="group.parent.id" class="budget-card">
             <div class="card-head" :class="{ 'card-head--has-children': group.leaves.length }">
               <div class="card-title-block">
                 <span class="card-title">{{ group.parent.name }}</span>
@@ -104,9 +107,11 @@
           <div v-if="!parentGroups.length" class="empty-state">
             <p>No expense categories in this island.</p>
           </div>
-        </template>
+          </template>
+
+          <div class="tab-spacer" />
+        </div>
       </div>
-      <div class="tab-spacer" />
     </ion-content>
   </ion-page>
 </template>
@@ -419,9 +424,26 @@ async function onSave() {
   --background: #f5f5f7;
 }
 
-.page-container {
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.page-header-area {
+  flex-shrink: 0;
   padding: 0 16px;
   padding-top: env(safe-area-inset-top, 20px);
+  background: #f5f5f7;
+}
+
+.page-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 16px 0;
 }
 
 .page-header {
@@ -463,7 +485,7 @@ async function onSave() {
   font-size: 12px;
   font-weight: 600;
   color: rgba(0, 0, 0, 0.5);
-  margin: -8px 0 14px;
+  margin: -8px 0 10px;
   text-align: center;
 }
 
