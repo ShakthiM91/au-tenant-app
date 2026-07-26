@@ -1,17 +1,4 @@
-export const DONUT_COLORS = [
-  '#1976D2',
-  '#FF9800',
-  '#F06292',
-  '#7E57C2',
-  '#66BB6A',
-  '#9E9E9E',
-  '#5C9FD4',
-  '#E57373',
-  '#FFB74D',
-  '#4DB6AC',
-  '#9575CD',
-  '#AED581',
-]
+import { DONUT_OTHER_COLOR, donutChartColor } from '@/utils/donutChartColors'
 
 /**
  * @param {{ category_id?: number, category_name?: string, amount?: number }[]} rows
@@ -22,7 +9,7 @@ export function prepareDonutSlices(rows, { tall = false, expanded = false } = {}
   const mapped = sourceRows.map((r, i) => ({
     name: r.category_name || 'Uncategorized',
     value: Number(r.amount) || 0,
-    color: DONUT_COLORS[i % DONUT_COLORS.length],
+    color: donutChartColor(i),
     category_id: r.category_id != null ? Number(r.category_id) : 0,
   }))
 
@@ -42,7 +29,7 @@ export function prepareDonutSlices(rows, { tall = false, expanded = false } = {}
       {
         name: 'Other',
         value: otherVal,
-        color: '#9E9E9E',
+        color: DONUT_OTHER_COLOR,
         isOther: true,
         category_ids: rest.map((r) => r.category_id).filter((id) => id != null),
       },

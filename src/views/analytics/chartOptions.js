@@ -1,5 +1,7 @@
 /** Shared ECharts option builders for Analytics (light theme; matches existing screen styles). */
 
+import { donutChartColor } from '@/utils/donutChartColors'
+
 export const D = {
   green: '#66C2A5',
   green2: '#66BB6A',
@@ -38,21 +40,6 @@ export const gridStd = (extra = {}) => ({
 })
 
 export const xSplit = { show: true, lineStyle: { type: 'dashed', color: D.grid, width: 0.5 } }
-
-const DONUT_COLORS = [
-  '#1976D2',
-  '#FF9800',
-  '#F06292',
-  '#7E57C2',
-  '#66BB6A',
-  '#9E9E9E',
-  '#5C9FD4',
-  '#E57373',
-  '#26A69A',
-  '#FFD92F',
-  '#9C6BCE',
-  '#FF8A65',
-]
 
 export function niceCeilMax(values, fallback = 1000) {
   const raw = Math.max(0, ...values.map((v) => Number(v) || 0))
@@ -350,14 +337,14 @@ function buildDonutOption(rows, { tall = false, expanded = false } = {}) {
   const pctFont = expanded ? 10 : 8
   const subLabelRich = {}
   slices.forEach((s, i) => {
-    const c = s.color || DONUT_COLORS[i % DONUT_COLORS.length]
+    const c = s.color || donutChartColor(i)
     subLabelRich[`sn${i}`] = { color: c, fontSize: nameFont, lineHeight: expanded ? 13 : 10, align: 'left' }
     subLabelRich[`sp${i}`] = { color: c, fontSize: pctFont, fontWeight: 600, lineHeight: expanded ? 13 : 10, align: 'left' }
   })
 
   const scTop = (hex) => (hex.length === 7 ? `${hex}E0` : hex)
   const pieData = slices.map((s, i) => {
-    const c = s.color || DONUT_COLORS[i % DONUT_COLORS.length]
+    const c = s.color || donutChartColor(i)
     return {
       name: s.name,
       value: s.value,
@@ -412,7 +399,7 @@ export function categoryDonutFromRows(rows, opts) {
     .map((r, i) => ({
       name: r.category_name || 'Uncategorized',
       value: Number(r.amount) || 0,
-      color: DONUT_COLORS[i % DONUT_COLORS.length],
+      color: donutChartColor(i),
       category_id: r.category_id != null ? Number(r.category_id) : 0,
     }))
   if (!mapped.length) {
@@ -1148,7 +1135,7 @@ export function paretoOption(sortedCategories, amounts) {
     return Math.min(100, Math.round(cum))
   })
   const paretoBarGrad = vals.map((_, i) => {
-    const c = DONUT_COLORS[i % DONUT_COLORS.length]
+    const c = donutChartColor(i)
     return lg(`${c}DD`, c)
   })
   const ymaxBar = niceCeilMax(vals)
@@ -1224,7 +1211,7 @@ export function radarBudgetOption(items) {
   const radarAx = items.map((it, idx) => ({
     name: it.category_name || 'Category',
     max: maxVal * 1.05,
-    nameTextStyle: { color: DONUT_COLORS[idx % DONUT_COLORS.length], fontSize: 6 },
+    nameTextStyle: { color: donutChartColor(idx), fontSize: 6 },
   }))
   const radarP = items.map((it) => Number(it.budget) || 0)
   const radarA = items.map((it) => Number(it.actual) || 0)
@@ -1459,7 +1446,7 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
         color:
           d.itemStyle?.color?.colorStops?.[1]?.color ||
           d.itemStyle?.color?.colorStops?.[0]?.color ||
-          DONUT_COLORS[i % DONUT_COLORS.length],
+          donutChartColor(i),
       }))
     if (rows.length) {
       const expanded = buildDonutOption(rows, { tall, expanded: true })
