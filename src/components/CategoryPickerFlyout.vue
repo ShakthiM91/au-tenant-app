@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" class="category-picker" :class="{ 'category-picker--fit': fitContent }">
+    <div ref="rootRef" class="category-picker" :class="{ 'category-picker--fit': fitContent }">
     <button
       type="button"
       class="category-picker__trigger"

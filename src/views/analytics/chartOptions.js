@@ -903,10 +903,10 @@ export function treemapFromCategories(rows) {
         label: {
           show: true,
           position: 'inside',
-          fontSize: 7,
+          fontSize: 9,
           align: 'center',
           verticalAlign: 'middle',
-          lineHeight: 12,
+          lineHeight: 14,
           formatter: (p) => {
             const d = p.data
             if (d != null && typeof d === 'object' && d.name != null) {
