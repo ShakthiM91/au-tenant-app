@@ -745,9 +745,14 @@ export function stackedCategoryPercentOption(stackedMonthSlices) {
     }
   }
   const monthLabels = slices.map((s) => s.label)
-  const nameSet = new Set()
-  slices.forEach((s) => (s.parents || []).forEach((p) => nameSet.add(p.name)))
-  const names = [...nameSet]
+  const totals = new Map()
+  slices.forEach((s) => {
+    for (const p of s.parents || []) {
+      totals.set(p.name, (totals.get(p.name) || 0) + Number(p.amount || 0))
+    }
+  })
+  // Largest at stack bottom (first series); matches per-month amount DESC from the API.
+  const names = [...totals.keys()].sort((a, b) => (totals.get(b) || 0) - (totals.get(a) || 0))
 
   if (!names.length) {
     return {
@@ -796,7 +801,8 @@ export function stackedCategoryPercentOption(stackedMonthSlices) {
       itemHeight: 6,
       selectedMode: false,
       textStyle: { fontSize: 9 },
-      data: names.map((n) => ({ name: n })),
+      // ECharts stacks series[0] at the bottom; reverse legend so top-to-bottom matches the bar.
+      data: [...names].reverse().map((n) => ({ name: n })),
     },
     xAxis: {
       type: 'category',
@@ -861,6 +867,47 @@ export function categoryMonthlyBarsOption(labels, values) {
 
 const TREEMAP_BLUES = ['#0D47A1', '#1565C0', '#1976D2', '#1E88E5', '#64B5F6', '#BBDEFB']
 
+/** Treemap label sizing — overview stays compact; zoomed tiles scale up via mergeTreemapLabelLayout. */
+export function createTreemapLabelLayout(zoomed = false) {
+  return (params) => {
+    const rect = params?.rect
+    if (!rect) return {}
+    const { width: w, height: h } = rect
+    if (w < 5 || h < 5 || w < 36 || h < 24) return { fontSize: 0 }
+
+    const minSide = Math.min(w, h)
+    const maxSide = Math.max(w, h)
+    const root = Math.sqrt(w * h)
+
+    if (zoomed) {
+      const fontSize = Math.round(
+        Math.min(36, Math.max(18, root / 6.5, minSide / 9, maxSide / 14))
+      )
+      return { fontSize, lineHeight: Math.round(fontSize * 1.35) }
+    }
+
+    let fontSize = Math.round(Math.max(9, Math.min(12, root / 24, minSide / 16)))
+    if (root >= 165) {
+      fontSize = Math.round(Math.max(fontSize, Math.min(14, root / 17)))
+    }
+    return { fontSize, lineHeight: Math.round(fontSize * 1.45) }
+  }
+}
+
+/** Patch label layout after treemap zoom without replacing series data (preserves view root). */
+export function mergeTreemapLabelLayout(chart, zoomed = false) {
+  if (!chart) return
+  chart.setOption({ series: [{ labelLayout: createTreemapLabelLayout(zoomed) }] })
+}
+
+export function isTreemapViewZoomed(chart) {
+  const series = chart?.getModel?.()?.getSeriesByIndex(0)
+  if (!series || series.subType !== 'treemap') return false
+  const treeRoot = series.getData()?.tree?.root
+  const viewRoot = series.getViewRoot?.()
+  return !!(viewRoot && treeRoot && viewRoot !== treeRoot)
+}
+
 export function treemapFromCategories(rows) {
   if (!rows?.length) {
     return {
@@ -919,6 +966,7 @@ export function treemapFromCategories(rows) {
             return p.name ? `${p.name}\n${Number(num).toLocaleString()}` : ''
           },
         },
+        labelLayout: createTreemapLabelLayout(false),
         upperLabel: { show: false },
         data: treemapRsData,
       },

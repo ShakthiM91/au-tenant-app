@@ -88,6 +88,8 @@ const emit = defineEmits(['close', 'options-click'])
 
 function handleDrill(params) {
   if (!props.onDrill) return
+  // Treemap uses tap-to-zoom in fullscreen; drill is not bound to single tap here.
+  if (params?.seriesType === 'treemap') return
   emit('close')
   props.onDrill(params)
 }

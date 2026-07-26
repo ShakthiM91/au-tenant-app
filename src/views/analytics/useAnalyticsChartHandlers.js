@@ -3,6 +3,8 @@ import {
   interactiveChartOption,
   isPieChartOption,
   isTreemapChartOption,
+  isTreemapViewZoomed,
+  mergeTreemapLabelLayout,
 } from '@/views/analytics/chartOptions'
 
 /** Pie / treemap click handlers shared by inline charts and the focus modal. */
@@ -10,6 +12,7 @@ export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
   const chartRef = ref(null)
   const selectedIndex = ref(null)
   const treemapLastTapAt = ref(0)
+  let treemapLayoutAfterZoom = null
 
   const isPie = computed(() => isPieChartOption(unref(optionSource)))
   const isTreemap = computed(() => isTreemapChartOption(unref(optionSource)))
@@ -26,17 +29,53 @@ export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
     () => {
       selectedIndex.value = null
       treemapLastTapAt.value = 0
+      scheduleTreemapLabelLayout(false)
     },
     { deep: false }
   )
 
+  function getChartInstance() {
+    return chartRef.value?.chart ?? null
+  }
+
+  function clearTreemapLayoutHook() {
+    const chart = getChartInstance()
+    if (chart && treemapLayoutAfterZoom) {
+      chart.off('finished', treemapLayoutAfterZoom)
+    }
+    treemapLayoutAfterZoom = null
+  }
+
+  function scheduleTreemapLabelLayout(zoomed) {
+    const chart = getChartInstance()
+    if (!chart) return
+    clearTreemapLayoutHook()
+    const apply = () => {
+      clearTreemapLayoutHook()
+      mergeTreemapLabelLayout(chart, zoomed)
+    }
+    treemapLayoutAfterZoom = apply
+    chart.on('finished', apply)
+    requestAnimationFrame(() => requestAnimationFrame(apply))
+  }
+
+  function scheduleTreemapLabelLayoutFromChart() {
+    const chart = getChartInstance()
+    if (!chart) return
+    clearTreemapLayoutHook()
+    const apply = () => {
+      clearTreemapLayoutHook()
+      mergeTreemapLabelLayout(chart, isTreemapViewZoomed(chart))
+    }
+    treemapLayoutAfterZoom = apply
+    chart.on('finished', apply)
+    requestAnimationFrame(() => requestAnimationFrame(apply))
+  }
+
   function resetInteraction() {
     selectedIndex.value = null
     treemapLastTapAt.value = 0
-  }
-
-  function getChartInstance() {
-    return chartRef.value?.chart ?? null
+    scheduleTreemapLabelLayout(false)
   }
 
   function treemapZoomIn(params) {
@@ -49,6 +88,7 @@ export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
       seriesIndex: params.seriesIndex ?? 0,
       targetNode: target,
     })
+    scheduleTreemapLabelLayout(true)
   }
 
   function treemapZoomOut() {
@@ -61,14 +101,15 @@ export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
     if (!treeRoot) return
     if (!viewRoot || viewRoot === treeRoot) {
       chart.dispatchAction({ type: 'treemapRender', seriesIndex: 0 })
-      return
+    } else {
+      const parent = viewRoot.parentNode
+      chart.dispatchAction({
+        type: 'treemapRootToNode',
+        seriesIndex: 0,
+        targetNode: parent && parent !== viewRoot ? parent : treeRoot,
+      })
     }
-    const parent = viewRoot.parentNode
-    chart.dispatchAction({
-      type: 'treemapRootToNode',
-      seriesIndex: 0,
-      targetNode: parent && parent !== viewRoot ? parent : treeRoot,
-    })
+    scheduleTreemapLabelLayoutFromChart()
   }
 
   function onChartDblClick(params) {
