@@ -975,10 +975,89 @@ export function treemapFromCategories(rows) {
 }
 
 const SANKEY_HUB = 'Funds'
-const SANKEY_SAVINGS = 'Unallocated'
+const SANKEY_SAVINGS = 'Savings'
 const SANKEY_SPENDING = 'Spending'
-const SANKEY_INCOME_COLORS = [D.green, D.green2, '#81C784', '#4DB6AC', '#AED581']
-const SANKEY_EXPENSE_COLORS = [D.red, D.coral, D.pink, D.tabOrange, '#FF7043', '#E57373']
+const SANKEY_BLEND = '#FBF5D4'
+const SANKEY_HUB_COLOR = '#F2E4A8'
+const SANKEY_SAVINGS_COLOR = '#F28C28'
+const SANKEY_SPENDING_COLOR = '#52B65A'
+const SANKEY_INCOME_COLORS = ['#52B65A', '#1F9E8F', '#6AB04C', '#26A69A', '#7CB342']
+const SANKEY_EXPENSE_COLORS = [
+  '#1A3D6B', // navy
+  '#FF8C2A', // orange
+  '#D94F3D', // red
+  '#5B3E96', // purple
+  '#5C6670', // grey
+  '#2F7A52', // green
+  '#F5B041', // gold
+  '#3D85C6', // blue
+]
+
+function sankeyHexToRgb(hex) {
+  const h = String(hex || '').replace('#', '')
+  const n = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  if (n.length !== 6) return { r: 0, g: 0, b: 0 }
+  return {
+    r: parseInt(n.slice(0, 2), 16),
+    g: parseInt(n.slice(2, 4), 16),
+    b: parseInt(n.slice(4, 6), 16),
+  }
+}
+
+function sankeyRgbToHex(r, g, b) {
+  const c = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')
+  return `#${c(r)}${c(g)}${c(b)}`
+}
+
+function sankeyMixHex(c1, c2, t) {
+  const a = sankeyHexToRgb(c1)
+  const b = sankeyHexToRgb(c2)
+  return sankeyRgbToHex(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t)
+}
+
+/** Income → hub: saturated green/teal at source, pale cream at hub (reference inflow ribbons). */
+function sankeyInflowLinkStyle(sourceColor) {
+  return {
+    color: {
+      type: 'linear',
+      x: 0,
+      y: 0,
+      x2: 1,
+      y2: 0,
+      colorStops: [
+        { offset: 0, color: sourceColor },
+        { offset: 0.35, color: sankeyMixHex(sourceColor, SANKEY_BLEND, 0.28) },
+        { offset: 0.72, color: sankeyMixHex(sourceColor, SANKEY_BLEND, 0.62) },
+        { offset: 1, color: sankeyMixHex(sourceColor, SANKEY_HUB_COLOR, 0.9) },
+      ],
+    },
+    opacity: 0.84,
+    curveness: 0.5,
+  }
+}
+
+/** Hub → category: pale tint at hub deepening to saturated node color (reference outflow ribbons). */
+function sankeyOutflowLinkStyle(targetColor) {
+  const pale = sankeyMixHex(targetColor, '#FFFFFF', 0.76)
+  const mid = sankeyMixHex(targetColor, '#FFFFFF', 0.42)
+  return {
+    color: {
+      type: 'linear',
+      x: 0,
+      y: 0,
+      x2: 1,
+      y2: 0,
+      colorStops: [
+        { offset: 0, color: sankeyMixHex(pale, SANKEY_HUB_COLOR, 0.55) },
+        { offset: 0.28, color: pale },
+        { offset: 0.62, color: mid },
+        { offset: 1, color: targetColor },
+      ],
+    },
+    opacity: 0.9,
+    curveness: 0.5,
+  }
+}
 
 function sankeyNodeName(base, used, fallbackSuffix) {
   const label = String(base || 'Uncategorized').trim() || 'Uncategorized'
@@ -1033,20 +1112,31 @@ export function sankeyFromFlow(flow) {
   if (totalIncome > 0) {
     incomeRows.forEach((row, i) => {
       const name = sankeyNodeName(row.category_name, usedNames, '(income)')
-      addNode(name, 0, SANKEY_INCOME_COLORS[i % SANKEY_INCOME_COLORS.length], {
+      const color = SANKEY_INCOME_COLORS[i % SANKEY_INCOME_COLORS.length]
+      addNode(name, 0, color, {
         drillable: true,
         categoryId: row.category_id != null ? Number(row.category_id) : 0,
         categoryName: row.category_name || name,
         txnType: 'income',
       })
-      links.push({ source: name, target: SANKEY_HUB, value: Number(row.amount) })
+      links.push({
+        source: name,
+        target: SANKEY_HUB,
+        value: Number(row.amount),
+        lineStyle: sankeyInflowLinkStyle(color),
+      })
     })
   } else if (totalExpense > 0) {
-    addNode(SANKEY_SPENDING, 0, D.axis)
-    links.push({ source: SANKEY_SPENDING, target: SANKEY_HUB, value: totalExpense })
+    addNode(SANKEY_SPENDING, 0, SANKEY_SPENDING_COLOR)
+    links.push({
+      source: SANKEY_SPENDING,
+      target: SANKEY_HUB,
+      value: totalExpense,
+      lineStyle: sankeyInflowLinkStyle(SANKEY_SPENDING_COLOR),
+    })
   }
 
-  addNode(SANKEY_HUB, 1, D.blue)
+  addNode(SANKEY_HUB, 1, SANKEY_HUB_COLOR)
 
   const expenseScale =
     totalIncome > 0 && totalExpense > totalIncome ? totalIncome / totalExpense : 1
@@ -1057,20 +1147,31 @@ export function sankeyFromFlow(flow) {
     const raw = Number(row.amount) || 0
     const value = Math.round(raw * expenseScale * 100) / 100
     if (value <= 0) return
-    addNode(name, 2, SANKEY_EXPENSE_COLORS[i % SANKEY_EXPENSE_COLORS.length], {
+    const color = SANKEY_EXPENSE_COLORS[i % SANKEY_EXPENSE_COLORS.length]
+    addNode(name, 2, color, {
       drillable: true,
       categoryId: row.category_id != null ? Number(row.category_id) : 0,
       categoryName: row.category_name || name,
       txnType: 'expense',
     })
-    links.push({ source: SANKEY_HUB, target: name, value })
+    links.push({
+      source: SANKEY_HUB,
+      target: name,
+      value,
+      lineStyle: sankeyOutflowLinkStyle(color),
+    })
     allocatedExpense += value
   })
 
   const remainder = Math.max(0, Math.round((totalIncome - allocatedExpense) * 100) / 100)
   if (remainder > 0.01) {
-    addNode(SANKEY_SAVINGS, 2, D.green)
-    links.push({ source: SANKEY_HUB, target: SANKEY_SAVINGS, value: remainder })
+    addNode(SANKEY_SAVINGS, 2, SANKEY_SAVINGS_COLOR)
+    links.push({
+      source: SANKEY_HUB,
+      target: SANKEY_SAVINGS,
+      value: remainder,
+      lineStyle: sankeyOutflowLinkStyle(SANKEY_SAVINGS_COLOR),
+    })
   }
 
   const nodeCount = nodes.length
@@ -1078,7 +1179,7 @@ export function sankeyFromFlow(flow) {
   return {
     tooltip: {
       trigger: 'item',
-      triggerOn: 'mousemove',
+      triggerOn: 'mousemove|click',
       confine: true,
       formatter: (p) => {
         if (p.dataType === 'edge') {
@@ -1111,11 +1212,11 @@ export function sankeyFromFlow(flow) {
         top: 10,
         bottom: 10,
         nodeGap: Math.max(6, Math.min(10, 200 / Math.max(nodeCount, 6))),
-        nodeWidth: 14,
+        nodeWidth: 16,
         nodeAlign: 'justify',
         layoutIterations: 64,
-        emphasis: { focus: 'adjacency' },
-        lineStyle: { color: 'gradient', curveness: 0.5, opacity: 0.45 },
+        emphasis: { focus: 'adjacency', lineStyle: { opacity: 0.95 } },
+        lineStyle: { curveness: 0.5 },
         levels: [
           {
             depth: 0,
@@ -1123,7 +1224,7 @@ export function sankeyFromFlow(flow) {
           },
           {
             depth: 1,
-            label: { position: 'inside', fontSize: 8, color: 'rgba(255,255,255,0.95)' },
+            label: { position: 'inside', fontSize: 8, color: 'rgba(0,0,0,0.5)' },
           },
           {
             depth: 2,
@@ -1266,7 +1367,7 @@ export function radarBudgetOption(items) {
   const radarAx = items.map((it, idx) => ({
     name: it.category_name || 'Category',
     max: maxVal * 1.05,
-    nameTextStyle: { color: donutChartColor(idx), fontSize: 6 },
+    nameTextStyle: { color: donutChartColor(idx), fontSize: 8 },
   }))
   const radarP = items.map((it) => Number(it.budget) || 0)
   const radarA = items.map((it) => Number(it.actual) || 0)
@@ -1290,7 +1391,7 @@ export function radarBudgetOption(items) {
       indicator: radarAx,
       splitLine: { lineStyle: { type: 'dashed', color: D.grid, width: 0.5 } },
       splitArea: { show: true, areaStyle: { color: ['rgba(0,0,0,0.02)', 'rgba(0,0,0,0.04)'] } },
-      axisName: { fontSize: 6 },
+      axisName: { fontSize: 8 },
     },
     series: [
       {
@@ -1349,6 +1450,20 @@ export function isPieChartOption(option) {
   return hasPieSeries(option)
 }
 
+function hasRadarSeries(option) {
+  return !!option?.radar && hasSeriesType(option, 'radar')
+}
+
+function hasSeriesType(option, type) {
+  const series = option?.series
+  const list = Array.isArray(series) ? series : [series]
+  return list.some((s) => s?.type === type)
+}
+
+export function isRadarChartOption(option) {
+  return hasRadarSeries(option)
+}
+
 function hasTreemapSeries(option) {
   const series = option?.series
   const list = Array.isArray(series) ? series : [series]
@@ -1357,6 +1472,16 @@ function hasTreemapSeries(option) {
 
 export function isTreemapChartOption(option) {
   return hasTreemapSeries(option)
+}
+
+function hasSankeySeries(option) {
+  const series = option?.series
+  const list = Array.isArray(series) ? series : series ? [series] : []
+  return list.some((s) => s?.type === 'sankey')
+}
+
+export function isSankeyChartOption(option) {
+  return hasSankeySeries(option)
 }
 
 /** Inline pie/treemap interaction without full modal expand treatment. */
@@ -1486,6 +1611,7 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
   const next = { ...option }
   const pie = hasPieSeries(option)
   const radar = !!option.radar
+  const sankey = hasSankeySeries(option)
   const catLen = hasCategoryXAxis(option) ? getPrimaryXAxis(option).data.length : 0
 
   if (pie) {
@@ -1514,8 +1640,9 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
   next.tooltip = {
     ...(option.tooltip || {}),
     show: true,
-    trigger: pie || radar ? 'item' : 'axis',
+    trigger: pie || radar || sankey ? 'item' : 'axis',
     confine: true,
+    ...(sankey ? { triggerOn: 'click' } : {}),
     ...(pie
       ? {
           formatter: (params) => {
@@ -1526,7 +1653,7 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
           },
         }
       : {}),
-    ...(pie || radar ? {} : { axisPointer: { type: 'shadow' } }),
+    ...(pie || radar || sankey ? {} : { axisPointer: { type: 'shadow' } }),
   }
 
   const baseGrid = option.grid && typeof option.grid === 'object' ? { ...option.grid } : gridStd()
@@ -1684,15 +1811,44 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
     })
   }
 
+  if (radar && Array.isArray(option.__radarItems) && option.__radarItems.length) {
+    const items = option.__radarItems
+    next.tooltip = {
+      ...(next.tooltip || {}),
+      triggerOn: 'click',
+      formatter: (params) => {
+        const idx = params?.dataIndex
+        if (params?.seriesType === 'radar' && idx != null && items[idx]) {
+          const item = items[idx]
+          const planned = formatChartAmount(Number(item.budget) || 0)
+          const actual = formatChartAmount(Number(item.actual) || 0)
+          return `${item.category_name}<br/>Planned: ${planned}<br/>Actual: ${actual}`
+        }
+        const item = items.find((it) => it.category_name === params?.name)
+        if (!item) return ''
+        const planned = formatChartAmount(Number(item.budget) || 0)
+        const actual = formatChartAmount(Number(item.actual) || 0)
+        return `${item.category_name}<br/>Planned: ${planned}<br/>Actual: ${actual}`
+      },
+    }
+  }
+
   if (option.radar) {
     next.radar = {
       ...option.radar,
       axisName: option.radar.axisName
         ? {
             ...option.radar.axisName,
-            fontSize: Math.max(9, Number(option.radar.axisName.fontSize) || 6) + 3,
+            fontSize: Math.max(9, Number(option.radar.axisName.fontSize) || 8) + 3,
           }
         : option.radar.axisName,
+      indicator: (option.radar.indicator || []).map((ind) => ({
+        ...ind,
+        nameTextStyle: {
+          ...(ind.nameTextStyle || {}),
+          fontSize: Math.max(9, Number(ind.nameTextStyle?.fontSize) || 8) + 2,
+        },
+      })),
     }
   }
 

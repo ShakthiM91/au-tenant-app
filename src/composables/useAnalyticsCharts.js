@@ -13,6 +13,10 @@ import {
   getBudgetPeriodReport,
 } from '@/api/accounting'
 import { getWorkspaces, getSharedWorkspaces } from '@/api/workspace'
+import {
+  mergeRadarItemsWithParentExpenses,
+  resolveRadarReportItems,
+} from '@/utils/radarChart'
 
 const ALL_ISLANDS_KEY = 'all'
 const DEFAULT_ISLAND_KEY = 'null'
@@ -1114,14 +1118,30 @@ export function useAnalyticsCharts() {
       const repRes = await getBudgetPeriodReport(planId, periodIndex)
       const report = repRes?.data
       const period = periods[periodIndex]
+      let items = resolveRadarReportItems(report)
+      const periodStart = String(report?.period_start || period?.periodStart || '').slice(0, 10)
+      const periodEnd = String(report?.period_end || period?.periodEnd || '').slice(0, 10)
+      if (periodStart && periodEnd) {
+        try {
+          const expRes = await getAnalyticsCategories(
+            selectedIslandScope.value,
+            periodStart,
+            periodEnd
+          )
+          const parents = Array.isArray(expRes?.data?.category_parent)
+            ? expRes.data.category_parent
+            : []
+          items = mergeRadarItemsWithParentExpenses(items, parents)
+        } catch {
+          /* keep budget report rows when category analytics is unavailable */
+        }
+      }
       const payload = {
-        items: Array.isArray(report?.radar_items)
-          ? report.radar_items
-          : Array.isArray(report?.items)
-            ? report.items
-            : [],
+        items,
         periodLabel: formatBudgetPeriodLabel(plan.period_type, period),
         periodIndex,
+        periodStart,
+        periodEnd,
       }
       budgetRadarCache.set(cacheKey, payload)
       budgetRadar.value = payload

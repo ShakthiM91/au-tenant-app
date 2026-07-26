@@ -192,8 +192,16 @@ function onTreemapDrill(rows) {
     const selection = analytics.budgetRadarSelection
     const periods = analytics.budgetRadarPeriods || []
     const period = selection != null ? periods[selection.periodIndex] : null
-    const startDate = period?.periodStart || period?.start_date || ''
-    const endDate = period?.periodEnd || period?.end_date || ''
+    const startDate =
+      analytics.budgetRadar?.periodStart ||
+      period?.periodStart ||
+      period?.start_date ||
+      ''
+    const endDate =
+      analytics.budgetRadar?.periodEnd ||
+      period?.periodEnd ||
+      period?.end_date ||
+      ''
     openCategory({
       categoryId: item.category_id != null ? Number(item.category_id) : 0,
       name: item.category_name || 'Category',

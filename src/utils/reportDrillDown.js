@@ -135,6 +135,43 @@ export function sankeyDrillFromClick(params) {
   }
 }
 
+function formatSankeyAmount(value) {
+  const v = Number(value) || 0
+  try {
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(v)
+  } catch {
+    return String(Math.round(v * 100) / 100)
+  }
+}
+
+/** Detail payload for Sankey tap (nodes and flows). */
+export function sankeySelectionFromClick(params) {
+  if (!params || params.seriesType !== 'sankey') return null
+  if (params.dataType === 'edge') {
+    const source = params.data?.source || ''
+    const target = params.data?.target || ''
+    const name = source && target ? `${source} → ${target}` : String(params.name || '')
+    return {
+      name,
+      amount: formatSankeyAmount(params.value),
+      drillable: false,
+      drill: null,
+    }
+  }
+  if (params.dataType === 'node') {
+    const d = params.data || {}
+    const name = d.name || params.name || ''
+    const drill = sankeyDrillFromClick(params)
+    return {
+      name,
+      amount: formatSankeyAmount(params.value),
+      drillable: !!drill,
+      drill,
+    }
+  }
+  return null
+}
+
 export function transactionMatchesWeekday(row, weekdayIdx) {
   const s = row?.transaction_date
   if (!s) return false

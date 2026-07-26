@@ -551,9 +551,9 @@ import {
   sankeyFromFlow,
   sankeyChartHeight,
   paretoOption as buildParetoOption,
-  radarBudgetOption as buildRadarBudgetOption,
   emptyRadarPlaceholder as buildEmptyRadarPlaceholder,
 } from '@/views/analytics/chartOptions'
+import { hasRadarChartData, radarFromReportItems } from '@/utils/radarChart'
 import AnalyticsChartPanel from '@/views/analytics/components/AnalyticsChartPanel.vue'
 import AnalyticsChartFocusModal from '@/views/analytics/components/AnalyticsChartFocusModal.vue'
 import { useAnalyticsDrillDown } from '@/views/analytics/useAnalyticsDrillDown.js'
@@ -888,12 +888,9 @@ const pareto12kOption = computed(() => {
 })
 
 const radarPlannedActualOption = computed(() => {
-  const raw = analytics.budgetRadar
-  const items = raw?.items
-  if (!items?.length) return buildEmptyRadarPlaceholder()
-  const filtered = items.filter((it) => it.category_name != null)
-  if (!filtered.length) return buildEmptyRadarPlaceholder()
-  return buildRadarBudgetOption(filtered)
+  const items = analytics.budgetRadar?.items
+  if (!hasRadarChartData(items)) return buildEmptyRadarPlaceholder()
+  return radarFromReportItems(items)
 })
 
 const balanceDisplay = computed(() => {

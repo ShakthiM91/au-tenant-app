@@ -2,20 +2,28 @@ import { computed, ref, unref, watch } from 'vue'
 import {
   interactiveChartOption,
   isPieChartOption,
+  isRadarChartOption,
+  isSankeyChartOption,
   isTreemapChartOption,
   isTreemapViewZoomed,
   mergeTreemapLabelLayout,
 } from '@/views/analytics/chartOptions'
+import { radarCategoryFromClick } from '@/utils/radarChart'
+import { sankeySelectionFromClick } from '@/utils/reportDrillDown'
 
-/** Pie / treemap click handlers shared by inline charts and the focus modal. */
-export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
+/** Pie / treemap / sankey / radar click handlers shared by inline charts and the focus modal. */
+export function useAnalyticsChartHandlers(optionSource, { onDrill, sankeyDetailOnClick = false, radarDetailOnClick = false } = {}) {
   const chartRef = ref(null)
   const selectedIndex = ref(null)
+  const selectedSankey = ref(null)
+  const selectedRadar = ref(null)
   const treemapLastTapAt = ref(0)
   let treemapLayoutAfterZoom = null
 
   const isPie = computed(() => isPieChartOption(unref(optionSource)))
   const isTreemap = computed(() => isTreemapChartOption(unref(optionSource)))
+  const isSankey = computed(() => isSankeyChartOption(unref(optionSource)))
+  const isRadar = computed(() => isRadarChartOption(unref(optionSource)))
   const isInteractive = computed(() => isPie.value || isTreemap.value)
 
   const interactiveOption = computed(() => {
@@ -28,6 +36,8 @@ export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
     optionSource,
     () => {
       selectedIndex.value = null
+      selectedSankey.value = null
+      selectedRadar.value = null
       treemapLastTapAt.value = 0
       scheduleTreemapLabelLayout(false)
     },
@@ -74,6 +84,8 @@ export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
 
   function resetInteraction() {
     selectedIndex.value = null
+    selectedSankey.value = null
+    selectedRadar.value = null
     treemapLastTapAt.value = 0
     scheduleTreemapLabelLayout(false)
   }
@@ -119,9 +131,28 @@ export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
   }
 
   function onChartClick(params) {
-    if (onDrill && params?.seriesType === 'sankey') {
-      onDrill(params)
-      return
+    if (isRadar.value) {
+      if (radarDetailOnClick) {
+        const sel = radarCategoryFromClick(params, unref(optionSource))
+        if (sel) {
+          selectedRadar.value = selectedRadar.value?.name === sel.name ? null : sel
+        }
+        return
+      }
+      if (onDrill) {
+        onDrill(params)
+        return
+      }
+    }
+    if (isSankey.value && params?.seriesType === 'sankey') {
+      if (sankeyDetailOnClick) {
+        selectedSankey.value = sankeySelectionFromClick(params)
+        return
+      }
+      if (onDrill) {
+        onDrill(params)
+        return
+      }
     }
     if (onDrill && params?.seriesType === 'treemap') {
       onDrill(params)
@@ -150,8 +181,12 @@ export function useAnalyticsChartHandlers(optionSource, { onDrill } = {}) {
   return {
     chartRef,
     selectedIndex,
+    selectedSankey,
+    selectedRadar,
     isPie,
     isTreemap,
+    isSankey,
+    isRadar,
     isInteractive,
     interactiveOption,
     resetInteraction,
