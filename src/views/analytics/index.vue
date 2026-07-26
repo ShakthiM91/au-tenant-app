@@ -283,6 +283,7 @@
                 ref="categoryAnalysisPickerRef"
                 v-model="categoryAnalysisSelectedId"
                 class="category-analysis-picker"
+                fit-content
                 :workspace-id="categoryPickerWorkspaceId"
                 :display-label="categoryAnalysisTitle"
                 placeholder="Select category"

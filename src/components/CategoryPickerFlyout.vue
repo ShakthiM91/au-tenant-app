@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" class="category-picker">
+  <div ref="rootRef" class="category-picker" :class="{ 'category-picker--fit': fitContent }">
     <button
       type="button"
       class="category-picker__trigger"
@@ -116,6 +116,8 @@ const props = defineProps({
   ariaLabel: { type: String, default: 'Select category' },
   showIncome: { type: Boolean, default: false },
   showExpense: { type: Boolean, default: true },
+  /** Shrink trigger to label width; caps at the default max width (46%). */
+  fitContent: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'select'])
@@ -290,6 +292,21 @@ defineExpose({
   flex: 0 1 46%;
   min-width: 88px;
   max-width: 46%;
+}
+
+.category-picker--fit {
+  flex: 0 1 auto;
+  width: max-content;
+  min-width: 0;
+}
+
+.category-picker--fit .category-picker__trigger {
+  width: auto;
+  max-width: 100%;
+}
+
+.category-picker--fit .category-picker__label {
+  flex: 0 1 auto;
 }
 
 .category-picker__trigger {

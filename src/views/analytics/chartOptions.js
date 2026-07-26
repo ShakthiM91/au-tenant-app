@@ -318,6 +318,12 @@ function formatChartAmount(n) {
   }
 }
 
+function formatStackedPercent(n) {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '0.00'
+  return v.toFixed(2)
+}
+
 function donutRadius(tall, expanded = false) {
   if (expanded) return tall ? ['30%', '62%'] : ['32%', '66%']
   return tall ? ['32%', '60%'] : ['34%', '64%']
@@ -777,6 +783,7 @@ export function stackedCategoryPercentOption(stackedMonthSlices) {
   })
 
   return {
+    __stacked: true,
     grid: { left: 96, right: 8, top: 8, bottom: 8, containLabel: false },
     tooltip: { show: false },
     legend: {
@@ -788,7 +795,7 @@ export function stackedCategoryPercentOption(stackedMonthSlices) {
       itemWidth: 6,
       itemHeight: 6,
       selectedMode: false,
-      textStyle: { fontSize: 7 },
+      textStyle: { fontSize: 9 },
       data: names.map((n) => ({ name: n })),
     },
     xAxis: {
@@ -1493,6 +1500,20 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
         return cum
           ? `${name}<br/>Amount: ${amount}<br/>Cumulative: ${cum}`
           : `${name}<br/>Amount: ${amount}`
+      },
+    }
+  }
+
+  if (option.__stacked) {
+    next.tooltip = {
+      ...(next.tooltip || {}),
+      formatter: (params) => {
+        const rows = Array.isArray(params) ? params : [params]
+        const header = rows[0]?.axisValueLabel || rows[0]?.axisValue || ''
+        const lines = rows
+          .filter((p) => Number(p.value) > 0)
+          .map((p) => `${p.marker || ''}${p.seriesName}: ${formatStackedPercent(p.value)}`)
+        return lines.length ? `${header}<br/>${lines.join('<br/>')}` : header
       },
     }
   }
