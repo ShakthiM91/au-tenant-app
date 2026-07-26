@@ -155,15 +155,43 @@ export function chartPeriodDateRange(months) {
   return lastNMonthsRange(months)
 }
 
-/** Slice chronologically ordered monthly rows for a period picker value. */
-export function sliceMonthlyByPeriod(rows, periodMonths) {
-  const list = rows || []
-  if (!list.length) return []
+/** Build ordered calendar months for a period picker value. */
+export function calendarMonthsForPeriod(periodMonths, now = new Date()) {
   if (periodMonths === 0) {
-    return list.length >= 2 ? list.slice(-2, -1) : list.slice(-1)
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    return [{ year: d.getFullYear(), month: d.getMonth() + 1 }]
   }
   const n = Math.max(1, Number(periodMonths) || 1)
-  return list.slice(-Math.min(n, list.length))
+  const out = []
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    out.push({ year: d.getFullYear(), month: d.getMonth() + 1 })
+  }
+  return out
+}
+
+function findMonthlyRow(rows, year, month) {
+  const y = Number(year)
+  const m = Number(month)
+  return (rows || []).find((r) => Number(r.year) === y && Number(r.month) === m)
+}
+
+function zeroMonthlyRow(year, month) {
+  return { year, month, income: 0, expense: 0 }
+}
+
+/** Slice monthly rows for a period picker value, aligned to calendar months (zeros when no data). */
+export function sliceMonthlyByPeriod(rows, periodMonths, now = new Date()) {
+  return calendarMonthsForPeriod(periodMonths, now).map(({ year, month }) => {
+    const row = findMonthlyRow(rows, year, month)
+    if (!row) return zeroMonthlyRow(year, month)
+    return {
+      year,
+      month,
+      income: Number(row.income) || 0,
+      expense: Number(row.expense) || 0,
+    }
+  })
 }
 
 /** Date range for pattern charts: null = all time, else chart period. */

@@ -434,7 +434,40 @@ export function categoryDonutFromRows(rows, opts) {
   return buildDonutOption(mapped, opts)
 }
 
-const xLab136182430 = (i) => [0, 5, 11, 17, 23, 29].includes(i)
+const COMPACT_AXIS_TARGET_LABELS = 6
+
+/** Pick a readable day/category label step for narrow inline charts (e.g. 1, 2, 5, 7). */
+export function compactCategoryLabelStep(catLen, targetLabels = COMPACT_AXIS_TARGET_LABELS) {
+  if (!catLen || catLen <= 1) return 1
+  if (catLen <= targetLabels) return 1
+  const needed = Math.ceil(catLen / targetLabels)
+  const niceSteps = [1, 2, 3, 5, 7, 10]
+  return niceSteps.find((s) => s >= needed) ?? needed
+}
+
+function compactDayGridBottom(catLen) {
+  if (catLen > 20) return 14
+  if (catLen > 10) return 10
+  return 4
+}
+
+function compactDayAxisLabel(catLen, { fontSize = 7 } = {}) {
+  const step = compactCategoryLabelStep(catLen)
+  const base = {
+    color: D.axis,
+    fontSize,
+    hideOverlap: false,
+  }
+  if (step <= 1) {
+    return { ...base, interval: 0 }
+  }
+  return {
+    ...base,
+    interval: step - 1,
+    showMinLabel: true,
+    showMaxLabel: true,
+  }
+}
 
 /** Day labels for I/E progression, e.g. "Jun 1". */
 export function ieProgressionDayLabels(year, month, daysInMonth) {
@@ -445,18 +478,27 @@ export function ieProgressionDayLabels(year, month, daysInMonth) {
 }
 
 function ieProgressionAxisLabelStep(catLen) {
-  return catLen > 15 ? 2 : 1
+  return compactCategoryLabelStep(catLen)
 }
 
 function ieProgressionAxisLabel(catLen) {
   const step = ieProgressionAxisLabelStep(catLen)
   const rotate = catLen > 15 ? 42 : 0
-  return {
+  const base = {
     color: D.axis,
     fontSize: 7,
     rotate,
     margin: rotate ? 10 : 6,
-    formatter: (v, i) => (i % step === 0 ? v : ''),
+    hideOverlap: false,
+  }
+  if (step <= 1) {
+    return { ...base, interval: 0 }
+  }
+  return {
+    ...base,
+    interval: step - 1,
+    showMinLabel: true,
+    showMaxLabel: true,
   }
 }
 
@@ -470,18 +512,14 @@ export function dailyExpenseAnalysisOption(daysInMonth, expenseByDayIndex) {
   const maxVal = Math.max(1, ...vals)
   const yMax = niceCeilMax(vals)
   return {
-    grid: gridStd(),
+    grid: gridStd({ bottom: compactDayGridBottom(daysInMonth) }),
     tooltip: { show: false },
     xAxis: {
       type: 'category',
       data: labels,
       axisLine: { show: true, lineStyle: { color: 'rgba(0,0,0,0.12)', width: 0.5 } },
       axisTick: { show: false },
-      axisLabel: {
-        color: D.axis,
-        fontSize: 7,
-        formatter: (v, i) => (xLab136182430(i) ? v : ''),
-      },
+      axisLabel: compactDayAxisLabel(daysInMonth),
     },
     yAxis: {
       type: 'value',
@@ -550,7 +588,7 @@ export function weekdayExpenseAnalysisOption(labels, expenseByWeekdayIndex) {
 export function cumulativeExpenseLineOption(dayLabels, cumulative) {
   const yMax = niceCeilMax(cumulative)
   return {
-    grid: gridStd(),
+    grid: gridStd({ bottom: compactDayGridBottom(dayLabels.length) }),
     tooltip: { show: false },
     xAxis: {
       type: 'category',
@@ -558,11 +596,7 @@ export function cumulativeExpenseLineOption(dayLabels, cumulative) {
       splitLine: xSplit,
       axisLine: { show: true, lineStyle: { color: 'rgba(0,0,0,0.12)' } },
       axisTick: { show: false },
-      axisLabel: {
-        color: D.axis,
-        fontSize: 7,
-        formatter: (v, i) => (xLab136182430(i) ? v : ''),
-      },
+      axisLabel: compactDayAxisLabel(dayLabels.length),
     },
     yAxis: {
       type: 'value',

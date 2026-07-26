@@ -12,8 +12,20 @@
         </ion-buttons>
         <ion-title>{{ title }}</ion-title>
       </ion-toolbar>
-      <ion-toolbar v-if="subtitle" class="chart-focus-modal__subtitle-bar">
-        <ion-title size="small">{{ subtitle }}</ion-title>
+      <ion-toolbar v-if="optionsLabel || subtitle" class="chart-focus-modal__subtitle-bar">
+        <div class="chart-focus-modal__subtitle-row">
+          <button
+            v-if="optionsLabel"
+            type="button"
+            class="chart-focus-modal__options-chip"
+            :aria-label="optionsAriaLabel"
+            @click="emit('options-click')"
+          >
+            <span>{{ optionsLabel }}</span>
+            <ion-icon :icon="chevronDown" class="chart-focus-modal__options-icon" />
+          </button>
+          <ion-title v-else size="small">{{ subtitle }}</ion-title>
+        </div>
       </ion-toolbar>
     </ion-header>
     <ion-content class="chart-focus-modal__content">
@@ -56,7 +68,9 @@ import {
   IonButtons,
   IonButton,
   IonContent,
+  IonIcon,
 } from '@ionic/vue'
+import { chevronDown } from 'ionicons/icons'
 import { expandChartOption } from '@/views/analytics/chartOptions'
 import { useAnalyticsChartHandlers } from '@/views/analytics/useAnalyticsChartHandlers'
 
@@ -65,10 +79,12 @@ const props = defineProps({
   title: { type: String, default: '' },
   subtitle: { type: String, default: '' },
   option: { type: Object, default: () => ({}) },
+  optionsLabel: { type: String, default: '' },
+  optionsAriaLabel: { type: String, default: 'Chart options' },
   onDrill: { type: Function, default: null },
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'options-click'])
 
 function handleDrill(params) {
   if (!props.onDrill) return
@@ -154,14 +170,44 @@ function onViewTransactions() {
   --min-height: 36px;
 }
 
+.chart-focus-modal__subtitle-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
 .chart-focus-modal__subtitle-bar ion-title {
   font-size: 13px;
   font-weight: 500;
   color: rgba(0, 0, 0, 0.55);
 }
 
+.chart-focus-modal__options-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 5px 6px 5px 10px;
+  background: #fff;
+  border: 1px solid rgba(168, 168, 168, 0.35);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chart-focus-modal__options-icon {
+  width: 16px;
+  height: 16px;
+  color: #a8a8a8;
+  flex-shrink: 0;
+}
+
 .chart-focus-modal__content {
-  --background: #f8f8fa;
 }
 
 .chart-focus-modal__hint {

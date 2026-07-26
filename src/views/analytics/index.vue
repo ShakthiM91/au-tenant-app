@@ -104,8 +104,8 @@
               title="I/E Monthly Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="incomeExpenseBarOption"
-              chart-key="ieMonthly"
-              :on-drill="drillFor('ieMonthly')"
+              chart-key="ieMonthlyBar"
+              :on-drill="drillFor('ieMonthlyBar')"
               @open="openChartFocus"
             />
           </section>
@@ -271,6 +271,7 @@
               :subtitle="stackedPeriodLabel"
               :option="stackedCategoryOption"
               :loading="analytics.stackedLoading"
+              chart-key="stacked"
               @open="openChartFocus"
             />
           </section>
@@ -299,6 +300,7 @@
               :subtitle="categoryAnalysisTitle"
               :option="categoryAnalysisBarOption"
               :loading="analytics.categoryAnalysisLoading"
+              chart-key="categoryAnalysis"
               @open="openChartFocus"
             />
           </section>
@@ -482,11 +484,14 @@
     </ion-content>
 
     <AnalyticsChartFocusModal
-      :open="!!chartFocus"
-      :title="chartFocus?.title || ''"
-      :subtitle="chartFocus?.subtitle || ''"
-      :option="chartFocus?.option || {}"
+      :open="!!chartFocusKey"
+      :title="chartFocusTitle"
+      :subtitle="chartFocusSubtitle"
+      :option="chartFocusOption"
+      :options-label="chartFocusOptionsLabel"
+      :options-aria-label="chartFocusOptionsAriaLabel"
       :on-drill="focusDrillHandler"
+      @options-click="onChartFocusOptionsClick"
       @close="closeChartFocus"
     />
   </ion-page>
@@ -559,8 +564,8 @@ import {
 
 const analytics = useAnalyticsCharts()
 const viewMode = ref('basic')
-const chartFocus = ref(null)
 const chartFocusKey = ref(null)
+const chartFocusTitle = ref('')
 const categoryAnalysisPickerRef = ref(null)
 const categoryAnalysisSelectedId = ref(null)
 
@@ -895,18 +900,178 @@ const balanceDisplay = computed(() => {
 })
 
 function openChartFocus(payload) {
-  if (!payload?.option) return
-  chartFocus.value = {
-    title: payload.title || 'Chart',
-    subtitle: payload.subtitle || '',
-    option: payload.option,
-  }
-  chartFocusKey.value = payload.chartKey || null
+  if (!payload?.chartKey) return
+  chartFocusKey.value = payload.chartKey
+  chartFocusTitle.value = payload.title || 'Chart'
 }
 
 function closeChartFocus() {
-  chartFocus.value = null
   chartFocusKey.value = null
+  chartFocusTitle.value = ''
+}
+
+const chartFocusOption = computed(() => {
+  switch (chartFocusKey.value) {
+    case 'monthlyAnalysis':
+      return monthlyBarOption.value
+    case 'subcategory':
+      return subcategoryDonutOption.value
+    case 'categoryWise':
+      return categoryWiseDonutOption.value
+    case 'ieMonthlyBar':
+      return incomeExpenseBarOption.value
+    case 'ieMonthly':
+      return incomeExpenseHighlightOption.value
+    case 'ieGap':
+      return ieGapMonthlyOption.value
+    case 'ieWaterfall':
+      return ieWaterfall12Option.value
+    case 'dailyAnalysis':
+      return dailyAnalysisOption.value
+    case 'monthlyProgression':
+      return monthlyProgressionStepOption.value
+    case 'weekday':
+      return weekdayAnalysisOption.value
+    case 'dom':
+      return dayOfMonthAnalysisOption.value
+    case 'stacked':
+      return stackedCategoryOption.value
+    case 'categoryAnalysis':
+      return categoryAnalysisBarOption.value
+    case 'treemap':
+      return treemapRsOption.value
+    case 'sankey':
+      return sankeyOption.value
+    case 'pareto':
+      return pareto12kOption.value
+    case 'radar':
+      return radarPlannedActualOption.value
+    case 'ieProgression':
+      return ieProgressionDualAreaOption.value
+    default:
+      return {}
+  }
+})
+
+const chartFocusSubtitle = computed(() => {
+  switch (chartFocusKey.value) {
+    case 'monthlyAnalysis':
+      return monthlyAnalysisPeriodLabel.value
+    case 'subcategory':
+    case 'categoryWise':
+      return categoryDonutPeriodLabel.value
+    case 'ieMonthlyBar':
+    case 'ieMonthly':
+    case 'ieGap':
+    case 'ieWaterfall':
+      return ieMonthlyPeriodLabel.value
+    case 'dailyAnalysis':
+    case 'monthlyProgression':
+      return dailyMonthLabel.value
+    case 'weekday':
+    case 'dom':
+      return patternPeriodLabel.value
+    case 'stacked':
+      return stackedPeriodLabel.value
+    case 'categoryAnalysis':
+      return categoryAnalysisTitle.value
+    case 'treemap':
+      return treemapPeriodLabel.value
+    case 'sankey':
+      return sankeyMonthLabel.value
+    case 'pareto':
+      return paretoPeriodLabel.value
+    case 'radar':
+      return analytics.budgetRadarPeriodLabel
+    case 'ieProgression':
+      return progressionMonthLabel.value
+    default:
+      return ''
+  }
+})
+
+const chartFocusOptionsLabel = computed(() =>
+  chartFocusKey.value ? chartFocusSubtitle.value : ''
+)
+
+const chartFocusOptionsAriaLabel = computed(() => {
+  switch (chartFocusKey.value) {
+    case 'dailyAnalysis':
+    case 'monthlyProgression':
+    case 'sankey':
+    case 'ieProgression':
+      return 'Select month'
+    case 'categoryAnalysis':
+      return 'Select category'
+    case 'radar':
+      return 'Select budget period'
+    case 'ieMonthlyBar':
+    case 'ieMonthly':
+    case 'ieGap':
+    case 'ieWaterfall':
+      return 'Time range'
+    default:
+      return 'Select period'
+  }
+})
+
+function onChartFocusOptionsClick() {
+  switch (chartFocusKey.value) {
+    case 'monthlyAnalysis':
+      return showMonthlyAnalysisPeriodSheet()
+    case 'subcategory':
+    case 'categoryWise':
+      return showCategoryDonutPeriodSheet()
+    case 'ieMonthlyBar':
+    case 'ieMonthly':
+    case 'ieGap':
+    case 'ieWaterfall':
+      return showIeMonthlyPeriodSheet()
+    case 'dailyAnalysis':
+    case 'monthlyProgression':
+      return showDailyMonthSheet()
+    case 'weekday':
+    case 'dom':
+      return showPatternPeriodSheet()
+    case 'stacked':
+      return showStackedPeriodSheet()
+    case 'categoryAnalysis':
+      return showCategoryAnalysisSheet()
+    case 'treemap':
+      return showTreemapPeriodSheet()
+    case 'sankey':
+      return showSankeyMonthSheet()
+    case 'pareto':
+      return showParetoPeriodSheet()
+    case 'radar':
+      return showBudgetRadarPeriodSheet()
+    case 'ieProgression':
+      return showIeProgressionMonthSheet()
+    default:
+      return undefined
+  }
+}
+
+async function showCategoryAnalysisSheet() {
+  await categoryAnalysisPickerRef.value?.loadCategories?.()
+  const { menuOptions } = resolveCategoryPickerMaps()
+  if (!menuOptions.length) {
+    showToast('No categories available')
+    return
+  }
+  const selected = categoryAnalysisSelectedId.value
+  const buttons = menuOptions.map((opt) => ({
+    text: opt.id === selected ? `${opt.label} ✓` : opt.label,
+    handler: () => {
+      void onCategoryAnalysisSelect(opt.id)
+    },
+  }))
+  buttons.push({ text: 'Cancel', role: 'cancel' })
+  const sheet = await actionSheetController.create({
+    header: 'Select category',
+    buttons,
+  })
+  await sheet.present()
 }
 
 async function loadAdvancedCharts() {

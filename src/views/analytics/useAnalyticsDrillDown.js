@@ -216,6 +216,7 @@ function onTreemapDrill(rows) {
   function focusDrillHandler(chartKey, params) {
     const handlers = {
       monthlyAnalysis: onMonthlyBarDrill(ctx.monthlyAnalysisMonths),
+      ieMonthlyBar: onMonthlyBarDrill(ctx.ieMonthlyAnalysisMonths),
       ieMonthly: onMonthlyBarDrill(ctx.ieMonthlyAnalysisMonths),
       ieGap: onMonthlyBarDrill(ctx.ieMonthlyAnalysisMonths),
       ieWaterfall: onMonthlyBarDrill(ctx.ieMonthlyAnalysisMonths),
