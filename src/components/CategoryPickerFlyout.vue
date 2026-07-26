@@ -118,6 +118,8 @@ const props = defineProps({
   showExpense: { type: Boolean, default: true },
   /** Shrink trigger to label width; caps at the default max width (46%). */
   fitContent: { type: Boolean, default: false },
+  /** All-island analytics: load categories from every workspace (not just defaults). */
+  includeWorkspaceScoped: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'select'])
@@ -190,9 +192,10 @@ async function loadCategories() {
   categoriesLoading.value = true
   try {
     const wsId = props.workspaceId
+    const treeOpts = props.includeWorkspaceScoped ? { includeWorkspaceScoped: true } : {}
     const loaders = []
-    if (props.showIncome) loaders.push(getCategoryTree('income', wsId))
-    if (props.showExpense) loaders.push(getCategoryTree('expense', wsId))
+    if (props.showIncome) loaders.push(getCategoryTree('income', wsId, treeOpts))
+    if (props.showExpense) loaders.push(getCategoryTree('expense', wsId, treeOpts))
     const results = await Promise.all(loaders)
     let idx = 0
     if (props.showIncome) {
@@ -250,7 +253,7 @@ watch(open, async (isOpen) => {
 })
 
 watch(
-  () => props.workspaceId,
+  () => [props.workspaceId, props.includeWorkspaceScoped],
   () => {
     incomeCategoryTree.value = []
     expenseCategoryTree.value = []

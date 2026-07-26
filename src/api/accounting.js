@@ -25,9 +25,15 @@ export function getCategories(type = null, extraParams = {}) {
   })
 }
 
-export function getCategoryTree(type = null, workspaceId = null) {
-  const params = { ...(type ? { type } : {}), ...(workspaceId != null ? { workspace_id: workspaceId } : {}) }
-  const cacheKey = workspaceId != null ? null : CACHE_KEYS.CATEGORY_TREE(type)
+export function getCategoryTree(type = null, workspaceId = null, options = {}) {
+  const includeWorkspaceScoped = options?.includeWorkspaceScoped === true
+  const params = {
+    ...(type ? { type } : {}),
+    ...(workspaceId != null && !includeWorkspaceScoped ? { workspace_id: workspaceId } : {}),
+    ...(includeWorkspaceScoped ? { include_workspace_scoped: 1 } : {}),
+  }
+  const cacheKey =
+    workspaceId != null || includeWorkspaceScoped ? null : CACHE_KEYS.CATEGORY_TREE(type)
   if (cacheKey) {
     return getWithCache(cacheKey, () =>
       request({

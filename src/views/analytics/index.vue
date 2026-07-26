@@ -285,6 +285,7 @@
                 class="category-analysis-picker"
                 fit-content
                 :workspace-id="categoryPickerWorkspaceId"
+                :include-workspace-scoped="categoryPickerIncludeAllWorkspaces"
                 :display-label="categoryAnalysisTitle"
                 placeholder="Select category"
                 aria-label="Select category"
@@ -576,6 +577,10 @@ const categoryPickerWorkspaceId = computed(() => {
   const n = Number(scope)
   return Number.isFinite(n) ? n : null
 })
+
+const categoryPickerIncludeAllWorkspaces = computed(
+  () => analytics.selectedIslandScope === 'all'
+)
 
 const MONTHLY_ANALYSIS_PERIODS = STANDARD_PERIOD_OPTIONS
 const monthlyAnalysisMonths = ref(6)
