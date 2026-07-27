@@ -1519,29 +1519,40 @@ function maxCategoryLabelLen(labels) {
   return (labels || []).reduce((m, l) => Math.max(m, String(l || '').length), 0)
 }
 
-function categoryAxisRotation(catLen, maxLen) {
+function categoryAxisRotation(catLen, maxLen, compact = false) {
+  if (compact) {
+    if (catLen > 10 || maxLen > 20) return { rotate: 20, margin: 6, fontSize: 9 }
+    if (catLen > 6) return { rotate: 12, margin: 5, fontSize: 9 }
+    return { rotate: 0, margin: 6, fontSize: 9 }
+  }
   if (catLen > 10 || maxLen > 20) return { rotate: 50, margin: 14, fontSize: 10 }
   if (catLen > 6 || maxLen > 14) return { rotate: 42, margin: 12, fontSize: 10 }
   if (catLen > 3 || maxLen > 10) return { rotate: 35, margin: 10, fontSize: 10 }
   return { rotate: 0, margin: 8, fontSize: 11 }
 }
 
-function expandedCategoryGridBottom(baseGrid, catLen, labels = []) {
+function expandedCategoryGridBottom(baseGrid, catLen, labels = [], compact = false) {
   const maxLen = maxCategoryLabelLen(labels)
   const base = typeof baseGrid?.bottom === 'number' ? baseGrid.bottom : 16
-  if (catLen > 10 || maxLen > 20) return Math.max(base, 68)
-  if (catLen > 6 || maxLen > 14) return Math.max(base, 56)
-  if (catLen > 3 || maxLen > 10) return Math.max(base, 44)
-  return Math.max(base, 28)
+  // containLabel already reserves axis label space — keep explicit bottom modest
+  if (compact) {
+    if (catLen > 10 || maxLen > 20) return Math.max(base, 20)
+    if (catLen > 6) return Math.max(base, 18)
+    return Math.max(base, 14)
+  }
+  if (catLen > 10 || maxLen > 20) return Math.max(base, 40)
+  if (catLen > 6 || maxLen > 14) return Math.max(base, 34)
+  if (catLen > 3 || maxLen > 10) return Math.max(base, 28)
+  return Math.max(base, 22)
 }
 
-function expandedCategoryAxisLabel(axisLabel, catLen, labels = []) {
+function expandedCategoryAxisLabel(axisLabel, catLen, labels = [], compact = false) {
   const base = { color: D.axis, ...(axisLabel || {}) }
   if (typeof base.formatter === 'function') {
     delete base.formatter
   }
   const maxLen = maxCategoryLabelLen(labels)
-  const { rotate, margin, fontSize } = categoryAxisRotation(catLen, maxLen)
+  const { rotate, margin, fontSize } = categoryAxisRotation(catLen, maxLen, compact)
   return {
     ...base,
     show: true,
@@ -1553,17 +1564,17 @@ function expandedCategoryAxisLabel(axisLabel, catLen, labels = []) {
   }
 }
 
-function expandedXAxis(xAxis, catLen) {
+function expandedXAxis(xAxis, catLen, compact = false) {
   const patch = (a) => ({
     ...a,
-    axisLabel: expandedCategoryAxisLabel(a.axisLabel, catLen, a.data),
+    axisLabel: expandedCategoryAxisLabel(a.axisLabel, catLen, a.data, compact),
   })
   return Array.isArray(xAxis) ? xAxis.map(patch) : patch(xAxis)
 }
 
-function expandedIeProgressionXAxis(xAxis, catLen) {
+function expandedIeProgressionXAxis(xAxis, catLen, compact = false) {
   const step = ieProgressionAxisLabelStep(catLen)
-  const { rotate, margin, fontSize } = categoryAxisRotation(catLen, 8)
+  const { rotate, margin, fontSize } = categoryAxisRotation(catLen, 8, compact)
   const patch = (a) => ({
     ...a,
     axisLabel: {
@@ -1600,7 +1611,7 @@ function initialDataZoomRange(catLen) {
 }
 
 /** Enable tooltip, zoom/pan, and slightly larger labels for the expanded chart modal. */
-export function expandChartOption(option, { selectedIndex = null } = {}) {
+export function expandChartOption(option, { selectedIndex = null, compact = false } = {}) {
   if (!option || typeof option !== 'object') return option
 
   const next = { ...option }
@@ -1690,33 +1701,38 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
 
   if (hasCategoryXAxis(option)) {
     next.xAxis = option.__ieProgression
-      ? expandedIeProgressionXAxis(option.xAxis, catLen)
-      : expandedXAxis(option.xAxis, catLen)
+      ? expandedIeProgressionXAxis(option.xAxis, catLen, compact)
+      : expandedXAxis(option.xAxis, catLen, compact)
 
     if (zoomRange) {
-      const bottom = expandedCategoryGridBottom(baseGrid, catLen, categoryLabels) + 40
+      const bottom =
+        expandedCategoryGridBottom(baseGrid, catLen, categoryLabels, compact) +
+        (compact ? 4 : 32)
       next.grid = { ...baseGrid, containLabel: true, bottom }
       const zoomOpts = { xAxisIndex: 0, filterMode: 'none', ...zoomRange }
-      next.dataZoom = [
-        {
-          type: 'inside',
-          ...zoomOpts,
-          zoomOnMouseWheel: true,
-          moveOnMouseMove: true,
-          moveOnMouseWheel: true,
-        },
-        {
-          type: 'slider',
-          ...zoomOpts,
-          height: 22,
-          bottom: 4,
-        },
-      ]
+      const insideZoom = {
+        type: 'inside',
+        ...zoomOpts,
+        zoomOnMouseWheel: true,
+        moveOnMouseMove: true,
+        moveOnMouseWheel: true,
+      }
+      next.dataZoom = compact
+        ? [insideZoom]
+        : [
+            insideZoom,
+            {
+              type: 'slider',
+              ...zoomOpts,
+              height: 22,
+              bottom: 4,
+            },
+          ]
     } else if (catLen > 5) {
       next.grid = {
         ...baseGrid,
         containLabel: true,
-        bottom: expandedCategoryGridBottom(baseGrid, catLen, categoryLabels),
+        bottom: expandedCategoryGridBottom(baseGrid, catLen, categoryLabels, compact),
       }
       next.dataZoom = [
         {
@@ -1732,7 +1748,7 @@ export function expandChartOption(option, { selectedIndex = null } = {}) {
       next.grid = {
         ...baseGrid,
         containLabel: true,
-        bottom: expandedCategoryGridBottom(baseGrid, catLen, categoryLabels),
+        bottom: expandedCategoryGridBottom(baseGrid, catLen, categoryLabels, compact),
       }
     }
   } else {

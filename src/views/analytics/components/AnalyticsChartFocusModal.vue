@@ -28,67 +28,77 @@
         </div>
       </ion-toolbar>
     </ion-header>
-    <ion-content class="chart-focus-modal__content">
-      <p class="chart-focus-modal__hint">{{ hintText }}</p>
-      <div class="chart-focus-modal__chart-wrap">
-        <VChart
-          ref="chartRef"
-          class="chart-focus-modal__chart"
-          :class="{ 'chart-focus-modal__chart--radar': isRadar }"
-          :option="expandedOption"
-          autoresize
-          @click="onChartClick"
-          @dblclick="onChartDblClick"
-        />
-      </div>
-      <div v-if="selectedSlice || selectedSankey || selectedRadarDetail" class="chart-focus-modal__detail">
-        <p class="chart-focus-modal__detail-name">
-          {{ selectedSlice?.name || selectedSankey?.name || selectedRadarDetail?.name }}
-        </p>
-        <p class="chart-focus-modal__detail-value">
-          <template v-if="selectedSlice">
-            {{ selectedSlice.amount }} · {{ selectedSlice.percent }}%
-          </template>
-          <template v-else-if="selectedSankey">
-            {{ selectedSankey.amount }}
-          </template>
-          <template v-else-if="selectedRadarDetail">
-            <span class="chart-focus-modal__radar-row">
-              <span class="chart-focus-modal__radar-label chart-focus-modal__radar-label--planned">Planned</span>
-              {{ selectedRadarDetail.planned }}
-            </span>
-            <span class="chart-focus-modal__radar-row">
-              <span class="chart-focus-modal__radar-label chart-focus-modal__radar-label--actual">Actual</span>
-              {{ selectedRadarDetail.actual }}
-            </span>
-          </template>
-        </p>
-        <button
-          v-if="onDrill && (selectedSlice || selectedSankey?.drillable || selectedRadarDetail)"
-          type="button"
-          class="chart-focus-modal__drill-btn"
-          @click="onViewTransactions"
+    <ion-content class="chart-focus-layout__content chart-focus-modal__content">
+      <div class="chart-focus-layout__shell">
+        <ChartFocusBody
+          :hint="hintText"
+          :chart-class="{ 'chart-focus-layout__chart-wrap--radar': isRadar }"
         >
-          View transactions
-        </button>
+          <template #chart>
+            <VChart
+              ref="chartRef"
+              class="chart-focus-layout__chart"
+              :option="expandedOption"
+              autoresize
+              @click="onChartClick"
+              @dblclick="onChartDblClick"
+            />
+          </template>
+          <template v-if="hasAside" #aside>
+            <div
+              v-if="selectedSlice || selectedSankey || selectedRadarDetail"
+              class="chart-focus-modal__detail"
+            >
+              <p class="chart-focus-modal__detail-name">
+                {{ selectedSlice?.name || selectedSankey?.name || selectedRadarDetail?.name }}
+              </p>
+              <p class="chart-focus-modal__detail-value">
+                <template v-if="selectedSlice">
+                  {{ selectedSlice.amount }} · {{ selectedSlice.percent }}%
+                </template>
+                <template v-else-if="selectedSankey">
+                  {{ selectedSankey.amount }}
+                </template>
+                <template v-else-if="selectedRadarDetail">
+                  <span class="chart-focus-modal__radar-detail-row">
+                    <span class="chart-focus-modal__radar-label chart-focus-modal__radar-label--planned">Planned</span>
+                    {{ selectedRadarDetail.planned }}
+                  </span>
+                  <span class="chart-focus-modal__radar-detail-row">
+                    <span class="chart-focus-modal__radar-label chart-focus-modal__radar-label--actual">Actual</span>
+                    {{ selectedRadarDetail.actual }}
+                  </span>
+                </template>
+              </p>
+              <button
+                v-if="onDrill && (selectedSlice || selectedSankey?.drillable || selectedRadarDetail)"
+                type="button"
+                class="chart-focus-modal__drill-btn"
+                @click="onViewTransactions"
+              >
+                View transactions
+              </button>
+            </div>
+            <section v-if="isRadar && radarListRows.length" class="chart-focus-modal__radar-list">
+              <h3 class="chart-focus-modal__radar-list-title">Categories</h3>
+              <button
+                v-for="item in radarListRows"
+                :key="item.category_id"
+                type="button"
+                class="chart-focus-modal__radar-list-row"
+                @click="onRadarRowClick(item)"
+              >
+                <span class="chart-focus-modal__radar-row-name">{{ item.category_name }}</span>
+                <span class="chart-focus-modal__radar-row-meta">
+                  <span>Planned {{ formatDetailAmount(item.budget) }}</span>
+                  <span>Actual {{ formatDetailAmount(item.actual) }}</span>
+                  <span :class="radarVarianceClass(item)">{{ radarVarianceLabel(item) }}</span>
+                </span>
+              </button>
+            </section>
+          </template>
+        </ChartFocusBody>
       </div>
-      <section v-if="isRadar && radarListRows.length" class="chart-focus-modal__radar-list">
-        <h3 class="chart-focus-modal__radar-list-title">Categories</h3>
-        <button
-          v-for="item in radarListRows"
-          :key="item.category_id"
-          type="button"
-          class="chart-focus-modal__radar-row"
-          @click="onRadarRowClick(item)"
-        >
-          <span class="chart-focus-modal__radar-row-name">{{ item.category_name }}</span>
-          <span class="chart-focus-modal__radar-row-meta">
-            <span>Planned {{ formatDetailAmount(item.budget) }}</span>
-            <span>Actual {{ formatDetailAmount(item.actual) }}</span>
-            <span :class="radarVarianceClass(item)">{{ radarVarianceLabel(item) }}</span>
-          </span>
-        </button>
-      </section>
     </ion-content>
   </ion-modal>
 </template>
@@ -106,6 +116,7 @@ import {
   IonIcon,
 } from '@ionic/vue'
 import { chevronDown } from 'ionicons/icons'
+import { ChartFocusBody, useChartFocusOrientation } from '@revo/chart-ui'
 import { expandChartOption } from '@/views/analytics/chartOptions'
 import { useAnalyticsChartHandlers } from '@/views/analytics/useAnalyticsChartHandlers'
 import { radarListItems } from '@/utils/radarChart'
@@ -151,6 +162,8 @@ const {
   radarDetailOnClick: true,
 })
 
+const { isLandscape } = useChartFocusOrientation()
+
 const hintText = computed(() => {
   if (isPie.value) return 'Tap a segment to focus · Tap again to clear'
   if (isTreemap.value) return 'Tap a category to zoom in · Double-tap to zoom out'
@@ -160,7 +173,10 @@ const hintText = computed(() => {
 })
 
 const expandedOption = computed(() =>
-  expandChartOption(props.option, { selectedIndex: selectedIndex.value })
+  expandChartOption(props.option, {
+    selectedIndex: selectedIndex.value,
+    compact: isLandscape.value,
+  })
 )
 
 const radarListRows = computed(() => {
@@ -207,6 +223,16 @@ const selectedRadarDetail = computed(() => {
     actual: formatDetailAmount(actual),
   }
 })
+
+const hasAside = computed(
+  () =>
+    !!(
+      selectedSlice.value ||
+      selectedSankey.value ||
+      selectedRadarDetail.value ||
+      (isRadar.value && radarListRows.value.length)
+    )
+)
 
 function radarVarianceClass(item) {
   const variance = (Number(item?.budget) || 0) - (Number(item?.actual) || 0)
@@ -331,38 +357,23 @@ function onViewTransactions() {
   --background: #f8f8fa;
 }
 
-.chart-focus-modal__hint {
-  margin: 10px 16px 0;
-  font-size: 11px;
-  line-height: 1.35;
-  color: rgba(0, 0, 0, 0.45);
-  text-align: center;
-}
-
-.chart-focus-modal__chart-wrap {
-  padding: 8px 10px 12px;
-  min-height: calc(100% - 48px);
-  box-sizing: border-box;
-}
-
-.chart-focus-modal__chart {
-  width: 100%;
-  height: min(72vh, 640px);
-  min-height: 320px;
-}
-
-.chart-focus-modal__chart--radar {
-  height: min(42vh, 380px);
-  min-height: 260px;
-}
-
 .chart-focus-modal__detail {
-  margin: 0 16px 24px;
+  margin: 0 0 12px;
   padding: 12px 14px;
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
   text-align: center;
+}
+
+@media (orientation: landscape) {
+  .chart-focus-modal__detail {
+    margin: 0 0 8px;
+  }
+
+  .chart-focus-modal__radar-list {
+    margin: 0;
+  }
 }
 
 .chart-focus-modal__detail-name {
@@ -378,7 +389,7 @@ function onViewTransactions() {
   color: rgba(0, 0, 0, 0.55);
 }
 
-.chart-focus-modal__radar-row {
+.chart-focus-modal__radar-detail-row {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -386,7 +397,7 @@ function onViewTransactions() {
   margin-top: 4px;
 }
 
-.chart-focus-modal__radar-row:first-child {
+.chart-focus-modal__radar-detail-row:first-child {
   margin-top: 0;
 }
 
@@ -418,7 +429,7 @@ function onViewTransactions() {
 }
 
 .chart-focus-modal__radar-list {
-  margin: 0 16px 24px;
+  margin: 0 0 16px;
 }
 
 .chart-focus-modal__radar-list-title {
@@ -428,7 +439,7 @@ function onViewTransactions() {
   color: rgba(0, 0, 0, 0.82);
 }
 
-.chart-focus-modal__radar-row {
+.chart-focus-modal__radar-list-row {
   display: block;
   width: 100%;
   margin-bottom: 8px;
