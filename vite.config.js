@@ -44,7 +44,8 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: {
-        '@': resolve(__dirname, 'src')
+        '@': resolve(__dirname, 'src'),
+        '@revo/chart-ui': resolve(__dirname, '../chart-ui/src'),
       }
     },
     server: {

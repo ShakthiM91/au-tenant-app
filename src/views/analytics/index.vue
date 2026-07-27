@@ -64,6 +64,9 @@
               title="Monthly Analysis"
               :subtitle="monthlyAnalysisPeriodLabel"
               :option="monthlyBarOption"
+              :empty="!analytics.loading && chartEmpty('monthlyAnalysis').empty"
+              :empty-message="chartEmpty('monthlyAnalysis').message"
+              :skeleton-variant="chartEmpty('monthlyAnalysis').skeletonVariant"
               chart-key="monthlyAnalysis"
               :on-drill="drillFor('monthlyAnalysis')"
               @open="openChartFocus"
@@ -85,6 +88,9 @@
               :subtitle="categoryDonutPeriodLabel"
               :option="subcategoryDonutOption"
               :loading="categoryDonutLoading"
+              :empty="chartEmpty('subcategory').empty"
+              :empty-message="chartEmpty('subcategory').message"
+              :skeleton-variant="chartEmpty('subcategory').skeletonVariant"
               chart-key="subcategory"
               :on-drill="drillFor('subcategory')"
               @open="openChartFocus"
@@ -104,6 +110,9 @@
               title="I/E Monthly Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="incomeExpenseBarOption"
+              :empty="!analytics.loading && chartEmpty('ieMonthlyBar').empty"
+              :empty-message="chartEmpty('ieMonthlyBar').message"
+              :skeleton-variant="chartEmpty('ieMonthlyBar').skeletonVariant"
               chart-key="ieMonthlyBar"
               :on-drill="drillFor('ieMonthlyBar')"
               @open="openChartFocus"
@@ -128,6 +137,9 @@
               :subtitle="dailyMonthLabel"
               :option="dailyAnalysisOption"
               :loading="analytics.dailyMonthLoading"
+              :empty="chartEmpty('dailyAnalysis').empty"
+              :empty-message="chartEmpty('dailyAnalysis').message"
+              :skeleton-variant="chartEmpty('dailyAnalysis').skeletonVariant"
               chart-key="dailyAnalysis"
               :on-drill="drillFor('dailyAnalysis')"
               @open="openChartFocus"
@@ -148,6 +160,9 @@
               :subtitle="dailyMonthLabel"
               :option="monthlyProgressionStepOption"
               :loading="analytics.dailyMonthLoading"
+              :empty="chartEmpty('monthlyProgression').empty"
+              :empty-message="chartEmpty('monthlyProgression').message"
+              :skeleton-variant="chartEmpty('monthlyProgression').skeletonVariant"
               chart-key="monthlyProgression"
               :on-drill="drillFor('monthlyProgression')"
               @open="openChartFocus"
@@ -168,6 +183,9 @@
               :subtitle="patternPeriodLabel"
               :option="weekdayAnalysisOption"
               :loading="analytics.patternLoading"
+              :empty="chartEmpty('weekday').empty"
+              :empty-message="chartEmpty('weekday').message"
+              :skeleton-variant="chartEmpty('weekday').skeletonVariant"
               chart-key="weekday"
               :on-drill="drillFor('weekday')"
               @open="openChartFocus"
@@ -188,6 +206,9 @@
               :subtitle="patternPeriodLabel"
               :option="dayOfMonthAnalysisOption"
               :loading="analytics.patternLoading"
+              :empty="chartEmpty('dom').empty"
+              :empty-message="chartEmpty('dom').message"
+              :skeleton-variant="chartEmpty('dom').skeletonVariant"
               chart-key="dom"
               :on-drill="drillFor('dom')"
               @open="openChartFocus"
@@ -207,6 +228,9 @@
               title="Monthly Analysis"
               :subtitle="monthlyAnalysisPeriodLabel"
               :option="monthlyBarOption"
+              :empty="!analytics.loading && chartEmpty('monthlyAnalysis').empty"
+              :empty-message="chartEmpty('monthlyAnalysis').message"
+              :skeleton-variant="chartEmpty('monthlyAnalysis').skeletonVariant"
               chart-key="monthlyAnalysis"
               :on-drill="drillFor('monthlyAnalysis')"
               @open="openChartFocus"
@@ -230,6 +254,9 @@
               :subtitle="categoryDonutPeriodLabel"
               :option="categoryWiseDonutOption"
               :loading="categoryDonutLoading"
+              :empty="chartEmpty('categoryWise').empty"
+              :empty-message="chartEmpty('categoryWise').message"
+              :skeleton-variant="chartEmpty('categoryWise').skeletonVariant"
               chart-key="categoryWise"
               :on-drill="drillFor('categoryWise')"
               @open="openChartFocus"
@@ -251,6 +278,9 @@
               :subtitle="categoryDonutPeriodLabel"
               :option="subcategoryDonutOption"
               :loading="categoryDonutLoading"
+              :empty="chartEmpty('subcategory').empty"
+              :empty-message="chartEmpty('subcategory').message"
+              :skeleton-variant="chartEmpty('subcategory').skeletonVariant"
               chart-key="subcategory"
               :on-drill="drillFor('subcategory')"
               @open="openChartFocus"
@@ -271,6 +301,9 @@
               :subtitle="stackedPeriodLabel"
               :option="stackedCategoryOption"
               :loading="analytics.stackedLoading"
+              :empty="chartEmpty('stacked').empty"
+              :empty-message="chartEmpty('stacked').message"
+              :skeleton-variant="chartEmpty('stacked').skeletonVariant"
               chart-key="stacked"
               @open="openChartFocus"
             />
@@ -302,6 +335,9 @@
               :subtitle="categoryAnalysisTitle"
               :option="categoryAnalysisBarOption"
               :loading="analytics.categoryAnalysisLoading"
+              :empty="chartEmpty('categoryAnalysis').empty"
+              :empty-message="chartEmpty('categoryAnalysis').message"
+              :skeleton-variant="chartEmpty('categoryAnalysis').skeletonVariant"
               chart-key="categoryAnalysis"
               @open="openChartFocus"
             />
@@ -321,6 +357,9 @@
               :subtitle="treemapPeriodLabel"
               :option="treemapRsOption"
               :loading="analytics.treemapLoading"
+              :empty="chartEmpty('treemap').empty"
+              :empty-message="chartEmpty('treemap').message"
+              :skeleton-variant="chartEmpty('treemap').skeletonVariant"
               chart-key="treemap"
               :on-drill="drillFor('treemap')"
               @open="openChartFocus"
@@ -345,6 +384,9 @@
               :subtitle="sankeyMonthLabel"
               :option="sankeyOption"
               :loading="analytics.sankeyLoading"
+              :empty="chartEmpty('sankey').empty"
+              :empty-message="chartEmpty('sankey').message"
+              :skeleton-variant="chartEmpty('sankey').skeletonVariant"
               chart-key="sankey"
               :on-drill="drillFor('sankey')"
               @open="openChartFocus"
@@ -366,6 +408,9 @@
               :subtitle="paretoPeriodLabel"
               :option="pareto12kOption"
               :loading="analytics.paretoLoading"
+              :empty="chartEmpty('pareto').empty"
+              :empty-message="chartEmpty('pareto').message"
+              :skeleton-variant="chartEmpty('pareto').skeletonVariant"
               chart-key="pareto"
               :on-drill="drillFor('pareto')"
               @open="openChartFocus"
@@ -391,6 +436,9 @@
               :subtitle="analytics.budgetRadarPeriodLabel"
               :option="radarPlannedActualOption"
               :loading="analytics.budgetRadarLoading"
+              :empty="chartEmpty('radar').empty"
+              :empty-message="chartEmpty('radar').message"
+              :skeleton-variant="chartEmpty('radar').skeletonVariant"
               chart-key="radar"
               :on-drill="drillFor('radar')"
               @open="openChartFocus"
@@ -418,6 +466,9 @@
               :subtitle="progressionMonthLabel"
               :option="ieProgressionDualAreaOption"
               :loading="analytics.ieProgressionMonthLoading"
+              :empty="chartEmpty('ieProgression').empty"
+              :empty-message="chartEmpty('ieProgression').message"
+              :skeleton-variant="chartEmpty('ieProgression').skeletonVariant"
               chart-key="ieProgression"
               :on-drill="drillFor('ieProgression')"
               @open="openChartFocus"
@@ -437,6 +488,9 @@
               title="I/E Monthly Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="incomeExpenseHighlightOption"
+              :empty="!analytics.loading && chartEmpty('ieMonthly').empty"
+              :empty-message="chartEmpty('ieMonthly').message"
+              :skeleton-variant="chartEmpty('ieMonthly').skeletonVariant"
               chart-key="ieMonthly"
               :on-drill="drillFor('ieMonthly')"
               @open="openChartFocus"
@@ -456,6 +510,9 @@
               title="I/E Gap Monthly Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="ieGapMonthlyOption"
+              :empty="!analytics.loading && chartEmpty('ieGap').empty"
+              :empty-message="chartEmpty('ieGap').message"
+              :skeleton-variant="chartEmpty('ieGap').skeletonVariant"
               chart-key="ieGap"
               :on-drill="drillFor('ieGap')"
               @open="openChartFocus"
@@ -475,6 +532,9 @@
               title="I/E Waterfall Analysis"
               :subtitle="ieMonthlyPeriodLabel"
               :option="ieWaterfall12Option"
+              :empty="!analytics.loading && chartEmpty('ieWaterfall').empty"
+              :empty-message="chartEmpty('ieWaterfall').message"
+              :skeleton-variant="chartEmpty('ieWaterfall').skeletonVariant"
               chart-key="ieWaterfall"
               :on-drill="drillFor('ieWaterfall')"
               @open="openChartFocus"
@@ -554,6 +614,7 @@ import {
   emptyRadarPlaceholder as buildEmptyRadarPlaceholder,
 } from '@/views/analytics/chartOptions'
 import { hasRadarChartData, radarFromReportItems } from '@/utils/radarChart'
+import { getAnalyticsChartEmptyState } from '@/utils/analyticsChartEmpty'
 import AnalyticsChartPanel from '@/views/analytics/components/AnalyticsChartPanel.vue'
 import AnalyticsChartFocusModal from '@/views/analytics/components/AnalyticsChartFocusModal.vue'
 import { useAnalyticsDrillDown } from '@/views/analytics/useAnalyticsDrillDown.js'
@@ -892,6 +953,70 @@ const radarPlannedActualOption = computed(() => {
   if (!hasRadarChartData(items)) return buildEmptyRadarPlaceholder()
   return radarFromReportItems(items)
 })
+
+const CHART_EMPTY_KEYS = [
+  'monthlyAnalysis',
+  'subcategory',
+  'ieMonthlyBar',
+  'dailyAnalysis',
+  'monthlyProgression',
+  'weekday',
+  'dom',
+  'categoryWise',
+  'stacked',
+  'categoryAnalysis',
+  'treemap',
+  'sankey',
+  'pareto',
+  'radar',
+  'ieProgression',
+  'ieMonthly',
+  'ieGap',
+  'ieWaterfall',
+]
+
+const chartEmptyCtx = computed(() => {
+  const { year: ieYear, month: ieMonth } = analytics.selectedIeProgressionMonth
+  return {
+    dailyExpenses: dailyExpenseSeries.value,
+    weekdayExpenses: expensesByWeekday(analytics.weekdayRows),
+    domExpenses: expensesByDayOfMonthPattern(analytics.dayOfMonthRows),
+    monthlyAnalysisExpense: monthlyAnalysisSeries.value.expense,
+    categoryParentRows: analytics.categoryParentRowsForDonut,
+    categoryLeafRows: analytics.categoryLeafRowsForDonut,
+    stackedMonthSlices: analytics.stackedMonthSlices,
+    categoryMonthlyBars: analytics.categoryMonthlyBars,
+    treemapParentRows: analytics.treemapParentRows,
+    paretoParentRows: analytics.paretoParentRows,
+    sankeyFlow: analytics.sankeyFlow,
+    budgetRadarItems: analytics.budgetRadar?.items,
+    ieProgressionDailyExpenses: expenseByDayOfMonth(
+      analytics.ieProgressionMonthRows,
+      ieYear,
+      ieMonth
+    ),
+    ieProgressionDailyIncome: incomeByDayOfMonth(
+      analytics.ieProgressionMonthRows,
+      ieYear,
+      ieMonth
+    ),
+    ieMonthlyIncome: ieMonthlySeries.value.income,
+    ieMonthlyExpense: ieMonthlySeries.value.expense,
+  }
+})
+
+const chartEmptyByKey = computed(() => {
+  const ctx = chartEmptyCtx.value
+  const map = {}
+  for (const key of CHART_EMPTY_KEYS) {
+    map[key] = getAnalyticsChartEmptyState(key, ctx)
+  }
+  return map
+})
+
+function chartEmpty(key) {
+  return chartEmptyByKey.value[key] || { empty: false, message: '', skeletonVariant: 'bar' }
+}
 
 const balanceDisplay = computed(() => {
   const n = analytics.totalBalance || 0

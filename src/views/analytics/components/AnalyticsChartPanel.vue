@@ -1,12 +1,15 @@
 <template>
   <div
     class="chart-card__body"
-    :class="[bodyClass, { 'chart-card__body--chart-loading': loading, 'chart-card__body--interactive': !loading }]"
+    :class="[bodyClass, { 'chart-card__body--chart-loading': loading, 'chart-card__body--interactive': !loading && !empty, 'chart-card__body--empty': empty }]"
     :style="bodyStyle"
   >
     <div v-if="loading" class="chart-inline-loading">
       <ion-spinner name="crescent" />
     </div>
+    <template v-else-if="empty">
+      <ChartEmptyState :variant="skeletonVariant" :message="emptyMessage" />
+    </template>
     <template v-else>
       <VChart
         ref="chartRef"
@@ -34,12 +37,16 @@ import { computed, toRef } from 'vue'
 import { IonSpinner, IonIcon } from '@ionic/vue'
 import { expandOutline } from 'ionicons/icons'
 import { useAnalyticsChartHandlers } from '@/views/analytics/useAnalyticsChartHandlers'
+import { ChartEmptyState } from '@revo/chart-ui'
 
 const props = defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
   option: { type: Object, required: true },
   loading: { type: Boolean, default: false },
+  empty: { type: Boolean, default: false },
+  emptyMessage: { type: String, default: '' },
+  skeletonVariant: { type: String, default: 'bar' },
   bodyClass: { type: [String, Array, Object], default: '' },
   bodyStyle: { type: Object, default: null },
   chartClass: { type: [String, Array, Object], default: '' },
@@ -64,7 +71,7 @@ const displayOption = computed(() =>
 )
 
 function onOpen() {
-  if (props.loading) return
+  if (props.loading || props.empty) return
   emit('open', {
     title: props.title,
     subtitle: props.subtitle,
@@ -116,6 +123,12 @@ function onOpen() {
   justify-content: center;
   background: rgba(255, 255, 255, 0.65);
   z-index: 1;
+}
+
+.chart-card__body--empty {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .echart {
