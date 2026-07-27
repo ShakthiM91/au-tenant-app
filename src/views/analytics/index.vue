@@ -1,6 +1,6 @@
 <template>
   <ion-page class="analytics-page">
-    <ion-header class="ion-no-border">
+    <ion-header class="ion-no-border" mode="ios">
       <ion-toolbar class="analytics-toolbar">
         <ion-title>Analytics</ion-title>
         <ion-buttons slot="end">
@@ -1611,6 +1611,7 @@ watch(viewMode, async (mode) => {
   font-size: 16px;
   font-weight: 600;
   color: #000;
+  text-align: center;
 }
 
 .header-more-btn {
