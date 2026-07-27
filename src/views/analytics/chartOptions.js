@@ -1,6 +1,9 @@
 /** Shared ECharts option builders for Analytics (light theme; matches existing screen styles). */
 
 import { donutChartColor } from '@/utils/donutChartColors'
+import { niceCeilMax, formatChartAxisValue, chartAxisLabelFormatter } from '@revo/chart-ui'
+
+export { niceCeilMax, formatChartAxisValue, chartAxisLabelFormatter }
 
 export const D = {
   green: '#66C2A5',
@@ -41,14 +44,6 @@ export const gridStd = (extra = {}) => ({
 
 export const xSplit = { show: true, lineStyle: { type: 'dashed', color: D.grid, width: 0.5 } }
 
-export function niceCeilMax(values, fallback = 1000) {
-  const raw = Math.max(0, ...values.map((v) => Number(v) || 0))
-  if (raw <= 0) return fallback
-  const exp = Math.floor(Math.log10(raw))
-  const step = 10 ** exp
-  return Math.ceil(raw / step) * step
-}
-
 function tierGradientForExpense(v, maxVal) {
   const tG = lg('#81C784', '#43A047')
   const tY = lg('#FFE082', '#F9A825')
@@ -86,7 +81,7 @@ export function monthlyExpenseBarOption(monthLabels, expenses) {
       axisLabel: {
         color: D.axis,
         fontSize: 8,
-        formatter: (v) => (v === 0 ? '0' : `${Math.round(v / 1000)}k`),
+        formatter: chartAxisLabelFormatter(yMax),
       },
     },
     series: [
@@ -139,7 +134,7 @@ export function incomeExpenseBarOption(monthLabels, income, expense) {
       axisLabel: {
         color: D.axis,
         fontSize: 8,
-        formatter: (v) => (v === 0 ? '0' : `${Math.round(v / 1000)}k`),
+        formatter: chartAxisLabelFormatter(yMax),
       },
     },
     series: [
@@ -220,7 +215,7 @@ export function ieGapMonthlyOption(monthLabels, gaps) {
       axisLabel: {
         color: D.axis,
         fontSize: 7,
-        formatter: (v) => `${Math.round(v / 1000)}k`,
+        formatter: chartAxisLabelFormatter(ymax),
       },
     },
     series: [
@@ -282,7 +277,7 @@ export function ieWaterfallOption(monthLabels, income, expense) {
       axisLabel: {
         color: D.axis,
         fontSize: 7,
-        formatter: (v) => (v >= 1e6 ? `${v / 1e6}M` : `${Math.round(v / 1000)}k`),
+        formatter: chartAxisLabelFormatter(ymax),
       },
     },
     series: [
@@ -525,7 +520,7 @@ export function dailyExpenseAnalysisOption(daysInMonth, expenseByDayIndex) {
       axisLabel: {
         color: D.axis,
         fontSize: 7,
-        formatter: (v) => `${Math.round(v / 1000)}k`,
+        formatter: chartAxisLabelFormatter(yMax),
       },
     },
     series: [
@@ -564,7 +559,7 @@ export function weekdayExpenseAnalysisOption(labels, expenseByWeekdayIndex) {
       axisLabel: {
         color: D.axis,
         fontSize: 7,
-        formatter: (v) => `${Math.round(v / 1000)}k`,
+        formatter: chartAxisLabelFormatter(yMax),
       },
     },
     series: [
@@ -602,7 +597,7 @@ export function cumulativeExpenseLineOption(dayLabels, cumulative) {
       axisLabel: {
         color: D.axis,
         fontSize: 7,
-        formatter: (v) => `${Math.round(v / 1000)}k`,
+        formatter: chartAxisLabelFormatter(yMax),
       },
     },
     series: [
@@ -644,7 +639,7 @@ export function ieProgressionDualAreaOption(dayLabels, cumIncome, cumExpense) {
       axisLabel: {
         color: D.axis,
         fontSize: 7,
-        formatter: (v) => `${Math.round(v / 1000)}k`,
+        formatter: chartAxisLabelFormatter(yMax),
       },
     },
     series: [
@@ -850,7 +845,7 @@ export function categoryMonthlyBarsOption(labels, values) {
       axisLabel: {
         color: D.axis,
         fontSize: 7,
-        formatter: (val) => (val === 0 ? '0' : `${Math.round(val / 1000)}k`),
+        formatter: chartAxisLabelFormatter(yMax),
       },
     },
     series: [
@@ -1319,7 +1314,7 @@ export function paretoOption(sortedCategories, amounts) {
         axisLabel: {
           color: D.axis,
           fontSize: 7,
-          formatter: (v) => `${Math.round(v / 1000)}k`,
+          formatter: chartAxisLabelFormatter(ymaxBar),
         },
       },
       {

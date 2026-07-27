@@ -95,6 +95,8 @@
 </template>
 
 <script setup>
+import { chartAxisLabelFormatter } from '@revo/chart-ui'
+
 const selectedAccount = 'Household Expenses'
 
 const incomeValues = [
@@ -175,7 +177,7 @@ const cashFlowOption = {
     axisLabel: {
       fontSize: 8,
       color: '#6E6A7C',
-      formatter: (v) => (v === 0 ? '0' : `${v / 1000}k`),
+      formatter: chartAxisLabelFormatter(200000),
     },
   },
   series: [
