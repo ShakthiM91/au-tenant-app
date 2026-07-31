@@ -44,12 +44,16 @@
           </div>
 
           <div class="action-section">
-            <button class="verify-button" @click="onVerify">Verify</button>
+            <button class="verify-button" :disabled="verifying" @click="onVerify">
+              {{ verifying ? 'Verifying...' : 'Verify' }}
+            </button>
 
             <div class="resend-section">
               <p class="resend-text">
                 Didn't receive the code?
-                <span class="resend-link" :class="{ disabled: countdown > 0 }" @click="onResend">Resend Again</span>
+                <span class="resend-link" :class="{ disabled: countdown > 0 || resending }" @click="onResend">
+                  {{ resending ? 'Sending...' : 'Resend Again' }}
+                </span>
               </p>
               <p v-if="countdown > 0" class="timer-text">
                 Request a new code in {{ formattedCountdown }} seconds
@@ -83,13 +87,22 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { IonPage, IonContent } from '@ionic/vue'
+import { useUserStore } from '@/store/user'
+import { useAuthSession } from '@/composables/useAuthSession'
+import { resendEmailOtp } from '@/api/auth'
+import { showToast } from '@/utils/ionicFeedback'
 
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
+const { finishRegistrationSession } = useAuthSession()
 const email = computed(() => route.query.email || 'your@email.com')
+const tenantId = computed(() => Number(route.query.tenantId) || null)
 
 const otp = reactive(['', '', '', '', '', ''])
 const otpRefs = ref([])
+const verifying = ref(false)
+const resending = ref(false)
 
 const countdown = ref(36)
 let timer = null
@@ -141,19 +154,60 @@ async function onPaste(e) {
   nextTick(() => otpRefs.value[focusIdx]?.focus())
 }
 
-function onVerify() {
-  // TODO: implement verification logic
-  router.push('/profile-setup')
+async function onVerify() {
+  const code = otp.join('')
+  if (code.length !== 6) {
+    showToast('Please enter the 6-digit code')
+    return
+  }
+  if (!tenantId.value) {
+    showToast('Missing tenant context. Please register again.')
+    return
+  }
+
+  verifying.value = true
+  try {
+    await userStore.verifyEmailOtp({
+      email: email.value,
+      tenantId: tenantId.value,
+      code
+    })
+    await finishRegistrationSession()
+    showToast('Email verified successfully')
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Verification failed'
+    showToast(message)
+  } finally {
+    verifying.value = false
+  }
 }
 
 function goToLogin() {
   router.push('/register')
 }
 
-function onResend() {
+async function onResend() {
   if (countdown.value > 0) return
-  // TODO: implement resend logic
-  startTimer()
+  if (!tenantId.value) {
+    showToast('Missing tenant context. Please register again.')
+    return
+  }
+
+  resending.value = true
+  try {
+    await resendEmailOtp({ email: email.value, tenantId: tenantId.value })
+    showToast('Verification code sent')
+    startTimer()
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Failed to resend code'
+    showToast(message)
+    const retryAfter = error?.response?.data?.retryAfter
+    if (retryAfter) {
+      countdown.value = retryAfter
+    }
+  } finally {
+    resending.value = false
+  }
 }
 
 onMounted(() => startTimer())

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import {
   login,
   register,
+  verifyEmailOtp,
   loginWithGoogle as loginWithGoogleApi,
   logout,
   getInfo,
@@ -61,6 +62,10 @@ export const useUserStore = defineStore('user', {
         if (referralCode) payload.referralCode = referralCode
         const response = await register(payload)
 
+        if (response?.requireVerification) {
+          return response
+        }
+
         if (response && response.accessToken) {
           this.token = response.accessToken
           setToken(response.accessToken)
@@ -71,6 +76,25 @@ export const useUserStore = defineStore('user', {
         } else {
           throw new Error('Invalid registration response')
         }
+      } catch (error) {
+        removeToken()
+        removeRefreshToken()
+        throw error
+      }
+    },
+
+    async verifyEmailOtp({ email, tenantId, code }) {
+      try {
+        const response = await verifyEmailOtp({ email, tenantId, code })
+        if (response && response.accessToken) {
+          this.token = response.accessToken
+          setToken(response.accessToken)
+          if (response.refreshToken) {
+            setRefreshToken(response.refreshToken)
+          }
+          return response
+        }
+        throw new Error('Invalid verification response')
       } catch (error) {
         removeToken()
         removeRefreshToken()

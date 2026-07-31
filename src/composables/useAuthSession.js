@@ -49,7 +49,17 @@ export function useAuthSession() {
   }
 
   async function signUpWithPassword(payload) {
-    await userStore.register(payload)
+    const response = await userStore.register(payload)
+    if (response?.requireVerification) {
+      await router.push({
+        path: '/verify',
+        query: {
+          email: response.email,
+          tenantId: String(response.tenantId)
+        }
+      })
+      return response
+    }
     await finishRegistrationSession()
   }
 

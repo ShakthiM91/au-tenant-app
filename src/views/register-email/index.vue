@@ -251,13 +251,15 @@ async function onSignUp() {
   loading.value = true
   try {
     const name = [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(' ')
-    await signUpWithPassword({
+    const response = await signUpWithPassword({
       name,
       email: form.email.trim(),
       password: form.password,
       referralCode: getStoredReferralCode() || undefined
     })
-    showToast('Account created successfully')
+    if (!response?.requireVerification) {
+      showToast('Account created successfully')
+    }
   } catch (error) {
     const message = error?.response?.data?.error || error?.message || 'Registration failed'
     showToast(message)

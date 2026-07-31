@@ -39,6 +39,26 @@ export function register(data) {
   })
 }
 
+export function verifyEmailOtp(data) {
+  return request({
+    url: '/api/auth/otp/verify',
+    method: 'post',
+    data,
+    skipQueue: true,
+    skipAuthRefresh: true
+  })
+}
+
+export function resendEmailOtp(data) {
+  return request({
+    url: '/api/auth/otp/resend',
+    method: 'post',
+    data,
+    skipQueue: true,
+    skipAuthRefresh: true
+  })
+}
+
 export function loginWithGoogle(data) {
   return request({
     url: '/api/auth/google',
