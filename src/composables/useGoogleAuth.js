@@ -1,30 +1,59 @@
 import { ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { showToast } from '@/utils/ionicFeedback'
+import { resolveGoogleClientIds, isGoogleAuthConfigured } from '@/utils/googleAuthConfig'
+import {
+  googleAuthLog,
+  googleAuthLogConfig,
+  googleAuthLogError,
+  googleAuthMaskClientId,
+  googleAuthExplainNativeError,
+  googleAuthDebugEnabled
+} from '@/utils/googleAuthDebug'
 
 const GIS_SCRIPT = 'https://accounts.google.com/gsi/client'
 let gisLoadPromise = null
 
-function webClientId() {
-  return (import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim()
+function buildConfigSnapshot() {
+  const ids = resolveGoogleClientIds()
+  return {
+    platform: ids.platform,
+    isNative: ids.isNative,
+    signInFlow: ids.signInFlow,
+    debugEnabled: googleAuthDebugEnabled(),
+    clientIdSources: ids.sources,
+    clientIds: {
+      web: googleAuthMaskClientId(ids.web),
+      native: googleAuthMaskClientId(ids.native),
+      serverClientId: googleAuthMaskClientId(ids.server),
+      pluginRequestIdToken: googleAuthMaskClientId(ids.pluginClientId)
+    },
+    notes:
+      ids.platform === 'android'
+        ? [
+            '@capawesome/capacitor-google-sign-in initialize() uses Web client ID (pluginClientId).',
+            'Android OAuth client + SHA-1 are configured only in Google Cloud Console.'
+          ]
+        : ids.platform === 'ios'
+          ? ['iOS also requires GIDClientID (iOS client) in Info.plist per capawesome docs.']
+          : [],
+    warnings: [
+      ...(ids.platform === 'android' && !ids.pluginClientId
+        ? ['VITE_GOOGLE_CLIENT_ID (Web) is required for Android native sign-in']
+        : []),
+      ...(!ids.web && !ids.isNative ? ['VITE_GOOGLE_CLIENT_ID is empty in this build'] : [])
+    ]
+  }
 }
 
-function nativeClientId() {
-  const platform = Capacitor.getPlatform()
-  if (platform === 'ios') {
-    return (import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID || webClientId()).trim()
-  }
-  if (platform === 'android') {
-    return (import.meta.env.VITE_GOOGLE_ANDROID_CLIENT_ID || webClientId()).trim()
-  }
-  return webClientId()
-}
-
-function isConfigured() {
-  if (Capacitor.isNativePlatform()) {
-    return Boolean(nativeClientId())
-  }
-  return Boolean(webClientId())
+function formatSignInError(err) {
+  const code = err?.code != null ? String(err.code) : ''
+  const hint = googleAuthExplainNativeError(err)
+  const base = err?.message || 'Google sign-in failed'
+  if (code && hint) return `${base} (code ${code}). ${hint}`
+  if (code) return `${base} (code ${code})`
+  if (hint) return `${base}. ${hint}`
+  return base
 }
 
 function loadGisScript() {
@@ -55,8 +84,9 @@ function loadGisScript() {
   return gisLoadPromise
 }
 
-function signInWebViaButton() {
-  const clientId = webClientId()
+function signInWebViaButton(clientId) {
+  googleAuthLog('auth flow: web-gis', { clientId: googleAuthMaskClientId(clientId) })
+
   return new Promise((resolve, reject) => {
     loadGisScript()
       .then(() => {
@@ -69,6 +99,9 @@ function signInWebViaButton() {
           callback: (response) => {
             document.body.removeChild(host)
             if (response?.credential) {
+              googleAuthLog('web-gis sign-in success', {
+                idTokenLength: response.credential.length
+              })
               resolve(response.credential)
             } else {
               reject(new Error('Google sign-in was cancelled'))
@@ -95,23 +128,58 @@ function signInWebViaButton() {
   })
 }
 
-async function signInNative() {
-  const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth')
-  const clientId = nativeClientId()
-  const serverClientId = webClientId() || clientId
+async function signInNative(ids) {
+  googleAuthLog('auth flow: native-capacitor-plugin (@capawesome/capacitor-google-sign-in)', {
+    platform: ids.platform,
+    pluginClientIdSource: ids.sources.pluginClientId,
+    androidOAuthClientInConsole: googleAuthMaskClientId(ids.native)
+  })
+  googleAuthLogConfig(buildConfigSnapshot())
 
-  await GoogleAuth.initialize({
-    clientId,
-    scopes: ['profile', 'email'],
-    grantOfflineAccess: false,
-    ...(serverClientId ? { serverClientId } : {})
+  const { GoogleSignIn } = await import('@capawesome/capacitor-google-sign-in')
+
+  const initOptions = {
+    clientId: ids.pluginClientId
+  }
+
+  googleAuthLog('native plugin initialize', {
+    clientId: googleAuthMaskClientId(initOptions.clientId),
+    note: 'clientId must be Web OAuth client ID on all native platforms'
   })
 
-  const result = await GoogleAuth.signIn()
-  const idToken = result?.authentication?.idToken
-  if (!idToken) {
-    throw new Error('Google sign-in did not return an ID token')
+  try {
+    await GoogleSignIn.initialize(initOptions)
+    googleAuthLog('native plugin initialize complete')
+  } catch (err) {
+    googleAuthLogError('native plugin initialize failed', err)
+    throw err
   }
+
+  googleAuthLog('native plugin GoogleSignIn.signIn()')
+  let result
+  try {
+    result = await GoogleSignIn.signIn()
+  } catch (err) {
+    googleAuthLogError('native plugin signIn failed', err, {
+      hint: googleAuthExplainNativeError(err)
+    })
+    throw err
+  }
+
+  googleAuthLog('native plugin signIn response', {
+    hasIdToken: Boolean(result?.idToken),
+    hasAccessToken: Boolean(result?.accessToken),
+    email: result?.email || null,
+    idTokenLength: result?.idToken?.length ?? 0
+  })
+
+  const idToken = result?.idToken
+  if (!idToken) {
+    const err = new Error('Google sign-in did not return an ID token')
+    googleAuthLogError('native plugin missing idToken', err, { resultKeys: Object.keys(result || {}) })
+    throw err
+  }
+
   return idToken
 }
 
@@ -119,7 +187,11 @@ export function useGoogleAuth() {
   const loading = ref(false)
 
   async function connectWithGoogle() {
-    if (!isConfigured()) {
+    const ids = resolveGoogleClientIds()
+    googleAuthLog('connectWithGoogle start', buildConfigSnapshot())
+
+    if (!isGoogleAuthConfigured()) {
+      googleAuthLogError('not configured', new Error('Missing Google client IDs in build'), buildConfigSnapshot())
       showToast('Google sign-in is not configured')
       return null
     }
@@ -127,12 +199,21 @@ export function useGoogleAuth() {
     loading.value = true
     try {
       if (Capacitor.isNativePlatform()) {
-        return await signInNative()
+        const token = await signInNative(ids)
+        googleAuthLog('connectWithGoogle success', { flow: 'native-capacitor-plugin', idTokenLength: token?.length ?? 0 })
+        return token
       }
-      return await signInWebViaButton()
+      const token = await signInWebViaButton(ids.web)
+      googleAuthLog('connectWithGoogle success', { flow: 'web-gis', idTokenLength: token?.length ?? 0 })
+      return token
     } catch (e) {
-      const msg = e?.message || 'Google sign-in failed'
-      if (!/cancel|popup_closed|user closed/i.test(msg)) {
+      googleAuthLogError('connectWithGoogle failed', e, {
+        flow: ids.signInFlow,
+        hint: googleAuthExplainNativeError(e),
+        snapshot: buildConfigSnapshot()
+      })
+      const msg = formatSignInError(e)
+      if (!/cancel|popup_closed|user closed|12501|12500|sign_in_canceled/i.test(msg)) {
         showToast(msg)
       }
       return null
@@ -141,5 +222,5 @@ export function useGoogleAuth() {
     }
   }
 
-  return { loading, connectWithGoogle, isConfigured }
+  return { loading, connectWithGoogle, isConfigured: isGoogleAuthConfigured }
 }

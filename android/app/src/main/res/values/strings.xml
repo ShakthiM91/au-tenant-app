@@ -4,4 +4,6 @@
     <string name="title_activity_main">Rupee Life</string>
     <string name="package_name">com.rupeelife.app</string>
     <string name="custom_url_scheme">com.rupeelife.app</string>
+    <!-- Web OAuth client ID (optional legacy; capawesome reads clientId from JS initialize()) -->
+    <string name="server_client_id">461709517467-g53u28197l6lqumrm9a6e191qtd31c3i.apps.googleusercontent.com</string>
 </resources>
